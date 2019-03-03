@@ -1,0 +1,77 @@
+body {
+  margin: 0px;
+  /* overflow: hidden; */
+}
+canvas {
+  position: relative;
+  top: 0%;
+  left: 0%;
+}
+a {
+	color: rgb(150, 150, 255);
+}
+#header, .tabs {
+	position: fixed;
+	background-color: rgb(200, 200, 200);
+	text-align: center;
+	font-family: 'Oxygen', sans-serif;
+}
+
+#header {
+	left: 0px;
+	top: 0px;
+	width: 100%;
+	height: 70px;
+  border-bottom-style: solid;
+  border-bottom-color: rgb(100, 100, 100);
+}
+#home {
+  position: fixed;
+  color: rgb(100, 100, 100);
+  text-align: center;
+  width: 10%;
+  top: -5px;
+}
+#home-button {
+  position: fixed;
+  margin-top: 0px;
+  top: 0%;
+  height: 70px;
+  left: 2%;
+  width: 10%;
+  color: rgb(100, 100, 100);
+  cursor: pointer;
+}
+#content {
+	position: absolute;
+	top: 70px;
+	left: 20%;
+	width: 60%;
+	margin-top: 20px;
+	font-family: 'Oxygen', sans-serif;
+	color: rgb(100, 100, 100);
+	font-size: 20px;
+	line-height: 20px;
+}
+#game {
+  left: 20%;
+}
+.line {
+	background-color: rgb(100, 100, 100);
+	position: relative;
+	width: 100%;
+	height: 10px;
+}
+#footer {
+  position: absolute;
+  left: 0;
+  top: 1200px;
+  width: 100%;
+  height: 100px;
+  background-color: rgb(100, 100, 100);
+}
+#footer-txt {
+  font-family: 'Oxygen', sans-serif;
+  color: rgb(200, 200, 200);
+  margin-left: 10px;
+}

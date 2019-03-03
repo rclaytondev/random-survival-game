@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+	<head>
+		<title>Randomonicity Survival</title>
+		<link rel="stylesheet" href="style.css"></link>
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Oxygen">
+	</head>
+	<body id="body" onmousemove="getMousePos(event);" onmousedown="mouseIsPressed = true;" onmouseup="mouseIsPressed = false;" onkeydown="keys[event.which] = true;" onkeyup="keys[event.which] = false;">
+		<div id="content">
+			<div id="info">
+				<h1>
+					Randomonicity Survival
+				</h1>
+				<div class="line"></div>
+				<br>
+				This is a simple game in which you must survive while random, dangerous events occur all around you. Try to get a high score, save up money to buy special powers from the shop, or attempt to earn some prestigious achievements - it's all up to you!<br>
+				Controls:
+				<ul>
+					<li>Arrow keys to move</li>
+					<li>Up to jump</li>
+				</ul>
+			</div>
+			<div id="game">
+				<canvas id="canvas" width="800" height="800"></canvas>
+				<script src="randomSurvival.js"></script>
+			</div>
+		</div>
+		<div id="header">
+			<div id="home-button" onclick="window.location.href='https://happyryan2.github.io'" onmouseover = "btn1Over = true;" onmouseout="btn1Over = false;">
+				<h1 id="home">
+					Home
+				</h1>
+			</div>
+			<script src="button.js"></script>
+		</div>
+		<div id="footer">
+			<p id="footer-txt">
+				View on <a href="https://github.com/HappyRyan2/random-survival-game">Github</a>
+			</p>
+		</div>
+	</body>
+</html>

@@ -158,6 +158,9 @@ function getMousePos(evt) {
 	mouseY = (evt.clientY - canvasRect.top) / (canvasRect.bottom - canvasRect.top) * canvas.height;
 };
 function resizeCanvas() {
+	canvas.style.width = "70%";
+	canvas.style.left = "15%";
+	return;
 	if(window.innerWidth < window.innerHeight) {
 		canvas.style.width = "100%";
 		canvas.style.height = "";
@@ -194,7 +197,7 @@ function Player() {
 	this.nauseaOffset = 0;
 	this.score = -1;
 	this.highScore = 0;
-	this.totalCoins = Infinity;
+	this.totalCoins = 0;
 	this.itemsEquipped = 0;
 	this.hasDoubleJumped = false;
 	this.invincible = 0;
@@ -312,7 +315,7 @@ Player.prototype.update = function() {
 	//gravity
 	this.velY += 0.1;
 	//collisions
-	if(!(keys[40] && intangibilityTalisman.equipped)) { 
+	if(!(keys[40] && intangibilityTalisman.equipped)) {
 		for(var i = 0; i < platforms.length; i ++) {
 			//top
 			if(this.x + 5 >= platforms[i].x && this.x - 5 <= platforms[i].x + platforms[i].w && this.y + 46 >= platforms[i].y + this.worldY && this.y + 46 <= platforms[i].y + this.worldY + this.velY + 2) {
@@ -964,7 +967,7 @@ ShopItem.prototype.displayLogo = function(size) {
 	}
 	if(this.name === "Skull of Reanimation" && (intangibilityTalisman.infoOp > 0 || secondItem.infoOp > 0)) {
 		this.mouseOver = false;
-	} 
+	}
 	if(this.name === "Piggy Bank of Money" && doubleJumper.infoOp > 0) {
 		this.mouseOver = false;
 	}
@@ -1452,7 +1455,7 @@ Achievement.prototype.displayLogo = function() {
 		c.fill();
 		c.arc(this.x - 10, this.y + 11, 5, 0, 2 * Math.PI);
 		c.fill();
-		
+
 	}
 	else if(this.name === "Moneybags") {
 		c.fillStyle = (this.progress === 100) ? "#FFFF00" : "#646464";
@@ -2203,7 +2206,7 @@ function Spikeball() {
 	this.velX = Math.random() * 6 - 3;
 	this.velY = ((Math.random() < 0.5) ? -1 : 1) * Math.sqrt(36 - (Math.pow(this.velX, 2)));
 	this.r = 0;
-	this.age = 0;//x^2 + y^2 = 25. y^2 = -(x^2) + 25. y=Math.sqrt(-(x^2)+25); 
+	this.age = 0;//x^2 + y^2 = 25. y^2 = -(x^2) + 25. y=Math.sqrt(-(x^2)+25);
 	this.opacity = 0;
 	this.fadedIn = false;
 };
@@ -2915,7 +2918,7 @@ function doByTime() {
 		retryButton.display();
 		retryButton.mouseOver = retryButton.hasMouseOver();
 		retryButton.checkForClick();
-		
+
 	}
 	if(p.onScreen === "shop") {
 		c.fillStyle = "#C8C8C8";
@@ -2932,14 +2935,14 @@ function doByTime() {
 		intangibilityTalisman.displayLogo(1);
 		secondLife.displayLogo(1);
 		secondItem.displayLogo(1);
-		
+
 		coinDoubler.displayInfo();
 		speedIncreaser.displayInfo();
 		doubleJumper.displayInfo();
 		intangibilityTalisman.displayInfo();
 		secondLife.displayInfo();
 		secondItem.displayInfo();
-		
+
 		coinDoubler.displayPopup();
 		speedIncreaser.displayPopup();
 		doubleJumper.displayPopup();
