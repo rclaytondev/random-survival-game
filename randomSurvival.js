@@ -1,84 +1,166 @@
-const fps = 60;
-var theEvents;
-var frameCount = 0;
+const FPS = 60;
+const TESTING_MODE = true;
+
 var canvas = document.getElementById("canvas");
 var c = canvas.getContext("2d");
-var mouseX;
-var mouseY;
-var mouseIsPressed = false;
-var keys = [];
+var frameCount = 0;
+
 var timeToEvent = -5;
 var p;
-var pMouseIsPressed;
-var pUp;
-function updateStats() {
-	p.totalCoins += p.coins;
-	if(p.score > p.highScore) {
-		p.highScore = p.score;
+
+var utilities = {
+	canvas: {
+		/*
+		Utilities related to drawing on the canvas.
+		*/
+		resize: function() {
+			if(window.innerWidth < window.innerHeight) {
+				canvas.style.width = "100%";
+				canvas.style.height = "";
+			}
+			else {
+				canvas.style.width = "";
+				canvas.style.height = "100%";
+			}
+			if(canvas.style.width === "100%") {
+				//canvas size is window.innerWidth * window.innerWidth pixels squared
+				canvas.style.top = (window.innerHeight / 2) - (window.innerWidth / 2) + "px";
+				canvas.style.left = "0px";
+			}
+			else {
+				canvas.style.left = (window.innerWidth / 2) - (window.innerHeight / 2) + "px";
+				canvas.style.top = "0px";
+			}
+		},
+		displayTextOverLines: function(text, x, y, width, lineHeight) {
+			var lines = [text];
+			/* Split text into multiple lines */
+			for(var i = 0; i < lines.length; i ++) {
+				var currentLine = lines[i];
+				while(c.measureText(currentLine).width > width) {
+					forLoop: for(var j = currentLine.length; j > 0; j --) {
+						if(currentLine.substring(j, j + 1) == " ") {
+							var nextLine = lines[i + 1];
+							if(nextLine === undefined) {
+								console.log("this line is the last")
+								nextLine = "";
+							}
+							movedWord = currentLine.substring(j + 1, Infinity);
+							movedWord = movedWord.trim();
+							currentLine = currentLine.substring(0, j);
+							nextLine = movedWord + " " + nextLine;
+							console.log("next line: " + nextLine);
+							lines[i] = currentLine;
+							lines[i + 1] = nextLine;
+							console.log(lines[i + 1]);
+							break forLoop;
+						}
+					}
+					currentLine = lines[i];
+					// console.log("After removing word, width is: " + c.measureText(currentLine).width);
+					// console.log("And the next line is: " + lines[i + 1]);
+					console.log(lines);
+				}
+			}
+			/* Display the split text */
+			var lineY = y;
+			for(var i = 0; i < lines.length; i ++) {
+				c.fillText(lines[i], x, lineY);
+				lineY += lineHeight;
+			}
+		},
+		nauseate: function(obj) {
+			/*
+			For when the player has the nausea effect. Displays two copies of 'obj' around it.
+			*/
+			if(p.nauseated > 0) {
+				var offsetX = p.nauseaOffsetArray[p.nauseaOffset].x;
+				var offsetY = p.nauseaOffsetArray[p.nauseaOffset].y;
+				var posBefore = obj.x + ", " + obj.y;
+				obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
+				obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
+				obj.display();
+				obj.x -= 2 * p.nauseaOffsetArray[p.nauseaOffset].x;
+				obj.y -= 2 * p.nauseaOffsetArray[p.nauseaOffset].y;
+				obj.display();
+				obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
+				obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
+			}
+		}
+	},
+	pastInputs: {
+		/*
+		Utility variables used for remembering the values of inputs 1 frame ago.
+		*/
+		mouse: {
+			x: 0,
+			y: 0,
+			pressed: false
+		},
+		keys: [],
+		update: function() {
+			utilities.pastInputs.mouse.x = input.mouse.x;
+			utilities.pastInputs.mouse.y = input.mouse.y;
+			utilities.pastInputs.mouse.pressed = input.mouse.pressed;
+			for(var i = 0; i < input.keys.length; i ++) {
+				utilities.pastInputs.keys[i] = input.keys[i];
+			}
+		}
 	}
 };
-function resetPlayer() {
-	p.score = -1;
-	p.coins = 0;
-	p.x = 400;
-	p.y = 300;
-	p.velX = 0;
-	p.velY = 0;
-	p.worldY = 0;
-	coins = [];
-	lasers = [];
-	explosions = [];
-	acidY = 850;
-	boulders = [];
-	rockParticles = [];
-	spinnyBlades = [];
-	pirhanas = [];
-	dots = [];
-	pacmans = [];
-	fireParticles = [];
-	rockets = [];
-	spikewalls = [];
-	p.nauseated = -5;
-	p.confused = -5;
-	p.blinded = -5;
-	spikeballs = [];
-	chatMessages = [];
-	currentEvent = "starting";
-	p.invincible = 0;
-	p.usedRevive = false;
-	platforms = [new Platform(0, 215, 160, 20), new Platform(800 - 160, 215, 160, 20), new Platform(320, 390, 160, 20), new Platform(0, 565, 160, 20), new Platform(800 - 160, 565, 160, 20)];
-	p.coins = 0;
-	if(secondLife.equipped) {
-		p.numRevives = (secondLife.upgrades >= 2) ? 2 : 1;
-	}
-	else {
-		p.numRevives = 0;
+var input = {
+	mouse: {
+		x: 0,
+		y: 0,
+		pressed: false,
+	},
+	keys: [],
+	getMousePos: function(event) {
+		var canvasRect = canvas.getBoundingClientRect();
+		input.mouse.x = (event.clientX - canvasRect.left) / (canvasRect.right - canvasRect.left) * canvas.width;
+		input.mouse.y = (event.clientY - canvasRect.top) / (canvasRect.bottom - canvasRect.top) * canvas.height;
+	},
+	initialized: function() {
+		document.body.onmousemove = function() {
+			input.getMousePos(event);
+		};
+		document.body.onmousedown = function() {
+			input.mouse.pressed = true;
+		};
+		document.body.onmouseup = function() {
+			input.mouse.pressed = false;
+		};
+		document.body.onkeydown = function() {
+			input.keys[event.which] = true;
+		};
+		document.body.onkeyup = function() {
+			input.keys[event.which] = false;
+		};
+		return true;
+	} ()
+};
+
+Array.prototype.removeAll = function(item) {
+	for(var i = 0; i < this.length; i ++) {
+		if(this[i] === item) {
+			this.splice(i, 1);
+			i --;
+		}
 	}
 };
 Math.dist = function(x1, y1, x2, y2) {
 	return Math.hypot(x1 - x2, y1 - y2);
 };
-var blindnessArray = [];
-function nauseate(obj) {
-	if(p.nauseated > 0) {
-		var offsetX = p.nauseaOffsetArray[p.nauseaOffset].x;
-		var offsetY = p.nauseaOffsetArray[p.nauseaOffset].y;
-		var posBefore = obj.x + ", " + obj.y;
-		obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
-		obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
-		obj.display();
-		obj.x -= 2 * p.nauseaOffsetArray[p.nauseaOffset].x;
-		obj.y -= 2 * p.nauseaOffsetArray[p.nauseaOffset].y;
-		obj.display();
-		obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
-		obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
-	}
+Math.rotateDegrees = function(x, y, deg) {
+	var rad = (deg / 180.0) * Math.PI;
+	return Math.rotate(x, y, rad);
 };
-for(var x = -150; x <= 0; x ++) {
-	for(var y = -150; y <= 0; y ++) {
-		blindnessArray.push({x: x, y: y, o: (Math.dist(x, y, 0, 0) / 150) > 1 ? 1 : (Math.dist(x, y, 0, 0) / 150)});
-	}
-}
+Math.rotate = function(x, y, rad) {
+	return {
+		x: x * Math.cos(rad) - y * Math.sin(rad),
+		y: x * Math.sin(rad) + y * Math.cos(rad)
+	};
+};
 Math.findPointsCircular = function(x, y, r) {
 	var circularPoints = [];
 	//top right quadrant
@@ -152,69 +234,50 @@ Math.findPointsLinear = function(x1, y1, x2, y2) {
 	}
 	return linearPoints;
 };
-function getMousePos(evt) {
-	var canvasRect = canvas.getBoundingClientRect();
-	mouseX = (evt.clientX - canvasRect.left) / (canvasRect.right - canvasRect.left) * canvas.width;
-	mouseY = (evt.clientY - canvasRect.top) / (canvasRect.bottom - canvasRect.top) * canvas.height;
-};
-function resizeCanvas() {
-	canvas.style.width = "70%";
-	canvas.style.left = "15%";
-	return;
-	if(window.innerWidth < window.innerHeight) {
-		canvas.style.width = "100%";
-		canvas.style.height = "";
-	}
-	else {
-		canvas.style.width = "";
-		canvas.style.height = "100%";
-	}
-	if(canvas.style.width === "100%") {
-		//canvas size is window.innerWidth * window.innerWidth pixels squared
-		canvas.style.top = (window.innerHeight / 2) - (window.innerWidth / 2) + "px";
-		canvas.style.left = "0px";
-	}
-	else {
-		canvas.style.left = (window.innerWidth / 2) - (window.innerHeight / 2) + "px";
-		canvas.style.top = "0px";
-	}
-};
+
 function Player() {
+	/* Location + velocity */
 	this.x = 400;
 	this.y = 300;
 	this.velX = 0;
 	this.velY = 0;
+	this.worldY = 0;
 	this.onScreen = "home";
 	this.mouseHand = false;
+	/* Player animation properties */
 	this.legs = 5;
 	this.legDir = 1;
-	this.worldY = 0;
-	this.coins = 5;
+	/* Effect properties */
 	this.confused = 0;
 	this.blinded = 0;
 	this.nauseated = 0;
 	this.nauseaOffsetArray = Math.findPointsCircular(0, 0, 30);
 	this.nauseaOffset = 0;
+	/* Scoring */
 	this.score = -1;
 	this.highScore = 0;
+	this.coins = 0; // number of coins collected in the current game
 	this.totalCoins = 0;
 	this.itemsEquipped = 0;
 	this.hasDoubleJumped = false;
+	/* Shop item properties */
 	this.invincible = 0;
 	this.numRevives = 1;
-	this.survivedLaser = false;
-	this.survivedAcid = false;
-	this.survivedBoulders = false;
-	this.survivedBlades = false;
-	this.survivedPacmans = false;
-	this.survivedFish = false;
-	this.survivedRockets = false;
-	this.survivedSpikeballs = false;
+	/* Achievement properties */
+	this.eventsSurvived = [];
+	this.survivedLaser = true;
+	this.survivedAcid = true;
+	this.survivedBoulders = true;
+	this.survivedBlades = true;
+	this.survivedPacmans = true;
+	this.survivedFish = true;
+	this.survivedRockets = true;
+	this.survivedSpikeballs = true;
 	this.survivedSpikewalls = false;
-	this.survivedShuffle = false;
-	this.survivedConfusion = false;
-	this.survivedNausea = false;
-	this.survivedBlindness = false;
+	this.survivedShuffle = true;
+	this.survivedConfusion = true;
+	this.survivedNausea = true;
+	this.survivedBlindness = true;
 	this.repeatedEvent = false;
 	this.previousEvent = "nothing";
 	this.numRecords = 0;
@@ -250,7 +313,7 @@ Player.prototype.display = function() {
 		c.lineTo(this.x + this.legs, this.y + 46);
 		c.stroke();
 		//leg animations
-		if(keys[37] || keys[39]) {
+		if(input.keys[37] || input.keys[39]) {
 			this.legs += this.legDir;
 			if(this.legs >= 5) {
 				this.legDir = -0.5;
@@ -279,69 +342,50 @@ Player.prototype.update = function() {
 		this.nauseaOffset = 0;
 	}
 	if(this.confused === 0 || this.blinded === 0 || this.nauseated === 0) {
-		theEvents.push("confusion");
-		theEvents.push("nausea");
-		theEvents.push("blindness");
+		addEffects();
 	}
 	if(this.confused === 0) {
-		this.survivedConfusion = true;
+		this.surviveEvent("confusion");
 	}
 	if(this.nauseated === 0) {
-		this.survivedNausea = true;
+		this.surviveEvent("nauesea");
 	}
 	if(this.blinded === 0) {
-		this.survivedBlindness = true;
+		this.surviveEvent("blindness");
 	}
 	//The player is a rectangle. 10 wide, 46 tall. (this.x, this.y) is at the middle of the top of the rectangle.
 	//walking
 	if(this.confused < 0) {
-		if(keys[37]) {
+		if(input.keys[37]) {
 			this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
 		}
-		else if(keys[39]) {
+		else if(input.keys[39]) {
 			this.velX += speedIncreaser.equipped ? 0.2 : 0.1;
 		}
 	}
 	else {
-		if(keys[37]) {
+		if(input.keys[37]) {
 			this.velX += speedIncreaser.equipped ? 0.2 : 0.1;
 		}
-		else if(keys[39]) {
+		else if(input.keys[39]) {
 			this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
 		}
 	}
 	this.x += this.velX;
 	this.y += this.velY;
+	//jumping
+	var jumpedThisFrame = false;
+	if(input.keys[38] && this.velY === 0) {
+		this.velY = -6;
+		jumpedThisFrame = true;
+	}
 	//gravity
 	this.velY += 0.1;
-	//collisions
-	if(!(keys[40] && intangibilityTalisman.equipped)) {
-		for(var i = 0; i < platforms.length; i ++) {
-			//top
-			if(this.x + 5 >= platforms[i].x && this.x - 5 <= platforms[i].x + platforms[i].w && this.y + 46 >= platforms[i].y + this.worldY && this.y + 46 <= platforms[i].y + this.worldY + this.velY + 2) {
-				this.velY = 0;
-				this.hasDoubleJumped = false;
-				this.canExtendJump = true;
-				this.timeExtended = 0;
-				if(this.y + 46 > platforms[i].y + this.worldY) {
-					this.y = platforms[i].y + this.worldY - 46;
-				}
-			}
-			//bottom
-			if(this.x + 5 >= platforms[i].x && this.x - 5 <= platforms[i].x + platforms[i].w && this.y <= platforms[i].y + this.worldY + platforms[i].h && this.y >= platforms[i].y + this.worldY + platforms[i].h + this.velY - 2) {
-				this.velY = 1;
-			}
-			//left
-			if(this.y + 46 >= platforms[i].y + this.worldY && this.y - 5 <= platforms[i].y + this.worldY + platforms[i].h && this.x + 5 >= platforms[i].x && this.x + 5 <= platforms[i].x + this.velX + 2 && keys[39]) {
-				this.velX = -1;
-			}
-			//right
-			if(this.y + 46 >= platforms[i].y + this.worldY && this.y - 5 <= platforms[i].y + this.worldY + platforms[i].h && this.x - 5 <= platforms[i].x + platforms[i].w && this.x - 5 >= platforms[i].x + platforms[i].w + this.velX - 2 && keys[37]) {
-				this.velX = 1;
-			}
-		}
+	/* Collisions */
+	for(var i = 0; i < platforms.length; i ++) {
+		// this.platforms[i].update();
 	}
-	else if(intangibilityTalisman.upgrades >= 1) {
+	if(intangibilityTalisman.upgrades >= 1) {
 		if(this.x > 800) {
 			this.x = 0;
 		}
@@ -352,10 +396,10 @@ Player.prototype.update = function() {
 			this.beenGhost = true;
 		}
 	}
-	if(this.x < 10 && !(intangibilityTalisman.equipped && keys[40] && intangibilityTalisman.upgrades >= 1)) {
+	if(this.x < 10 && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades >= 1)) {
 		this.velX = 1;
 	}
-	if(this.x > 790 && !(intangibilityTalisman.equipped && keys[40] && intangibilityTalisman.upgrades >= 1)) {
+	if(this.x > 790 && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades >= 1)) {
 		this.velX = -1;
 	}
 	//movement cap
@@ -380,27 +424,21 @@ Player.prototype.update = function() {
 	if(this.velY > 6) {
 		this.velY = 6;
 	}
-	//jumping
-	var jumpedThisFrame = false;
-	if(keys[38] && this.velY === 0) {
-		this.velY = -6;
-		jumpedThisFrame = true;
-	}
 	//high jumping
-	if(this.canExtendJump && keys[38] && this.timeExtended < 40 && doubleJumper.equipped) {
+	if(this.canExtendJump && input.keys[38] && this.timeExtended < 40 && doubleJumper.equipped) {
 		this.velY = -6;
 		this.timeExtended ++;
 	}
-	if(!keys[38]) {
+	if(!input.keys[38]) {
 		this.canExtendJump = false;
 	}
 	//friction
-	if(!keys[37] && !keys[39]) {
+	if(!input.keys[37] && !input.keys[39]) {
 		this.velX *= 0.93;
 	}
 	//double jumping
 	if(doubleJumper.equipped && doubleJumper.upgrades >= 1) {
-		if(this.velY !== 0 && !this.hasDoubleJumped && keys[38] && !pUp && !jumpedThisFrame) {
+		if(this.velY !== 0 && !this.hasDoubleJumped && input.keys[38] && !utilities.pastInputs.keys[38] && !jumpedThisFrame) {
 			this.velY = -6;
 			this.hasDoubleJumped = true;
 			if(doubleJumper.upgrades >= 2) {
@@ -415,11 +453,10 @@ Player.prototype.update = function() {
 	}
 };
 Player.prototype.die = function(cause) {
-	console.log(this.invincible);
 	if(this.invincible < 0) {
 		if(secondLife.equipped && this.numRevives > 0) {
 			this.numRevives --;
-			this.invincible = (secondLife.upgrades >= 1) ? fps * 2 : fps;
+			this.invincible = (secondLife.upgrades >= 1) ? FPS * 2 : FPS;
 		}
 		else {
 			this.onScreen = "death";
@@ -429,12 +466,66 @@ Player.prototype.die = function(cause) {
 	}
 	else if(this.y + 46 > 800) {
 		this.y = 800 - 46;
-		if(keys[39]) {
+		if(input.keys[39]) {
 			this.velY = -7;
 		}
 	}
 };
+Player.prototype.surviveEvent = function(event) {
+	/*
+	Adds the event to the player's list of events survived if the event is not already present in the list. Used for achievement "I Survived".
+	*/
+	for(var i = 0; i < this.eventsSurvived.length; i ++) {
+		if(this.eventsSurvived[i] === event) {
+			return;
+		}
+	}
+	this.eventsSurvived.push(event);
+};
+Player.prototype.reset = function() {
+	timeToEvent = FPS;
+	this.score = 0;
+	this.coins = 0;
+	this.x = 400;
+	this.y = 300;
+	this.velX = 0;
+	this.velY = 0;
+	this.worldY = 0;
+	coins = [];
+	lasers = [];
+	explosions = [];
+	acidY = 850;
+	boulders = [];
+	rockParticles = [];
+	spinnyBlades = [];
+	pirhanas = [];
+	dots = [];
+	pacmans = [];
+	fireParticles = [];
+	rockets = [];
+	spikewalls = [];
+	this.nauseated = -5;
+	this.confused = -5;
+	this.blinded = -5;
+	spikeballs = [];
+	chatMessages = [];
+	currentEvent = "starting";
+	this.invincible = 0;
+	this.usedRevive = false;
+	platforms = [new Platform(0, 215, 160, 20), new Platform(800 - 160, 215, 160, 20), new Platform(320, 390, 160, 20), new Platform(0, 565, 160, 20), new Platform(800 - 160, 565, 160, 20)];
+	this.coins = 0;
+	if(!TESTING_MODE) {
+		addEffects();
+	}
+	if(secondLife.equipped) {
+		this.numRevives = (secondLife.upgrades >= 2) ? 2 : 1;
+	}
+	else {
+		this.numRevives = 0;
+	}
+};
 var p = new Player();
+
 function Platform(x, y, w, h) {
 	this.x = x;
 	this.y = y;
@@ -446,27 +537,78 @@ function Platform(x, y, w, h) {
 	this.velY = 0;
 	this.destX = x;
 	this.destY = y;
+	this.opacity = 1;
 };
 Platform.prototype.calculateVelocity = function() {
 	this.velX = (this.x - this.destX) / -120;
 	this.velY = (this.y - this.destY) / -120;
 };
 Platform.prototype.update = function() {
+	this.opacity += (this.opacity < 1) ? 0.05 : 0;
+	this.y += p.worldY;
+	/* Collisions */
+	const COLLISION_BUFFER = 6;
+	var collidesWithTop = false;
+	if(!(input.keys[40] && intangibilityTalisman.equipped)) {
+		/* Top */
+		if(p.x + 5 >= this.x && p.x - 5 <= this.x + this.w && p.y + 46 >= this.y && p.y + 46 <= this.y + Math.max(/*COLLISION_BUFFER*/10, p.velY) + this.velY + 2) {
+			collidesWithTop = true;
+		}
+		/* Bottom */
+		if(p.x + 5 >= this.x && p.x - 5 <= this.x + this.w && p.y - COLLISION_BUFFER <= this.y + this.h && p.y >= this.y + this.h) {
+			p.velY = Math.max(1, p.velY);
+			p.y = Math.max(this.y + this.h, p.y);
+		}
+		/* Left */
+		if(p.y - 5 < this.y + this.h && p.y + 46 + COLLISION_BUFFER > this.y + this.h && p.x + 5 > this.x && p.x + 5 < this.x + (this.w / 2)) {
+			p.velX = Math.min(this.velX - 1, p.velX);
+			p.x = Math.min(p.x, this.x - 5);
+		}
+		/* Right */
+		if(p.y - 5 < this.y + this.h && p.y + 46 + COLLISION_BUFFER > this.y + this.h && p.x - 5 < this.x + this.w && p.x - 5 > this.x + (this.w / 2)) {
+			p.velX = Math.max(this.velX + 1, p.velX);
+			p.x = Math.max(p.x, this.x + this.w + 5);
+		}
+	}
+
 	this.x += this.velX;
 	this.y += this.velY;
+
+	if(collidesWithTop) {
+		p.velY = Math.min(p.velY, 0);
+		p.y = Math.min(this.y - 46, p.y);
+		p.hasDoubleJumped = false;
+		p.canExtendJump = true;
+		p.timeExtended = 0;
+		p.x += this.velX;
+		p.y = this.y - 46;
+	}
+
 	if(this.x + 2 > this.destX && this.x - 2 < this.destX && this.y + 2 > this.destY && this.y - 2 < this.destY) {
 		this.velX = 0;
 		this.velY = 0;
 		this.x = this.origX;
 		this.y = this.origY;
 	}
+	this.y -= p.worldY;
 };
 Platform.prototype.display = function() {
+	c.globalAlpha = this.opacity;
+	this.y += p.worldY;
 	c.fillStyle = "#646464";
-	c.fillRect(this.x, this.y + p.worldY, this.w, this.h);
+	if(p.y - 5 > this.y && p.y + 46 + 6 < this.y + this.h && TESTING_MODE) {
+		c.fillStyle = "rgb(0, 0, 255)";
+	}
+	c.fillRect(this.x, this.y, this.w, this.h);
+	this.y -= p.worldY;
+	c.globalAlpha = 1;
 };
 var platforms = [new Platform(0, 215, 160, 20), new Platform(800 - 160, 215, 160, 20), new Platform(320, 390, 160, 20), new Platform(0, 565, 160, 20), new Platform(800 - 160, 565, 160, 20)];//roof ends at 50, floor starts at 750. center plat's middle is at y=400. top plats are at middle is y=225. top plats top is at y=215 bottom plats middle should be at 575. bottom plats are at y=565
+
 function DollarIcon() {
+	/*
+	This is for the dollar icons that fall from the sky when you hover over the shop button.
+	*/
 	this.x = Math.random() * 100 + 225;
 	this.y = 450;
 };
@@ -692,19 +834,17 @@ Button.prototype.display = function() {
 	this.mousedOverBefore = this.mouseOver;
 };
 Button.prototype.hasMouseOver = function() {
-	return Math.hypot(mouseX - this.x, mouseY - this.y) < ((this.icon === "play") ? 75 : 50);
+	return Math.hypot(input.mouse.x - this.x, input.mouse.y - this.y) < ((this.icon === "play") ? 75 : 50);
 };
 Button.prototype.checkForClick = function() {
-	if(this.mouseOver && mouseIsPressed && !pMouseIsPressed) {
+	if(this.mouseOver && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
 		p.onScreen = this.whereTo;
 		if(this.icon === "retry" || this.icon === "play") {
-			resetPlayer();
+			p.reset();
 		}
 	}
 };
 var playButton = new Button(400, 400, "play", "play");
-//var helpButton = new Button(275, 500, "help", "question");
-//var settingsButton = new Button(525, 500, "settings", "gear");
 var shopButton = new Button(275, 500, "shop", "dollar");
 var achievementsButton = new Button(525, 500, "achievements", "trophy");
 var homeFromDeath = new Button(266, 650, "home", "house");
@@ -712,6 +852,7 @@ var homeFromShop = new Button(75, 75, "home", "house");
 var homeFromAcs = new Button(75, 75, "home", "house");
 var retryButton = new Button(533, 650, "play", "retry");
 var currentEvent = "starting";
+
 function DoubleJumpParticle(x, y) {
 	this.x = x;
 	this.y = y;
@@ -943,19 +1084,19 @@ ShopItem.prototype.displayLogo = function(size) {
 	}
 	c.restore();
 	this.mouseOver = false;
-	if(Math.dist(mouseX, mouseY, this.x, this.y) <= 75) {
+	if(Math.dist(input.mouse.x, input.mouse.y, this.x, this.y) <= 75) {
 		this.mouseOver = true;
 	}
-	if(this.x >= 500 && this.infoOp > 0 && mouseX > this.x - 335 && mouseX < this.x - 85 && mouseY > this.y - 100 && mouseY < this.y + 100) {
+	if(this.x >= 500 && this.infoOp > 0 && input.mouse.x > this.x - 335 && input.mouse.x < this.x - 85 && input.mouse.y > this.y - 100 && input.mouse.y < this.y + 100) {
 		this.mouseOver = true;
 	}
-	if(this.x <= 500 && this.infoOp > 0 && mouseX > this.x + 85 && mouseX < this.x + 335 && mouseY > this.y - 100 && mouseY < this.y + 100) {
+	if(this.x <= 500 && this.infoOp > 0 && input.mouse.x > this.x + 85 && input.mouse.x < this.x + 335 && input.mouse.y > this.y - 100 && input.mouse.y < this.y + 100) {
 		this.mouseOver = true;
 	}
-	if(this.x <= 500 && this.infoOp > 0 && mouseX > this.x && mouseX < this.x + 100 && mouseY > this.y - 75 && mouseY < this.y + 75) {
+	if(this.x <= 500 && this.infoOp > 0 && input.mouse.x > this.x && input.mouse.x < this.x + 100 && input.mouse.y > this.y - 75 && input.mouse.y < this.y + 75) {
 		this.mouseOver = true;
 	}
-	if(this.x >= 500 && this.infoOp > 0 && mouseX < this.x && mouseX > this.x - 100 && mouseY > this.y - 75 && mouseY < this.y + 75) {
+	if(this.x >= 500 && this.infoOp > 0 && input.mouse.x < this.x && input.mouse.x > this.x - 100 && input.mouse.y > this.y - 75 && input.mouse.y < this.y + 75) {
 		this.mouseOver = true;
 	}
 	//prevent conflicts between shop items when mousing over
@@ -1050,7 +1191,7 @@ ShopItem.prototype.displayInfo = function() {
 		else if(this.upgrades >= 2) {
 			c.fillText("Fully upgraded", this.x + 210, this.y + 80);
 		}
-		if(mouseX > this.x + 95 && mouseX < this.x + 325 && mouseY > this.y + 60 && mouseY < this.y + 90 && mouseIsPressed && !pMouseIsPressed && this.infoOp >= 1  && this.x < 500 && this.infoOp > 0) {
+		if(input.mouse.x > this.x + 95 && input.mouse.x < this.x + 325 && input.mouse.y > this.y + 60 && input.mouse.y < this.y + 90 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed && this.infoOp >= 1  && this.x < 500 && this.infoOp > 0) {
 			if(this.upgrades < 2) {
 				if(p.totalCoins > this.price) {
 					if(!this.bought) {
@@ -1069,7 +1210,7 @@ ShopItem.prototype.displayInfo = function() {
 			c.strokeRect(this.x + 95, this.y + 20, 230, 30);
 			c.textAlign = "center";
 			c.fillText((this.equipped) ? "Unequip" : "Equip", this.x + 210, this.y + 40);
-			if(mouseX > this.x + 95 && mouseX < this.x + 325 && mouseY > this.y + 20 && mouseY < this.y + 50 && mouseIsPressed && !pMouseIsPressed && this.infoOp > 0) {
+			if(input.mouse.x > this.x + 95 && input.mouse.x < this.x + 325 && input.mouse.y > this.y + 20 && input.mouse.y < this.y + 50 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed && this.infoOp > 0) {
 				if(!this.equipped) {
 					if(p.itemsEquipped < 1) {
 						this.equipped = true;
@@ -1122,7 +1263,7 @@ ShopItem.prototype.displayInfo = function() {
 			c.strokeRect(this.x - 325, this.y + 20, 230, 30);
 			c.fillText((this.equipped) ? "Unequip" : "Equip", this.x - 210, this.y + 40);
 		}
-		if(mouseX > this.x - 325 && mouseX < this.x - 95 && mouseY > this.y + 20 && mouseY < this.y + 50 && this.bought && mouseIsPressed && !pMouseIsPressed && this.infoOp > 0 && this.name !== "Box of Storage") {
+		if(input.mouse.x > this.x - 325 && input.mouse.x < this.x - 95 && input.mouse.y > this.y + 20 && input.mouse.y < this.y + 50 && this.bought && input.mouse.pressed && !utilities.pastInputs.mouse.pressed && this.infoOp > 0 && this.name !== "Box of Storage") {
 			if(!this.equipped) {
 				if(p.itemsEquipped < 1) {
 					this.equipped = true;
@@ -1148,7 +1289,7 @@ ShopItem.prototype.displayInfo = function() {
 			else {
 				c.fillText("Fully Upgraded", this.x - 210, this.y + 80);
 			}
-			if(mouseX > this.x - 325 && mouseX < this.x - 95 && mouseY > this.y + 60 && mouseY < this.y + 90 && mouseIsPressed && !pMouseIsPressed && p.totalCoins >= this.price && this.upgrades < 2 && this.infoOp > 0) {
+			if(input.mouse.x > this.x - 325 && input.mouse.x < this.x - 95 && input.mouse.y > this.y + 60 && input.mouse.y < this.y + 90 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed && p.totalCoins >= this.price && this.upgrades < 2 && this.infoOp > 0) {
 				p.totalCoins -= this.price;
 				if(!this.bought) {
 					this.bought = true;
@@ -1283,13 +1424,13 @@ ShopItem.prototype.displayPopup = function() {
 		c.strokeRect(260, 470, 280, 30);
 		c.textAlign = "center";
 		c.fillText("Close", 400, 490);
-		if(mouseX > 260 && mouseX < 540 && mouseY > 470 && mouseY < 500 && mouseIsPressed && !pMouseIsPressed) {
+		if(input.mouse.x > 260 && input.mouse.x < 540 && input.mouse.y > 470 && input.mouse.y < 500 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
 			this.showingPopup = false;
 		}
 		//button 2
 		c.strokeRect(260, 510, 280, 30);
 		c.fillText("Upgrade - $" + this.price, 400, 530);
-		if(mouseX > 260 && mouseX < 540 && mouseY > 510 && mouseY < 540 && mouseIsPressed && !pMouseIsPressed) {
+		if(input.mouse.x > 260 && input.mouse.x < 540 && input.mouse.y > 510 && input.mouse.y < 540 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
 			if(p.totalCoins > this.price) {
 				p.totalCoins -= this.price;
 				this.upgrades ++;
@@ -1302,11 +1443,17 @@ ShopItem.prototype.displayPopup = function() {
 	}
 };
 var coinDoubler = new ShopItem(800 / 4, 800 / 3, "Piggy Bank of Money", "With this amazing piggy bank, twice as many coins will appear in game.", 5);
-var speedIncreaser = new ShopItem(800 / 4 * 2, 800 / 3, "Boots of Speediness", "These speedy boots make you run twice as fast.", 10);
-var doubleJumper = new ShopItem(800 / 4 * 3, 800 / 3, "Potion of Jumpiness", "Drink this potion to be able to doublejump!", 10);
+var speedIncreaser = new ShopItem(800 / 4 * 2, 800 / 3, "Boots of Speediness", "These speedy boots make you run extremely fast.", 10);
+var doubleJumper = new ShopItem(800 / 4 * 3, 800 / 3, "Potion of Jumpiness", "Drink this potion to be able to jump higher and double jump!", 10);
 var intangibilityTalisman = new ShopItem(800 / 4, 800 / 3 * 2, "Talisman of Intangibility", "Walk through walls, floors, and enemies with this magical talisman. Press down to use.", 10);
-var secondLife = new ShopItem(800 / 4 * 2, 800 / 3 * 2, "Skull of Reanimation", "Come back from the dead! This ancient skull grants you an extra life each game.", 15);
+var secondLife = new ShopItem(800 / 4 * 2, 800 / 3 * 2, "Skull of Reanimation", "Come back from the dead! This ancient skull grants you extra lives each game.", 15);
+if(TESTING_MODE && false) {
+	secondLife.bought = true;
+	secondLife.equipped = true;
+	secondLife.upgrades = 2;
+}
 var secondItem = new ShopItem(800 / 4 * 3, 800 / 3 * 2, "Box of Storage", "Are your hands full? Carry an extra shop item with you each run.", 15);
+
 function Achievement(x, y, name) {
 	this.x = x;
 	this.y = y;
@@ -1641,7 +1788,7 @@ Achievement.prototype.displayInfo = function() {
 	}
 	c.globalAlpha = 1;
 	//fading in
-	if(Math.dist(this.x, this.y, mouseX, mouseY) <= 50) {
+	if(Math.dist(this.x, this.y, input.mouse.x, input.mouse.y) <= 50) {
 		this.infoOp = (this.infoOp < 1) ? this.infoOp + 0.1 : 1;
 	}
 	else {
@@ -1651,46 +1798,7 @@ Achievement.prototype.displayInfo = function() {
 Achievement.prototype.checkProgress = function() {
 	switch(this.name) {
 		case "I Survived":
-			this.progress = 0;
-			if(p.survivedLaser) {
-				this.progress += 100/13;
-			}
-			if(p.survivedAcid) {
-				this.progress += 100/13;
-			}
-			if(p.survivedBoulders) {
-				this.progress += 100/13;
-			}
-			if(p.survivedBlades) {
-				this.progress += 100/13;
-			}
-			if(p.survivedPacmans) {
-				this.progress += 100/13;
-			}
-			if(p.survivedFish) {
-				this.progress += 100/13;
-			}
-			if(p.survivedSpikeballs) {
-				this.progress += 100/13;
-			}
-			if(p.survivedSpikewalls) {
-				this.progress += 100/13;
-			}
-			if(p.survivedShuffle) {
-				this.progress += 100/13;
-			}
-			if(p.survivedRockets) {
-				this.progress += 100/13;
-			}
-			if(p.survivedNausea) {
-				this.progress += 100/13;
-			}
-			if(p.survivedConfusion) {
-				this.progress += 100/13;
-			}
-			if(p.survivedBlindness) {
-				this.progress += 100/13;
-			}
+			this.progress = (p.eventsSurvived.length / theEvents.length) * 100;
 			break;
 		case "Survivalist":
 			var theHighscore = p.score > p.highScore ? p.score : p.highScore;
@@ -1745,6 +1853,7 @@ Achievement.prototype.checkProgress = function() {
 			break;
 	}
 	this.progress = Math.ceil(this.progress * 10) / 10;
+	this.progress = Math.min(this.progress, 100);
 	if(this.progress >= 100 && this.previousProgress < 100) {
 		chatMessages.push(new ChatMessage("Achievement Earned: " + this.name, "#FFFF00"));
 	}
@@ -1759,6 +1868,7 @@ var ac6 = new Achievement(600, 400, "Extreme Moneybags");
 var ac7 = new Achievement(200, 600,  "Improvement");
 var ac8 = new Achievement(400, 600, "Places to Be");
 var ac9 = new Achievement(600, 600, "Ghost");
+
 function Coin(x, y, timeToAppear, indestructible) {
 	this.x = x;
 	this.y = y;
@@ -1826,7 +1936,7 @@ Explosion.prototype.update = function() {
 	this.size ++;
 	this.width += 0.5;
 	this.opacity -= 0.01;
-	if((Math.dist(this.x, this.y + p.worldY, p.x - 10, p.y) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x + 10, p.y) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x - 10, p.y + 46) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x + 10, p.y + 45) <= this.size) && !(keys[40] && intangibilityTalisman.equipped)) {
+	if((Math.dist(this.x, this.y + p.worldY, p.x - 10, p.y) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x + 10, p.y) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x - 10, p.y + 46) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x + 10, p.y + 45) <= this.size) && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("laser");
 	}
 };
@@ -1915,7 +2025,7 @@ Boulder.prototype.update = function() {
 			}
 		}
 	}
-	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 50 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 50 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 50 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 50) && !(keys[40] && intangibilityTalisman.equipped)) {
+	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 50 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 50 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 50 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 50) && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("boulder");
 	}
 };
@@ -1990,7 +2100,7 @@ SpinnyBlade.prototype.update = function() {
 	var ep2 = this.endPointArray[Math.floor((spinPercent + ((spinPercent < 0.5) ? 0.5 : -0.5)) * this.endPointArray.length)];
 	var bladeArray = Math.findPointsLinear(ep1.x, ep1.y, ep2.x, ep2.y);
 	for(var i = 0; i < bladeArray.length; i ++) {
-		if(bladeArray[i].x > p.x - 5 && bladeArray[i].x < p.x + 5 && bladeArray[i].y > p.y && bladeArray[i].y < p.y + 46 && !(keys[40] && intangibilityTalisman.equipped)) {
+		if(bladeArray[i].x > p.x - 5 && bladeArray[i].x < p.x + 5 && bladeArray[i].y > p.y && bladeArray[i].y < p.y + 46 && !(input.keys[40] && intangibilityTalisman.equipped)) {
 			p.die("spinnyblades");
 		}
 	}
@@ -2043,7 +2153,7 @@ Pirhana.prototype.update = function() {
 		this.mouthVel = 0;
 		this.mouth = 1;
 	}
-	if(p.x + 5 > this.x - 25 && p.x - 5 < this.x + 25 && p.y + 46 > this.y - 25 && p.y < this.y + 37 && !(keys[40] && intangibilityTalisman.equipped)) {
+	if(p.x + 5 > this.x - 25 && p.x - 5 < this.x + 25 && p.y + 46 > this.y - 25 && p.y < this.y + 37 && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("pirhanas");
 	}
 };
@@ -2061,6 +2171,8 @@ Dot.prototype.display = function() {
 		c.arc(this.x, this.y, 20, 0, 2 * Math.PI);
 		c.fill();
 	}
+};
+Dot.prototype.update = function() {
 	this.timeToAppear --;
 };
 var dots = [];
@@ -2102,7 +2214,7 @@ Pacman.prototype.update = function() {
 	else if(this.mouth >= 1) {
 		this.mouthVel = -0.01;
 	}
-	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 200 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 200 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 200 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 200) && !(keys[40] && intangibilityTalisman.equipped)) {
+	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 200 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 200 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 200 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 200) && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("pacmans");
 	}
 };
@@ -2188,23 +2300,25 @@ Rocket.prototype.update = function() {
 		fireParticles.push(new FireParticle(this.x, this.y + 10));
 	}
 	if(this.velX > 0) {
-		if(p.x + 5 > this.x - 50 && p.x - 5 < this.x + 100 && p.y + 46 > this.y && p.y < this.y + 10 && !(keys[40] && intangibilityTalisman.equipped)) {
+		if(p.x + 5 > this.x - 50 && p.x - 5 < this.x + 100 && p.y + 46 > this.y && p.y < this.y + 10 && !(input.keys[40] && intangibilityTalisman.equipped)) {
 			p.die("rocket");
 		}
 	}
 	else {
-		if(p.x + 5 > this.x - 100 && p.x - 5 < this.x + 50 && p.y + 46 > this.y && p.y < this.y + 10 && !(keys[40] && intangibilityTalisman.equipped)) {
+		if(p.x + 5 > this.x - 100 && p.x - 5 < this.x + 50 && p.y + 46 > this.y && p.y < this.y + 10 && !(input.keys[40] && intangibilityTalisman.equipped)) {
 			p.die("rocket");
 		}
 	}
 };
 var rockets = [];
 //spikeball event
-function Spikeball() {
+function Spikeball(velX, velY) {
 	this.x = 400;
 	this.y = 400;
-	this.velX = Math.random() * 6 - 3;
-	this.velY = ((Math.random() < 0.5) ? -1 : 1) * Math.sqrt(36 - (Math.pow(this.velX, 2)));
+	// this.velX = Math.random() * 6 - 3;
+	// this.velY = ((Math.random() < 0.5) ? -1 : 1) * Math.sqrt(36 - (Math.pow(this.velX, 2)));
+	this.velX = velX;
+	this.velY = velY;
 	this.r = 0;
 	this.age = 0;//x^2 + y^2 = 25. y^2 = -(x^2) + 25. y=Math.sqrt(-(x^2)+25);
 	this.opacity = 0;
@@ -2231,6 +2345,32 @@ Spikeball.prototype.display = function() {
 		c.fill();
 		c.restore();
 	}
+	c.globalAlpha = 1;
+};
+Spikeball.prototype.display = function() {
+	c.fillStyle = "rgb(150, 150, 155)";
+	c.globalAlpha = this.opacity;
+	var movedTo = false;
+	c.save();
+	c.translate(this.x, this.y + p.worldY);
+	c.rotate(this.r);
+	for(var degrees = 0; degrees < 360; degrees += 18) {
+		if(degrees % 36 === 0) {
+			var point = Math.rotateDegrees(0, -30, degrees);
+		}
+		else {
+			var point = Math.rotateDegrees(0, -20, degrees);
+		}
+		if(!movedTo) {
+			c.moveTo(point.x, point.y);
+			movedTo = true;
+		}
+		else {
+			c.lineTo(point.x, point.y);
+		}
+	}
+	c.fill();
+	c.restore();
 	c.globalAlpha = 1;
 };
 Spikeball.prototype.update = function() {
@@ -2273,20 +2413,22 @@ Spikeball.prototype.update = function() {
 		}
 	}
 	//player collisions
-	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 30) && this.age > 20 && !(keys[40] && intangibilityTalisman.equipped)) {
+	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 30) && this.age > 20 && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("spikeballs");
 	}
 };
 var spikeballs = [];
 //spike wall event
-function Spikewall(x, velX) {
+function Spikewall(x) {
+	this.fastSpeed = 10;
+	this.slowSpeed = 2;
 	this.x = x;
-	this.velX = velX;
+	this.velX = (x < 400) ? this.fastSpeed : -this.fastSpeed;
 };
 Spikewall.prototype.display = function() {
 	c.strokeStyle = "#D7D7D7";
 	c.fillStyle = "#646464";
-	if(this.velX === 10 || this.velX === -2) {
+	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed) {
 		c.fillRect(this.x - 800, 0, 800, 800);
 		c.strokeRect(this.x - 800, 0, 800, 800);
 		for(var y = 0; y < 800; y += 40) {
@@ -2312,53 +2454,80 @@ Spikewall.prototype.display = function() {
 };
 Spikewall.prototype.update = function() {
 	this.x += this.velX;
-	if(this.velX === 10 && this.x > 400) {
-		this.velX = -2;
+	if(this.velX === this.fastSpeed && this.x > 250) {
+		this.velX = -this.slowSpeed;
 		coins.push(new Coin(80, (Math.random() < 0.5) ? 175 : 525));
 	}
-	if(this.velX === -10 && this.x < 400) {
-		this.velX = 2;
+	if(this.velX === -this.fastSpeed && this.x < 550) {
+		this.velX = this.slowSpeed;
 		coins.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
 	}
-	if(this.velX === -10 || this.velX === 2) {
-		if(p.x + 5 > this.x && !(keys[40] && intangibilityTalisman.equipped)) {
+	if(this.velX === -this.fastSpeed || this.velX === this.slowSpeed) {
+		if(p.x + 5 > this.x && !(input.keys[40] && intangibilityTalisman.equipped)) {
 			p.die("spike wall");
 		}
 	}
-	if(this.velX === 10 || this.velX === -2 && !(keys[40] && intangibilityTalisman.equipped)) {
+	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		if(p.x - 5 < this.x) {
 			p.die("spike wall");
 		}
 	}
 };
 var spikewalls = [];
-//generic event selection + running
+/* lasting effects (blindness, confusion, nausea) */
+function removeEffects() {
+	theEvents.removeAll("blindness");
+	theEvents.removeAll("confusion");
+	theEvents.removeAll("nausea");
+};
+function addEffects() {
+	if(!theEvents.includes("blindness")) {
+		theEvents.push("blindness");
+	}
+	if(!theEvents.includes("confusion")) {
+		theEvents.push("confusion");
+	}
+	if(!theEvents.includes("nausea")) {
+		theEvents.push("nausea");
+	}
+};
+/* generic event selection + running */
 var theEvents = ["laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rockets", "spikeballs", "block shuffle", "spike wall", "confusion", "blindness", "nausea"];
-//theEvents = ["disabled"];
+// theEvents = TESTING_MODE ? ["block shuffle"] : theEvents;
+
+/* game */
 function addEvent() {
 	p.score ++;
 	var eventIndex = Math.floor(Math.random() * theEvents.length);
+	currentEvent = theEvents[eventIndex];
 	if(currentEvent === p.previousEvent) {
+		// console.log("previousEvent: " + p.previousEvent + ", currentEvent: " + currentEvent);
 		p.repeatedEvent = true;
 	}
+	p.previousEvent = currentEvent;
 	if(p.score === p.highScore + 1) {
 		p.numRecords ++;
 		chatMessages.push(new ChatMessage("New Record!", "#0000FF"));
 	}
-	p.previousEvent = currentEvent;
-	currentEvent = theEvents[eventIndex];
+	// console.log("Set current event to " + theEvents[eventIndex] + " which is index #" + eventIndex + " in the event array out of " + theEvents.length + " total events");
+	// console.log("the event occurred: " + currentEvent);
 	if(currentEvent === "laser") {
 		lasers.push(new Laser());
 		chatMessages.push(new ChatMessage("Laser incoming!", "#FF8000"));
 	}
 	if(currentEvent === "acid") {
-		acidRise = -2.5;
+		acidRise = -2;
 		platforms.push(new Platform(320, 40, 160, 20));
 		platforms.push(new Platform(0, -135, 160, 20));
 		platforms.push(new Platform(800 - 160, -135, 160, 20));
 		platforms.push(new Platform(320, -310, 160, 20));
 		platforms.push(new Platform(0, -485, 160, 20));
 		platforms.push(new Platform(800 - 160, -485, 160, 20));
+		for(var i = 0; i < platforms.length; i ++) {
+			if(platforms[i].y <= 210) {
+				platforms[i].opacity = 0;
+			}
+		}
 		coins.push(new Coin(400, 0, 0, true));
 		chatMessages.push(new ChatMessage("The tides are rising...", "#FF8000"));
 	}
@@ -2401,6 +2570,7 @@ function addEvent() {
 	if(currentEvent === "pacmans") {
 		chatMessages.push(new ChatMessage("Pacmans incoming!", "#FF8000"));
 		var coinNum = Math.round(Math.random() * 11 + 1) * 60;
+		coinNum = 7 * 60;
 		for(var x = 0; x < 800; x += 60) {
 			if(x === coinNum) {
 				coins.push(new Coin(x, 200, x * 0.25));
@@ -2409,8 +2579,8 @@ function addEvent() {
 			}
 			dots.push(new Dot(800 - x, 600, x * 0.25));
 		}
-		pacmans.push(new Pacman(-200, 200, 1));
-		pacmans.push(new Pacman(1000, 600, -1));
+		pacmans.push(new Pacman(-200, 200, 1.5));
+		pacmans.push(new Pacman(1000, 600, -1.5));
 	}
 	if(currentEvent === "rockets") {
 		chatMessages.push(new ChatMessage("Rocket incoming!", "#FF8000"));
@@ -2423,9 +2593,29 @@ function addEvent() {
 	}
 	if(currentEvent === "spikeballs") {
 		chatMessages.push(new ChatMessage("Spikeballs incoming!", "#FF8000"));
-		spikeballs.push(new Spikeball());
-		spikeballs.push(new Spikeball());
-		spikeballs.push(new Spikeball());
+		var angles = [];
+		var buffer = 30;
+		for(var i = 0; i < 360; i ++) {
+			if((i > 90 - buffer && i < 90 + buffer) || (i > 270 - buffer && i < 270 + buffer)) {
+				continue;
+			}
+			angles.push(i);
+		}
+		for(var i = 0; i < 3; i ++) {
+			var index = Math.floor(Math.random() * (angles.length - 1));
+			var angle = angles[index];
+			for(var j = 0; j < angles.length; j ++) {
+				var distanceBetweenAngles = Math.min(Math.abs(angle - angles[j]), Math.abs((angle + 360) - angles[j]), Math.abs((angle - 360) - angles[j]));
+				if(distanceBetweenAngles < buffer) {
+					angles.splice(j, 1);
+					j --;
+					continue;
+				}
+			}
+			var angleRadians = angle / 180 * Math.PI;
+			var velocity = Math.rotateDegrees(0, -5, angle);
+			spikeballs.push(new Spikeball(velocity.x, velocity.y));
+		}
 	}
 	if(currentEvent === "block shuffle") {
 		chatMessages.push(new ChatMessage("The blocks are shuffling", "#FF8000"));
@@ -2458,55 +2648,45 @@ function addEvent() {
 		}
 	}
 	if(currentEvent === "spike wall") {
+		var spikeWallDistance = 1500;
 		if(Math.random() < 0.5) {
-			spikewalls.push(new Spikewall(-800, 10));
-			chatMessages.push(new ChatMessage("Spike wall incoming from the west!", "#FF8000"));
+			spikewalls.push(new Spikewall(-spikeWallDistance));
+			chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "#FF8000"));
 		}
 		else {
-			spikewalls.push(new Spikewall(1600, -10));
-			chatMessages.push(new ChatMessage("Spike wall incoming from the east!", "#FF8000"));
+			spikewalls.push(new Spikewall(800 + spikeWallDistance));
+			chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "#FF8000"));
 		}
 	}
 	if(currentEvent === "confusion") {
-		timeToEvent = fps * 3;
-		p.confused = fps * 15;
+		timeToEvent = FPS * 3;
+		p.confused = FPS * 15;
 		chatMessages.push(new ChatMessage("You have been confused", "#00FF00"));
-		for(var i = 0; i < theEvents.length; i ++) {
-			if(theEvents[i] === "confusion" || theEvents[i] === "blindness" || theEvents[i] === "nausea") {
-				theEvents.splice(i, 1);
-				continue;
-			}
-		}
+		removeEffects();
 	}
 	if(currentEvent === "blindness") {
-		timeToEvent = fps * 3;
-		p.blinded = fps * 15;
+		timeToEvent = FPS * 3;
+		p.blinded = FPS * 15;
 		chatMessages.push(new ChatMessage("You have been blinded", "#00FF00"));
-		for(var i = 0; i < theEvents.length; i ++) {
-			if(theEvents[i] === "confusion" || theEvents[i] === "blindness" || theEvents[i] === "nausea") {
-				theEvents.splice(i, 1);
-				continue;
-			}
-		}
+		removeEffects();
 	}
 	if(currentEvent === "nausea") {
-		timeToEvent = fps * 3;
-		p.nauseated = fps * 15;
+		timeToEvent = FPS * 3;
+		p.nauseated = FPS * 15;
 		chatMessages.push(new ChatMessage("You have been nauseated", "#00FF00"));
-		for(var i = 0; i < theEvents.length; i ++) {
-			if(theEvents[i] === "confusion" || theEvents[i] === "blindness" || theEvents[i] === "nausea") {
-				theEvents.splice(i, 1);
-				continue;
-			}
-		}
+		removeEffects();
 	}
 };
 function runEvent() {
+	// p.nauseated = 100000;
+	if(p.invincible !== 0) {
+		// p.invincible = Infinity;
+	}
 	//coins
 	for(var i = 0; i < coins.length; i ++) {
 		coins[i].display();
 		coins[i].update();
-		if(p.x + 5 > coins[i].x - 20 && p.x - 5 < coins[i].x + 20 && p.y + 46 > coins[i].y + p.worldY - 20 && p.y < coins[i].y + 20 + p.worldY && coins[i].age > coins[i].timeToAppear && !(intangibilityTalisman.equipped && keys[40] && intangibilityTalisman.upgrades < 2)) {
+		if(p.x + 5 > coins[i].x - 20 && p.x - 5 < coins[i].x + 20 && p.y + 46 > coins[i].y + p.worldY - 20 && p.y < coins[i].y + 20 + p.worldY && coins[i].age > coins[i].timeToAppear && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades < 2)) {
 			coins.splice(i, 1);
 			p.coins += (coinDoubler.equipped) ? 2 : 1;
 			continue;
@@ -2519,13 +2699,13 @@ function runEvent() {
 			coins[i].x += (p.x - coins[i].x) / 10;
 			coins[i].y += (p.y - coins[i].y) / 10;
 		}
-		nauseate(coins[i]);
+		utilities.canvas.nauseate(coins[i]);
 	}
 	//lasers
 	for(var i = 0; i < lasers.length; i ++) {
 		if(!lasers[i].blinking) {
 			lasers[i].display();
-			nauseate(lasers[i]);
+			utilities.canvas.nauseate(lasers[i]);
 		}
 		lasers[i].update();
 		if(lasers[i].numBlinks > 6) {
@@ -2536,31 +2716,46 @@ function runEvent() {
 	}
 	for(var i = 0; i < explosions.length; i ++) {
 		explosions[i].display();
-		nauseate(explosions[i]);
+		utilities.canvas.nauseate(explosions[i]);
 		explosions[i].update();
 		if(explosions[i].opacity <= 0) {
 			explosions.splice(i, 1);
-			p.survivedLaser = true;
+			p.surviveEvent("laser");
 			addEvent();
 		}
 	}
 	//acid
 	for(var x = 0; x < 800; x ++) {
+		// break;
 		var brightness = Math.random() * 30;
 		c.fillStyle = "rgb(" + brightness + ", 255, " + brightness + ")";
 		c.fillRect(x, acidY + p.worldY + Math.sin(x / 10) * 10 * Math.sin(frameCount / 10), 1, 800);
 	}
-	if(p.y + 46 > acidY + p.worldY && !(keys[40] && intangibilityTalisman.equipped)) {
+	if(p.y + 46 > acidY + p.worldY && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("acid");
 	}
 	if(acidY < 850 && currentEvent !== "acid") {
 		acidY ++;
 	}
+	if(p.invincible && p.y > acidY + p.worldY) {
+		p.velY = Math.min(-5, p.velY);
+		if(input.keys[38]) {
+			p.velY = Math.min(-8.5, p.velY);
+		}
+	}
+	// console.log("worldY: " + p.worldY);
+	// console.log("acidY: " + acidY);
+	// console.log("current event: " + currentEvent);
 	if(currentEvent === "acid") {
+		if(acidY < 600) {
+			p.worldY -= acidRise;
+			p.y -= acidRise;
+		}
 		if(acidY > -100) {
 			acidY += acidRise;
 		}
 		else {
+			console.log("ending acid event");
 			acidY += 700;
 			acidRise = 1;
 			p.worldY -= 700;
@@ -2581,15 +2776,19 @@ function runEvent() {
 					continue;
 				}
 			}
+			if(TESTING_MODE && false) {
+				console.log("removed most events");
+				theEvents = ["pacmans"];
+			}
 			currentEvent = "waiting";
 		}
 		if(p.y < 400 && acidY > -100 && acidRise !== 0) {
-			p.worldY += 3;
-			p.y += 3;
+			// p.worldY += 3;
+			// p.y += 3;
 		}
 		if(p.y > 400 && acidY > -100 && acidRise !== 0) {
-			p.worldY -= 3;
-			p.y -= 3;
+			// p.worldY -= 3;
+			// p.y -= 3;
 		}
 	}
 	else if(currentEvent === "waiting") {
@@ -2607,12 +2806,12 @@ function runEvent() {
 				addEvent();
 			}
 		}
-		p.survivedAcid = true;
+		p.surviveEvent("acid");
 	}
 	//boulders
 	for(var i = 0; i < boulders.length; i ++) {
 		boulders[i].display();
-		nauseate(boulders[i]);
+		utilities.canvas.nauseate(boulders[i]);
 		boulders[i].update();
 		if((boulders[i].velX < 0 && boulders[i].x < 50) || (boulders[i].velX > 0 && boulders[i].x > 750)) {
 			for(var j = 0; j < 10; j ++) {
@@ -2620,13 +2819,13 @@ function runEvent() {
 			}
 			coins.push(new Coin(boulders[i].x, boulders[i].y));
 			boulders.splice(i, 1);
-			p.survivedBoulders = true;
+			p.surviveEvent("boulder");
 			continue;
 		}
 	}
 	for(var i = 0; i < rockParticles.length; i ++) {
 		rockParticles[i].display();
-		nauseate(rockParticles[i]);
+		utilities.canvas.nauseate(rockParticles[i]);
 		rockParticles[i].update();
 		if(rockParticles[i].y > 850) {
 			rockParticles.splice(i, 1);
@@ -2639,11 +2838,11 @@ function runEvent() {
 	//spinnyblades
 	for(var i = 0; i < spinnyBlades.length; i ++) {
 		spinnyBlades[i].display();
-		nauseate(spinnyBlades[i]);
+		utilities.canvas.nauseate(spinnyBlades[i]);
 		spinnyBlades[i].update();
 		if(spinnyBlades[i].opacity <= 0 && spinnyBlades[i].numRevolutions >= 2) {
 			spinnyBlades.splice(i, 1);
-			p.survivedBlades = true;
+			p.surviveEvent("spinnyblades");
 		}
 	}
 	if(currentEvent === "spinnyblades" && spinnyBlades.length <= 0) {
@@ -2652,7 +2851,7 @@ function runEvent() {
 	//pirhanas
 	for(var i = 0; i < pirhanas.length; i ++) {
 		pirhanas[i].display();
-		nauseate(pirhanas[i]);
+		utilities.canvas.nauseate(pirhanas[i]);
 		pirhanas[i].update();
 		if(pirhanas[i].y > 850 && pirhanas[i].velY > 0) {
 			pirhanas.splice(i, 1);
@@ -2660,12 +2859,13 @@ function runEvent() {
 	}
 	if(currentEvent === "pirhanas" && pirhanas.length <= 0) {
 		addEvent();
-		p.survivedFish = true;
+		p.surviveEvent("pirhanas");
 	}
 	//pacmans
 	for(var i = 0; i < dots.length; i ++) {
+		dots[i].update();
 		dots[i].display();
-		nauseate(dots[i]);
+		utilities.canvas.nauseate(dots[i]);
 		if(dots[i].y === 200 && dots[i].x < pacmans[0].x - 20) {
 			dots.splice(i, 1);
 			continue;
@@ -2684,24 +2884,24 @@ function runEvent() {
 	}
 	if(currentEvent === "pacmans" && pacmans.length === 0) {
 		addEvent();
-		p.survivedPacmans = true;
+		p.surviveEvent("pacmans");
 	}
 	//rockets
 	for(var i = 0; i < fireParticles.length; i ++) {
 		fireParticles[i].display();
-		nauseate(fireParticles[i]);
+		utilities.canvas.nauseate(fireParticles[i]);
 		if(fireParticles[i].size <= 0) {
 			fireParticles.splice(i, 1);
 		}
 	}
 	for(var i = 0; i < rockets.length; i ++) {
 		rockets[i].display();
-		nauseate(rockets[i]);
+		utilities.canvas.nauseate(rockets[i]);
 		rockets[i].update();
 		if(rockets[i].x < -100 || rockets[i].x > 900) {
 			rockets.splice(i, 1);
 			addEvent();
-			p.survivedRockets = true;
+			p.surviveEvent("rockets");
 			continue;
 		}
 		if(rockets[i].x > 398 && rockets[i].x < 402) {
@@ -2711,7 +2911,7 @@ function runEvent() {
 	//spikeballs
 	for(var i = 0; i < spikeballs.length; i ++) {
 		spikeballs[i].display();
-		nauseate(spikeballs[i]);
+		utilities.canvas.nauseate(spikeballs[i]);
 		spikeballs[i].update();
 		if(spikeballs[i].opacity <= 0) {
 			spikeballs.splice(i, 1);
@@ -2720,7 +2920,7 @@ function runEvent() {
 	}
 	if(currentEvent === "spikeballs" && spikeballs.length === 0) {
 		addEvent();
-		p.survivedSpikeballs = true;
+		p.surviveEvent("spikeballs");
 	}
 	//block shuffles
 	var allStopped = true;
@@ -2732,17 +2932,17 @@ function runEvent() {
 	}
 	if(allStopped && currentEvent === "block shuffle") {
 		addEvent();
-		p.survivedShuffle = true;
+		p.surviveEvent("block shuffle");
 	}
 	//spike walls
 	for(var i = 0; i < spikewalls.length; i ++) {
 		spikewalls[i].display();
-		nauseate(spikewalls[i]);
+		utilities.canvas.nauseate(spikewalls[i]);
 		spikewalls[i].update();
 		if((spikewalls[i].velX < 0 && spikewalls[i].x < -50) || (spikewalls[i].velX > 0 && spikewalls[i].x > 850)) {
 			spikewalls.splice(i, 1);
 			addEvent();
-			p.survivedSpikewalls = true;
+			p.surviveEvent("spike walls");
 			continue;
 		}
 	}
@@ -2763,8 +2963,15 @@ function runEvent() {
 	}
 };
 function doByTime() {
+	if(TESTING_MODE && false) {
+		for(var i = 0; i < platforms.length; i ++) {
+			if(platforms[i].x === 800 - 160 && platforms[i].y === 215) {
+				platforms[i].destX = -Infinity;
+			}
+		}
+	}
 	p.mouseHand = false;
-	resizeCanvas();
+	utilities.canvas.resize();
 	if(p.onScreen === "home") {
 		//background + erase previous frame
 		c.fillStyle = "#C8C8C8";
@@ -2773,8 +2980,8 @@ function doByTime() {
 		c.font = "50px cursive";
 		c.fillStyle = "#646464";
 		c.textAlign = "center";
-		c.fillText("Randomonicity", 400, 150);
-		c.fillText("Survival", 400, 200);
+		// c.fillText("Randomonicity", 400, 150);
+		// c.fillText("Survival", 400, 200);
 		//buttons
 		for(var i = 0; i < dollarIcons.length; i ++) {
 			dollarIcons[i].display();
@@ -2798,7 +3005,7 @@ function doByTime() {
 		c.fillRect(0, 0, 800, 800);
 		//player
 		p.display();
-		nauseate(p);
+		utilities.canvas.nauseate(p);
 		p.update();
 		for(var i = 0; i < doubleJumpParticles.length; i ++) {
 			doubleJumpParticles[i].display();
@@ -2810,10 +3017,10 @@ function doByTime() {
 		//arena
 		for(var i = 0; i < platforms.length; i ++) {
 			platforms[i].display();
-			nauseate(platforms[i]);
+			utilities.canvas.nauseate(platforms[i]);
 		}
 		//random events
-		if(currentEvent === "starting") {
+		if(currentEvent === "starting" && timeToEvent <= 0) {
 			addEvent();
 		}
 		runEvent();
@@ -2928,6 +3135,10 @@ function doByTime() {
 		c.fillStyle = "#646464";
 		c.textAlign = "center";
 		c.fillText("Shop", 400, 100);
+		//coin counter
+		c.font = "20px cursive";
+		c.fillStyle = "rgb(255, 255, 0)";
+		c.fillText("coins: " + p.totalCoins, 400, 150);
 		//items
 		coinDoubler.displayLogo(1);
 		speedIncreaser.displayLogo(1);
@@ -2962,24 +3173,13 @@ function doByTime() {
 		c.textAlign = "center";
 		c.fillText("Achievements", 400, 100);
 		//achievements
-		ac1.displayLogo();
-		ac2.displayLogo();
-		ac3.displayLogo();
-		ac4.displayLogo();
-		ac5.displayLogo();
-		ac6.displayLogo();
-		ac7.displayLogo();
-		ac8.displayLogo();
-		ac9.displayLogo();
-		ac1.displayInfo();
-		ac2.displayInfo();
-		ac3.displayInfo();
-		ac4.displayInfo();
-		ac5.displayInfo();
-		ac6.displayInfo();
-		ac7.displayInfo();
-		ac8.displayInfo();
-		ac9.displayInfo();
+		var achievements = [ac1, ac2, ac3, ac4, ac5, ac6, ac7, ac8, ac9];
+		for(var i = 0; i < achievements.length; i ++) {
+			achievements[i].displayLogo();
+		}
+		for(var i = 0; i < achievements.length; i ++) {
+			achievements[i].displayInfo();
+		}
 		//home button
 		homeFromAcs.display();
 		homeFromAcs.mouseOver = homeFromAcs.hasMouseOver();
@@ -3008,7 +3208,9 @@ function doByTime() {
 	}
 	frameCount ++;
 	pastWorldY = p.worldY;
-	pMouseIsPressed = mouseIsPressed;
-	pUp = keys[38];
+	utilities.pastInputs.update();
+	// debug
+	c.textAlign = "left";
+	// utilities.canvas.displayTextOverLines("One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen", 400, 400, 400, 50);
 };
-window.setInterval(doByTime, 1000 / fps);
+window.setInterval(doByTime, 1000 / FPS);
