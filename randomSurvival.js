@@ -1,5 +1,5 @@
 const FPS = 60;
-const TESTING_MODE = true;
+const TESTING_MODE = false;
 
 var canvas = document.getElementById("canvas");
 var c = canvas.getContext("2d");
@@ -2980,8 +2980,8 @@ function doByTime() {
 		c.font = "50px cursive";
 		c.fillStyle = "#646464";
 		c.textAlign = "center";
-		// c.fillText("Randomonicity", 400, 150);
-		// c.fillText("Survival", 400, 200);
+		c.fillText("Randomonicity", 400, 150);
+		c.fillText("Survival", 400, 200);
 		//buttons
 		for(var i = 0; i < dollarIcons.length; i ++) {
 			dollarIcons[i].display();
