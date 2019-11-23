@@ -14,7 +14,20 @@ var utilities = {
 		Utilities related to drawing on the canvas.
 		*/
 		resize: function() {
-			if(window.innerWidth < window.innerHeight) {
+			var container = {
+				width: null,
+				height: null
+			};
+			if(document.getElementById("game") !== null) {
+				var gameDiv = document.getElementById("game");
+				container.width = document.getElementById("game").offsetWidth;
+				container.height = document.getElementById("game").offsetHeight;
+			}
+			else {
+				container.width = window.innerWidth;
+				container.height = window.innerHeight;
+			}
+			if(container.width < container.height) {
 				canvas.style.width = "100%";
 				canvas.style.height = "";
 			}
@@ -24,11 +37,11 @@ var utilities = {
 			}
 			if(canvas.style.width === "100%") {
 				//canvas size is window.innerWidth * window.innerWidth pixels squared
-				canvas.style.top = (window.innerHeight / 2) - (window.innerWidth / 2) + "px";
+				canvas.style.top = (container.height / 2) - (container.width / 2) + "px";
 				canvas.style.left = "0px";
 			}
 			else {
-				canvas.style.left = (window.innerWidth / 2) - (window.innerHeight / 2) + "px";
+				canvas.style.left = (container.width / 2) - (container.height / 2) + "px";
 				canvas.style.top = "0px";
 			}
 		},
