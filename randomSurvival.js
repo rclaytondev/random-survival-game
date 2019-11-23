@@ -23,7 +23,6 @@ var utilities = {
 				canvas.style.height = "100%";
 			}
 			if(canvas.style.width === "100%") {
-				//canvas size is window.innerWidth * window.innerWidth pixels squared
 				canvas.style.top = (window.innerHeight / 2) - (window.innerWidth / 2) + "px";
 				canvas.style.left = "0px";
 			}
@@ -57,8 +56,6 @@ var utilities = {
 						}
 					}
 					currentLine = lines[i];
-					// console.log("After removing word, width is: " + c.measureText(currentLine).width);
-					// console.log("And the next line is: " + lines[i + 1]);
 					console.log(lines);
 				}
 			}
@@ -139,7 +136,6 @@ var input = {
 		return true;
 	} ()
 };
-
 Array.prototype.removeAll = function(item) {
 	for(var i = 0; i < this.length; i ++) {
 		if(this[i] === item) {
@@ -163,7 +159,7 @@ Math.rotate = function(x, y, rad) {
 };
 Math.findPointsCircular = function(x, y, r) {
 	var circularPoints = [];
-	//top right quadrant
+	/* top right quadrant */
 	for(var X = x; X < x + r; X ++) {
 		for(var Y = y - r; Y < y; Y ++) {
 			if(Math.floor(Math.dist(x, y, X, Y)) === r - 1) {
@@ -171,7 +167,7 @@ Math.findPointsCircular = function(x, y, r) {
 			}
 		}
 	}
-	//bottom right quadrant
+	/* bottom right quadrant */
 	for(var X = x + r; X > x; X --) {
 		for(var Y = y; Y < y + r; Y ++) {
 			if(Math.floor(Math.dist(x, y, X, Y)) === r - 1) {
@@ -179,7 +175,7 @@ Math.findPointsCircular = function(x, y, r) {
 			}
 		}
 	}
-	//bottom left
+	/* bottom left */
 	for(var X = x; X > x - r; X --) {
 		for(var Y = y + r; Y > y; Y --) {
 			if(Math.floor(Math.dist(x, y, X, Y)) === r - 1) {
@@ -187,7 +183,7 @@ Math.findPointsCircular = function(x, y, r) {
 			}
 		}
 	}
-	//top left
+	/* top left */
 	for(var X = x - r; X < x; X ++) {
 		for(var Y = y; Y > y - r; Y --) {
 			if(Math.floor(Math.dist(x, y, X, Y)) === r - 1) {
@@ -287,10 +283,13 @@ function Player() {
 	this.timeExtended = 0;
 };
 Player.prototype.display = function() {
+	/*
+	The player is a rectangle. 10 wide, 46 tall. (this.x, this.y) is at the middle of the top of the rectangle.
+	*/
 	if(this.invincible < 0 || frameCount % 2 === 0) {
 		c.lineWidth = 5;
 		c.lineCap = "round";
-		//head
+		/* head */
 		c.fillStyle = "#000000";
 		c.save();
 		c.translate(this.x, this.y);
@@ -299,20 +298,20 @@ Player.prototype.display = function() {
 		c.arc(0, 12, 10, 0, 2 * Math.PI);
 		c.fill();
 		c.restore();
-		//body
+		/* body */
 		c.strokeStyle = "#000000";
 		c.beginPath();
 		c.moveTo(this.x, this.y + 12);
 		c.lineTo(this.x, this.y + 36);
 		c.stroke();
-		//legs
+		/* legs */
 		c.beginPath();
 		c.moveTo(this.x, this.y + 36);
 		c.lineTo(this.x - this.legs, this.y + 46);
 		c.moveTo(this.x, this.y + 36);
 		c.lineTo(this.x + this.legs, this.y + 46);
 		c.stroke();
-		//leg animations
+		/* leg animations */
 		if(input.keys[37] || input.keys[39]) {
 			this.legs += this.legDir;
 			if(this.legs >= 5) {
@@ -322,7 +321,7 @@ Player.prototype.display = function() {
 				this.legDir = 0.5;
 			}
 		}
-		//arms
+		/* arms */
 		c.beginPath();
 		c.moveTo(this.x, this.y + 26);
 		c.lineTo(this.x + 10, this.y + 36);
@@ -353,8 +352,7 @@ Player.prototype.update = function() {
 	if(this.blinded === 0) {
 		this.surviveEvent("blindness");
 	}
-	//The player is a rectangle. 10 wide, 46 tall. (this.x, this.y) is at the middle of the top of the rectangle.
-	//walking
+	/* walking */
 	if(this.confused < 0) {
 		if(input.keys[37]) {
 			this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
@@ -373,18 +371,15 @@ Player.prototype.update = function() {
 	}
 	this.x += this.velX;
 	this.y += this.velY;
-	//jumping
+	/* jumping */
 	var jumpedThisFrame = false;
 	if(input.keys[38] && this.velY === 0) {
 		this.velY = -6;
 		jumpedThisFrame = true;
 	}
-	//gravity
+	/* gravity */
 	this.velY += 0.1;
 	/* Collisions */
-	for(var i = 0; i < platforms.length; i ++) {
-		// this.platforms[i].update();
-	}
 	if(intangibilityTalisman.upgrades >= 1) {
 		if(this.x > 800) {
 			this.x = 0;
@@ -402,7 +397,7 @@ Player.prototype.update = function() {
 	if(this.x > 790 && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades >= 1)) {
 		this.velX = -1;
 	}
-	//movement cap
+	/* movement cap */
 	if(this.velX > 3 && !speedIncreaser.equipped) {
 		this.velX = 3;
 	}
@@ -424,7 +419,7 @@ Player.prototype.update = function() {
 	if(this.velY > 6) {
 		this.velY = 6;
 	}
-	//high jumping
+	/* high jumping */
 	if(this.canExtendJump && input.keys[38] && this.timeExtended < 40 && doubleJumper.equipped) {
 		this.velY = -6;
 		this.timeExtended ++;
@@ -432,11 +427,11 @@ Player.prototype.update = function() {
 	if(!input.keys[38]) {
 		this.canExtendJump = false;
 	}
-	//friction
+	/* friction */
 	if(!input.keys[37] && !input.keys[39]) {
 		this.velX *= 0.93;
 	}
-	//double jumping
+	/* double jumping */
 	if(doubleJumper.equipped && doubleJumper.upgrades >= 1) {
 		if(this.velY !== 0 && !this.hasDoubleJumped && input.keys[38] && !utilities.pastInputs.keys[38] && !jumpedThisFrame) {
 			this.velY = -6;
@@ -603,7 +598,7 @@ Platform.prototype.display = function() {
 	this.y -= p.worldY;
 	c.globalAlpha = 1;
 };
-var platforms = [new Platform(0, 215, 160, 20), new Platform(800 - 160, 215, 160, 20), new Platform(320, 390, 160, 20), new Platform(0, 565, 160, 20), new Platform(800 - 160, 565, 160, 20)];//roof ends at 50, floor starts at 750. center plat's middle is at y=400. top plats are at middle is y=225. top plats top is at y=215 bottom plats middle should be at 575. bottom plats are at y=565
+var platforms = [new Platform(0, 215, 160, 20), new Platform(800 - 160, 215, 160, 20), new Platform(320, 390, 160, 20), new Platform(0, 565, 160, 20), new Platform(800 - 160, 565, 160, 20)]; // platforms are centered at y=400, 255, and 565.
 
 function DollarIcon() {
 	/*
@@ -632,13 +627,13 @@ function Button(x, y, whereTo, icon) {
 };
 Button.prototype.display = function() {
 	if(this.icon === "play") {
-		//button outline
+		/* button outline */
 		c.strokeStyle = "#646464";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 75, 0, 2 * Math.PI);
 		c.stroke();
-		//small triangle (mouse is not over)
+		/* small triangle (mouse is not over) */
 		if(!this.mouseOver) {
 			c.fillStyle = "#646464";
 			c.beginPath();
@@ -647,7 +642,7 @@ Button.prototype.display = function() {
 			c.lineTo(this.x + 30, this.y);
 			c.fill();
 		}
-		//big triangle (mouse is over)
+		/* big triangle (mouse is over) */
 		else {
 			c.fillStyle = "#646464";
 			c.beginPath();
@@ -658,13 +653,13 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "question") {
-		//button outline
+		/* button outline */
 		c.strokeStyle = "#646464";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
-		//question mark
+		/* question mark */
 		c.fillStyle = "#646464";
 		c.textAlign = "center";
 		c.save();
@@ -680,18 +675,18 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "gear") {
-		//button outline
+		/* button outline */
 		c.strokeStyle = "#646464";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
-		//gear body
+		/* gear body */
 		c.fillStyle = "#646464";
 		c.beginPath();
 		c.arc(this.x, this.y, 20, 0, 2 * Math.PI);
 		c.fill();
-		//gear prongs
+		/* gear prongs */
 		for(var r = 0; r < 2 * Math.PI; r += (2 * Math.PI) / 9) {
 			c.save();
 			c.translate(this.x, this.y);
@@ -704,17 +699,17 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "dollar") {
-		//button outline
+		/* button outline */
 		c.strokeStyle = "#646464";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
-		//dollar sign
+		/* dollar sign */
 		c.fillStyle = "#646464";
 		c.font = "50px cursive";
 		c.fillText("$", this.x, this.y + 15);
-		//dollar sign animation
+		/* dollar sign animation */
 		if(this.mouseOver && frameCount % 10 === 0) {
 			dollarIcons.push(new DollarIcon());
 		}
@@ -735,7 +730,7 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "trophy") {
-		//rays of light
+		/* rays of light */
 		if(this.mouseOver) {
 			this.r += 1;
 			if(this.r > 50) {
@@ -758,20 +753,20 @@ Button.prototype.display = function() {
 				c.restore();
 			}
 		}
-		//button outline
+		/* button outline */
 		c.strokeStyle = "#646464";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
-		//trophy base
+		/* trophy base */
 		c.fillStyle = "#646464";
 		c.beginPath();
 		c.arc(this.x, this.y + 23, 13, -3.14159, 0);
 		c.fill();
-		//trophy support
+		/* trophy support */
 		c.fillRect(this.x - 5, this.y - 2, 10, 20);
-		//trophy cup
+		/* trophy cup */
 		c.beginPath();
 		c.save();
 		c.translate(this.x, this.y - 22);
@@ -781,12 +776,12 @@ Button.prototype.display = function() {
 		c.fill();
 	}
 	else if(this.icon === "house") {
-		//button outline
+		/* button outline */
 		c.strokeStyle = "#646464";
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
-		//house icon
+		/* house icon */
 		c.fillStyle = "#646464";
 		c.fillRect(this.x - 20, this.y - 15, 15, 35);
 		c.fillRect(this.x - 20, this.y - 15, 40, 15);
@@ -796,7 +791,7 @@ Button.prototype.display = function() {
 		c.lineTo(this.x + 30, this.y - 10);
 		c.lineTo(this.x, this.y - 30);
 		c.fill();
-		//animated door
+		/* animated door */
 		c.fillRect(this.x + this.doorX - 6, this.y - 1, 12, 21);
 		if(this.mouseOver) {
 			if(this.doorX < 11) {
@@ -810,12 +805,12 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "retry") {
-		//button outline
+		/* button outline */
 		c.strokeStyle = "#646464";
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
-		//retry icon
+		/* retry icon */
 		c.save();
 		c.translate(this.x, this.y);
 		if(this.mouseOver) {
@@ -922,31 +917,30 @@ ShopItem.prototype.displayLogo = function(size) {
 	if(this.name === "Piggy Bank of Money") {
 		c.save();
 		c.translate(10, 0);
-		//body
+		/* body */
 		c.fillStyle = (this.bought) ? "#DFA0AB" : "#646464";
 		c.beginPath();
 		c.arc(0, 0, 30, 30, 0, 2 * Math.PI);
 		c.fill();
-		//legs
+		/* legs */
 		c.fillRect(0 - 20, 0, 15, 35);
 		c.fillRect(0 + 5, 0, 15, 35);
-		//head
+		/* head */
 		c.beginPath();
 		c.arc(0 - 40, 0 - 10, 20, 0, 2 * Math.PI);
 		c.fill();
-		//chin
-		//c.fillStyle = "#000000";
+		/* chin */
 		c.beginPath();
 		c.moveTo(0 - 40, 0 + 10);
 		c.lineTo(0, 0 + 20);
 		c.lineTo(0, 0);
 		c.fill();
-		//head - whitespace
+		/* head - whitespace */
 		c.fillStyle = "#C8C8C8";
 		c.beginPath();
 		c.arc(0 - 50, 0 - 20, 20, 0, 2 * Math.PI);
 		c.fill();
-		//coin slot - whitespace
+		/* coin slot - whitespace */
 		c.strokeStyle = "#C8C8C8";
 		c.beginPath();
 		c.arc(0, 0, 20, 1.5 * Math.PI - 0.6, 1.5 * Math.PI + 0.6);
@@ -954,33 +948,33 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.restore();
 	}
 	else if(this.name === "Boots of Speediness") {
-		//boots
+		/* boots */
 		c.fillStyle = (this.bought) ? "#00DF00" : "#646464";
 		c.fillRect(0 - 10, 0 + 46, 20, 5);
 		c.fillRect(0 + 30, 0 + 46, 20, 5);
-		//stickman body + limbs
+		/* stickman body + limbs */
 		c.strokeStyle = (this.bought) ? "#000000" : "#646464";
 		c.beginPath();
 		c.moveTo(0 - 10, 0 - 10);
 		c.lineTo(0 + 10, 0 + 10);
 		c.lineTo(0 - 10, 0 + 30);
-		c.lineTo(0 + 10, 0 + 50);//foot #1
+		c.lineTo(0 + 10, 0 + 50);
 		c.moveTo(0 + 10, 0 + 10);
-		c.lineTo(0 + 50, 0 + 50);//foot #2
+		c.lineTo(0 + 50, 0 + 50);
 		c.moveTo(0 + 10, 0 - 30);
 		c.lineTo(0 - 30, 0 + 10);
 		c.lineTo(0 - 50, 0 - 10);
 		c.moveTo(0 + 10, 0 - 30);
 		c.lineTo(0 + 30, 0 - 10);
 		c.stroke();
-		//stickman head
+		/* stickman head */
 		c.beginPath();
 		c.fillStyle = (this.bought) ? "#000000" : "#646464";
 		c.arc(0 - 17, 0 - 17, 10, 0, 2 * Math.PI);
 		c.fill();
 	}
 	else if(this.name === "Potion of Jumpiness") {
-		//potion
+		/* potion */
 		c.fillStyle = (this.bought) ? "#FFFF00" : "#646464";
 		c.beginPath();
 		c.moveTo(0 - 5 - 4, 0 + 4);
@@ -988,7 +982,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.lineTo(0 + 25, 0 + 20);
 		c.lineTo(0 - 25, 0 + 20);
 		c.fill();
-		//beaker body
+		/* beaker body */
 		c.strokeStyle = (this.bought) ? "#000000" : "#646464";
 		c.beginPath();
 		c.moveTo(0 - 5, 0 - 20);
@@ -998,7 +992,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.lineTo(0 + 5, 0);
 		c.lineTo(0 + 5, 0 - 20);
 		c.stroke();
-		//beaker opening
+		/* beaker opening */
 		c.beginPath();
 		c.arc(0, 0 - 27, 10, 0, 2 * Math.PI);
 		c.stroke();
@@ -1008,7 +1002,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.beginPath();
 		c.arc(0, 0, 30, 0, 2 * Math.PI);
 		c.fill();
-		//gemstone
+		/* gemstone */
 		c.fillStyle = (this.bought) ? "#000080" : "#C8C8C8";
 		c.beginPath();
 		c.moveTo(0 - 6, 0 - 12);
@@ -1019,7 +1013,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.lineTo(0 - 15, 0);
 		c.lineTo(0 - 6, 0 - 12);
 		c.fill();
-		//necklace threads
+		/* necklace threads */
 		c.strokeStyle = (this.bought) ? "rgb(138, 87, 0)" : "#646464";
 		c.beginPath();
 		c.moveTo(0 - 5, 0 - 29);
@@ -1032,44 +1026,44 @@ ShopItem.prototype.displayLogo = function(size) {
 	}
 	else if(this.name === "Skull of Reanimation") {
 		c.fillStyle = (this.bought) ? "#FFFFFF" : "#646464";
-		//skull
+		/* skull */
 		c.beginPath();
 		c.arc(0, 0, 30, 0, 2 * Math.PI);
 		c.fill();
-		//skull chin
+		/* skull chin */
 		c.fillRect(0 - 15, 0 + 20, 30, 20);
-		//eyes - whitespace
+		/* eyes - whitespace */
 		c.fillStyle = "#C8C8C8";
 		c.beginPath();
 		c.arc(0 - 13, 0 - 10, 7, 0, 2 * Math.PI);
 		c.arc(0 + 13, 0 - 10, 7, 0, 2 * Math.PI);
 		c.fill();
-		//mouth
+		/* mouth */
 		c.fillRect(0 - 2, 0 + 20, 4, 20);
 		c.fillRect(0 - 10, 0 + 20, 4, 20);
 		c.fillRect(0 + 6, 0 + 20, 4, 20);
 	}
 	else if(this.name === "Box of Storage") {
 		c.fillStyle = (this.bought) ? "rgb(138, 87, 0)" : "#646464";
-		//front face
+		/* front face */
 		c.beginPath();
 		c.fillRect(0 - 30, 0 - 10, 40, 40);
 		c.fill();
-		//top face
+		/* top face */
 		c.beginPath();
 		c.moveTo(0 - 30, 0 - 12);
 		c.lineTo(0 + 10, 0 - 12);
 		c.lineTo(0 + 40, 0 - 40);
 		c.lineTo(0, 0 - 40);
 		c.fill();
-		//right face
+		/* right face */
 		c.beginPath();
 		c.moveTo(0 + 12, 0 - 10);
 		c.lineTo(0 + 12, 0 + 30);
 		c.lineTo(0 + 42, 0);
 		c.lineTo(0 + 42, 0 - 40);
 		c.fill();
-		//lines separating lid from box - whitespace
+		/* lines separating lid from box - whitespace */
 		c.strokeStyle = "#C8C8C8";
 		c.lineWidth = 2;
 		c.beginPath();
@@ -1099,7 +1093,7 @@ ShopItem.prototype.displayLogo = function(size) {
 	if(this.x >= 500 && this.infoOp > 0 && input.mouse.x < this.x && input.mouse.x > this.x - 100 && input.mouse.y > this.y - 75 && input.mouse.y < this.y + 75) {
 		this.mouseOver = true;
 	}
-	//prevent conflicts between shop items when mousing over
+	/* prevent conflicts between shop items when mousing over */
 	if(this.name === "Boots of Speediness" && (coinDoubler.infoOp > 0 || doubleJumper.infoOp > 0)) {
 		this.mouseOver = false;
 	}
@@ -1136,7 +1130,7 @@ ShopItem.prototype.displayInfo = function() {
 		c.lineTo(this.x + 85, this.y - 10);
 		c.fill();
 		c.fillRect(this.x + 85, this.y - 100, 250, 200);
-		//title
+		/* title */
 		c.fillStyle = "#C8C8C8";
 		c.font = "20px monospace";
 		c.textAlign = "left";
@@ -1145,13 +1139,13 @@ ShopItem.prototype.displayInfo = function() {
 		}
 		c.fillText(this.name, this.x + 95, this.y - 80);
 		c.font = "20px monospace";
-		//line
+		/* line */
 		c.strokeStyle = "#C8C8C8";
 		c.beginPath();
 		c.moveTo(this.x + 90, this.y - 70);
 		c.lineTo(this.x + 330, this.y - 70);
 		c.stroke();
-		//description - manual line break insertion
+		/* description - manual line break insertion */
 		switch(this.name) {
 			case "Piggy Bank of Money":
 				c.fillText("With this amazing", this.x + 95, this.y - 50);
@@ -1177,7 +1171,7 @@ ShopItem.prototype.displayInfo = function() {
 				c.fillText("extra life each game.", this.x + 95, this.y + 10);
 				break;
 		}
-		//button 1
+		/* button 1 */
 		if(this.upgrades < 2) {
 			c.strokeRect(this.x + 95, this.y + 60, 230, 30);
 		}
@@ -1196,7 +1190,7 @@ ShopItem.prototype.displayInfo = function() {
 				if(p.totalCoins > this.price) {
 					if(!this.bought) {
 						this.bought = true;
-						this.price = 10;//all of the items first upgrade costs 10
+						this.price = 10; // all of the items first upgrade costs 10
 					}
 					else {
 						this.showingPopup = true;
@@ -1205,7 +1199,7 @@ ShopItem.prototype.displayInfo = function() {
 				}
 			}
 		}
-		//button 2
+		/* button 2 */
 		if(this.bought) {
 			c.strokeRect(this.x + 95, this.y + 20, 230, 30);
 			c.textAlign = "center";
@@ -1232,19 +1226,19 @@ ShopItem.prototype.displayInfo = function() {
 		c.lineTo(this.x - 85, this.y - 10);
 		c.fill();
 		c.fillRect(this.x - 335, this.y - 100, 250, 200);
-		//title
+		/* title */
 		c.fillStyle = "#C8C8C8";
 		c.font = "20px monospace";
 		c.textAlign = "left";
 		c.fillText(this.name, this.x - 325, this.y - 80);
 		c.font = "20px monospace";
-		//line
+		/* line */
 		c.strokeStyle = "#C8C8C8";
 		c.beginPath();
 		c.moveTo(this.x - 90, this.y - 70);
 		c.lineTo(this.x - 330, this.y - 70);
 		c.stroke();
-		//description
+		/* description */
 		switch(this.name) {
 			case "Box of Storage":
 				c.fillText("Are your hands full?", this.x - 325, this.y - 50);
@@ -1257,7 +1251,7 @@ ShopItem.prototype.displayInfo = function() {
 				c.fillText("be able to double", this.x - 325, this.y - 30);
 				c.fillText("jump!", this.x - 325, this.y - 10);
 		}
-		//button 1
+		/* button 1 */
 		c.textAlign = "center";
 		if(this.bought && this.name !== "Box of Storage") {
 			c.strokeRect(this.x - 325, this.y + 20, 230, 30);
@@ -1275,7 +1269,7 @@ ShopItem.prototype.displayInfo = function() {
 				p.itemsEquipped --;
 			}
 		}
-		//button 2
+		/* button 2 */
 		if(this.name !== "Box of Storage" || !this.bought) {
 			if(this.upgrades < 2) {
 				c.strokeRect(this.x - 325, this.y + 60, 230, 30);
@@ -1315,17 +1309,17 @@ ShopItem.prototype.displayPopup = function() {
 		secondItem.infoOp = -0.5;
 		c.fillStyle = "#646464";
 		c.fillRect(250, 250, 300, 300);
-		//title
+		/* title */
 		c.fillStyle = "#C8C8C8";
 		c.textAlign = "left";
 		c.fillText("Upgrade Item", 260, 270);
-		//line
+		/* line */
 		c.beginPath();
 		c.strokeStyle = "#C8C8C8";
 		c.moveTo(260, 280);
 		c.lineTo(540, 280);
 		c.stroke();
-		//upgrade description
+		/* upgrade description */
 		switch(this.name) {
 			case "Piggy Bank of Money":
 				if(this.upgrades === 0) {
@@ -1420,14 +1414,14 @@ ShopItem.prototype.displayPopup = function() {
 				}
 				break;
 		}
-		//button 1
+		/* button 1 */
 		c.strokeRect(260, 470, 280, 30);
 		c.textAlign = "center";
 		c.fillText("Close", 400, 490);
 		if(input.mouse.x > 260 && input.mouse.x < 540 && input.mouse.y > 470 && input.mouse.y < 500 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
 			this.showingPopup = false;
 		}
-		//button 2
+		/* button 2 */
 		c.strokeRect(260, 510, 280, 30);
 		c.fillText("Upgrade - $" + this.price, 400, 530);
 		if(input.mouse.x > 260 && input.mouse.x < 540 && input.mouse.y > 510 && input.mouse.y < 540 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
@@ -1462,7 +1456,7 @@ function Achievement(x, y, name) {
 	this.progress = 0;
 };
 Achievement.prototype.displayLogo = function() {
-	//background circle
+	/* background circle */
 	c.fillStyle = "#C8C8C8";
 	c.strokeStyle = "#646464";
 	c.beginPath();
@@ -1470,7 +1464,7 @@ Achievement.prototype.displayLogo = function() {
 	c.fill();
 	c.stroke();
 	if(this.name === "I Survived") {
-		//rays of light
+		/* rays of light */
 		for(var r = 0; r < 2 * Math.PI; r += 2 * Math.PI / 6) {
 			c.fillStyle = (this.progress === 100) ? "#FF8000" : "#C8C8C8";
 			c.save();
@@ -1482,19 +1476,19 @@ Achievement.prototype.displayLogo = function() {
 			c.fill();
 			c.restore();
 		}
-		//stickman
+		/* stickman */
 		c.beginPath();
 		c.strokeStyle = (this.progress === 100) ? "#000000" : "#646464";
-		c.moveTo(this.x - 20, this.y + 25);//bottom left foot
+		c.moveTo(this.x - 20, this.y + 25);
 		c.lineTo(this.x - 20, this.y + 10);
 		c.lineTo(this.x + 20, this.y + 10);
-		c.lineTo(this.x + 20, this.y + 25);//bottom right foot
+		c.lineTo(this.x + 20, this.y + 25);
 		c.moveTo(this.x, this.y + 10);
-		c.lineTo(this.x, this.y - 10);//torso
-		c.moveTo(this.x - 20, this.y - 30);//top left arm
+		c.lineTo(this.x, this.y - 10);
+		c.moveTo(this.x - 20, this.y - 30);
 		c.lineTo(this.x - 20, this.y - 10);
 		c.lineTo(this.x + 20, this.y - 10);
-		c.lineTo(this.x + 20, this.y - 30);//top right arm
+		c.lineTo(this.x + 20, this.y - 30);
 		c.stroke();
 		c.fillStyle = (this.progress === 100) ? "#000000" : "#646464";
 		c.beginPath();
@@ -1516,7 +1510,7 @@ Achievement.prototype.displayLogo = function() {
 		c.fill();
 	}
 	else if(this.name === "Extreme Survivalist") {
-		//left heart
+		/* left heart */
 		c.save();
 		c.translate(this.x - 20, this.y);
 		c.scale(0.5, 0.5);
@@ -1533,7 +1527,7 @@ Achievement.prototype.displayLogo = function() {
 		c.arc(15, 0, 15, Math.PI, 2 * Math.PI);
 		c.fill();
 		c.restore();
-		//right heart
+		/* right heart */
 		c.save();
 		c.translate(this.x + 20, this.y);
 		c.scale(0.5, 0.5);
@@ -1552,24 +1546,24 @@ Achievement.prototype.displayLogo = function() {
 		c.restore();
 	}
 	else if(this.name === "What are the Odds") {
-		//front face
+		/* front face */
 		c.fillStyle = (this.progress === 100) ? "#0080FF" : "#646464";
 		c.fillRect(this.x - 20 - 6, this.y - 10 + 6, 30, 30);
-		//top face
+		/* top face */
 		c.beginPath();
 		c.moveTo(this.x - 20 - 6, this.y - 12 + 6);
 		c.lineTo(this.x + 10 - 6, this.y - 12 + 6);
 		c.lineTo(this.x + 30 - 6, this.y - 32 + 6);
 		c.lineTo(this.x + 0 - 6, this.y - 32 + 6);
 		c.fill();
-		//right face
+		/* right face */
 		c.beginPath();
 		c.moveTo(this.x + 12 - 6, this.y - 10 + 6);
 		c.lineTo(this.x + 12 - 6, this.y + 20 + 6);
 		c.lineTo(this.x + 32 - 6, this.y + 6);
 		c.lineTo(this.x + 32 - 6, this.y - 30 + 6);
 		c.fill();
-		//die 1 - whitespace
+		/* die 1 - whitespace */
 		c.fillStyle = "#C8C8C8";
 		c.save();
 		c.translate(this.x  - 1, this.y - 15);
@@ -1578,7 +1572,7 @@ Achievement.prototype.displayLogo = function() {
 		c.arc(0, 0, 5, 0, 2 * Math.PI);
 		c.fill();
 		c.restore();
-		//die 2 - whitespace
+		/* die 2 - whitespace */
 		c.save();
 		c.translate(this.x + 12, this.y - 3);
 		c.scale(0.75, 1);
@@ -1593,7 +1587,7 @@ Achievement.prototype.displayLogo = function() {
 		c.arc(0, 0, 5, 0, 2 * Math.PI);
 		c.fill();
 		c.restore();
-		//die 3 - whitespace
+		/* die 3 - whitespace */
 		c.beginPath();
 		c.arc(this.x - 21, this.y + 4, 5, 0, 2 * Math.PI);
 		c.fill();
@@ -1650,7 +1644,7 @@ Achievement.prototype.displayLogo = function() {
 		c.beginPath();
 		c.arc(this.x, this.y - 15, 15, Math.PI, 2 * Math.PI);
 		c.fill();
-		//wavy bits
+		/* wavy bits */
 		c.beginPath();
 		c.arc(this.x - 12, this.y + 15, 3, 0, Math.PI);
 		c.fill();
@@ -1660,7 +1654,7 @@ Achievement.prototype.displayLogo = function() {
 		c.beginPath();
 		c.arc(this.x + 12, this.y + 15, 3, 0, Math.PI);
 		c.fill();
-		//wavy bits - whitespace
+		/* wavy bits - whitespace */
 		c.fillStyle = "#C8C8C8";
 		c.beginPath();
 		c.arc(this.x - 6, this.y + 15, 3, Math.PI, 2 * Math.PI);
@@ -1668,7 +1662,7 @@ Achievement.prototype.displayLogo = function() {
 		c.beginPath();
 		c.arc(this.x + 6, this.y + 15, 3, Math.PI, 2 * Math.PI);
 		c.fill();
-		//eyes - whitespace
+		/* eyes - whitespace */
 		c.beginPath();
 		c.arc(this.x - 7, this.y - 10, 5, 0, 2 * Math.PI);
 		c.fill();
@@ -1681,7 +1675,7 @@ Achievement.prototype.displayLogo = function() {
 Achievement.prototype.displayInfo = function() {
 	c.globalAlpha = (this.infoOp > 0) ? this.infoOp : 0;
 	if(this.x < 450) {
-		//info box
+		/* info box */
 		c.fillStyle = "#646464";
 		c.beginPath();
 		c.moveTo(this.x + 50, this.y);
@@ -1689,18 +1683,18 @@ Achievement.prototype.displayInfo = function() {
 		c.lineTo(this.x + 60, this.y + 10);
 		c.fill();
 		c.fillRect(this.x + 60, this.y - 100, 250, 200);
-		//title
+		/* title */
 		c.fillStyle = "#C8C8C8";
 		c.font = "20px monospace";
 		c.textAlign = "left";
 		c.fillText(this.name, this.x + 70, this.y - 80);
-		//line
+		/* line */
 		c.strokeStyle = "#C8C8C8";
 		c.beginPath();
 		c.moveTo(this.x + 65, this.y - 70);
 		c.lineTo(this.x + 305, this.y - 70);
 		c.stroke();
-		//description
+		/* description */
 		switch(this.name) {
 			case "I Survived":
 				c.fillText("Survive all of the", this.x + 70, this.y - 50);
@@ -1727,7 +1721,7 @@ Achievement.prototype.displayInfo = function() {
 				c.fillText("[???]", this.x + 70, this.y - 50);
 				break;
 		}
-		//progress
+		/* progress */
 		c.strokeRect(this.x + 70, this.y + 60, 230, 30);
 		if(this.progress === 100) {
 			c.textAlign = "center";
@@ -1741,7 +1735,7 @@ Achievement.prototype.displayInfo = function() {
 		}
 	}
 	else {
-		//info box
+		/* info box */
 		c.fillStyle = "#646464";
 		c.beginPath();
 		c.moveTo(this.x - 50, this.y);
@@ -1749,18 +1743,18 @@ Achievement.prototype.displayInfo = function() {
 		c.lineTo(this.x - 60, this.y + 10);
 		c.fill();
 		c.fillRect(this.x - 310, this.y - 100, 250, 200);
-		//title
+		/* title */
 		c.fillStyle = "#C8C8C8";
 		c.font = "20px monospace";
 		c.textAlign = "left";
 		c.fillText(this.name, this.x - 300, this.y - 80);
-		//line
+		/* line */
 		c.strokeStyle = "#C8C8C8";
 		c.beginPath();
 		c.moveTo(this.x - 65, this.y - 70);
 		c.lineTo(this.x - 305, this.y - 70);
 		c.stroke();
-		//description
+		/* description */
 		switch(this.name) {
 			case "Extreme Survivalist":
 				c.fillText("Achieve a score of", this.x - 300, this.y - 50);
@@ -1773,7 +1767,7 @@ Achievement.prototype.displayInfo = function() {
 			case "Ghost":
 				c.fillText("[???]", this.x - 300, this.y - 50);
 		}
-		//progress
+		/* progress */
 		c.strokeRect(this.x - 300, this.y + 60, 230, 30);
 		if(this.progress === 100) {
 			c.textAlign = "center";
@@ -1787,7 +1781,7 @@ Achievement.prototype.displayInfo = function() {
 		}
 	}
 	c.globalAlpha = 1;
-	//fading in
+	/* fading in */
 	if(Math.dist(this.x, this.y, input.mouse.x, input.mouse.y) <= 50) {
 		this.infoOp = (this.infoOp < 1) ? this.infoOp + 0.1 : 1;
 	}
@@ -1914,7 +1908,7 @@ ChatMessage.prototype.display = function(y) {
 	this.time --;
 };
 var chatMessages = [];
-//laser event
+/* laser event */
 function Explosion(x, y) {
 	this.x = x;
 	this.y = y;
@@ -1990,10 +1984,10 @@ Laser.prototype.update = function() {
 	}
 };
 var lasers = [];
-//rising acid event
+/* rising acid event */
 var acidY = 850;
 var acidRise = 0;
-//boulders event
+/* boulders event */
 function Boulder(x, y, velX) {
 	this.x = x;
 	this.y = y;
@@ -2049,7 +2043,7 @@ RockParticle.prototype.update = function() {
 };
 var rockParticles = [];
 var boulders = [];
-//spinny blades event
+/* spinny blades event */
 function SpinnyBlade(x, y) {
 	this.x = x;
 	this.y = y;
@@ -2106,13 +2100,13 @@ SpinnyBlade.prototype.update = function() {
 	}
 };
 var spinnyBlades = [];
-//jumping pirhanas event
+/* jumping pirhanas event */
 function Pirhana(x) {
 	this.x = x;
 	this.y = 850;
 	this.velY = -10;
 	this.scaleY = 1;
-	this.mouth = 1;//1 = open, 0 = closed
+	this.mouth = 1; // 1 = open, 0 = closed
 	this.mouthVel = 0;
 };
 Pirhana.prototype.display = function() {
@@ -2158,7 +2152,7 @@ Pirhana.prototype.update = function() {
 	}
 };
 var pirhanas = [];
-//giant pacman event
+/* giant pacman event */
 function Dot(x, y, timeToAppear) {
 	this.x = x;
 	this.y = y;
@@ -2219,7 +2213,7 @@ Pacman.prototype.update = function() {
 	}
 };
 var pacmans = [];
-//rocket event
+/* rocket event */
 function FireParticle(x, y) {
 	this.x = x;
 	this.y = y;
@@ -2253,19 +2247,19 @@ Rocket.prototype.display = function() {
 	c.fillStyle = "#646464";
 	if(this.velX > 0) {
 		c.fillRect(this.x, this.y, 50, 20);
-		//tip
+		/* tip */
 		c.beginPath();
 		c.moveTo(this.x + 50, this.y);
 		c.lineTo(this.x + 100, this.y + 10);
 		c.lineTo(this.x + 50, this.y + 20);
 		c.fill();
-		//top backspike
+		/* top back spike */
 		c.beginPath();
 		c.moveTo(this.x, this.y);
 		c.lineTo(this.x - 50, this.y - 5);
 		c.lineTo(this.x, this.y + 10);
 		c.fill();
-		//bottom backspike
+		/* bottom back spike */
 		c.beginPath();
 		c.moveTo(this.x, this.y + 20);
 		c.lineTo(this.x - 50, this.y + 25);
@@ -2274,19 +2268,19 @@ Rocket.prototype.display = function() {
 	}
 	else {
 		c.fillRect(this.x - 50, this.y, 50, 20);
-		//tip
+		/* tip */
 		c.beginPath();
 		c.moveTo(this.x - 50, this.y);
 		c.lineTo(this.x - 100, this.y + 10);
 		c.lineTo(this.x - 50, this.y + 20);
 		c.fill();
-		//top backspike
+		/* top backspike */
 		c.beginPath();
 		c.moveTo(this.x, this.y);
 		c.lineTo(this.x + 50, this.y - 5);
 		c.lineTo(this.x, this.y + 10);
 		c.fill();
-		//bottom backspike
+		/* bottom backspike */
 		c.beginPath();
 		c.moveTo(this.x, this.y + 20);
 		c.lineTo(this.x + 50, this.y + 25);
@@ -2311,28 +2305,26 @@ Rocket.prototype.update = function() {
 	}
 };
 var rockets = [];
-//spikeball event
+/* spikeball event */
 function Spikeball(velX, velY) {
 	this.x = 400;
 	this.y = 400;
-	// this.velX = Math.random() * 6 - 3;
-	// this.velY = ((Math.random() < 0.5) ? -1 : 1) * Math.sqrt(36 - (Math.pow(this.velX, 2)));
 	this.velX = velX;
 	this.velY = velY;
 	this.r = 0;
-	this.age = 0;//x^2 + y^2 = 25. y^2 = -(x^2) + 25. y=Math.sqrt(-(x^2)+25);
+	this.age = 0;
 	this.opacity = 0;
 	this.fadedIn = false;
 };
 Spikeball.prototype.display = function() {
 	c.globalAlpha = this.opacity;
-	//spike "ball"
+	/* spike "ball" */
 	c.fillStyle = "#646464";
 	c.strokeStyle = "#646464";
 	c.beginPath();
 	c.arc(this.x, this.y, 12, 0, 2 * Math.PI);
 	c.fill();
-	//spikes
+	/* spikes */
 	c.fillStyle = "#646464";
 	for(var r = 0; r < 2 * Math.PI; r += 2 * Math.PI / 10) {
 		c.save();
@@ -2375,7 +2367,7 @@ Spikeball.prototype.display = function() {
 };
 Spikeball.prototype.update = function() {
 	this.r += 0.1;
-	//fading in
+	/* fading in */
 	if(!this.fadedIn) {
 		this.opacity += 0.05;
 	}
@@ -2387,9 +2379,8 @@ Spikeball.prototype.update = function() {
 		this.y += this.velY;
 		this.age ++;
 		this.opacity -= 0.002;
-		//slowly fade out at 0.005;
 	}
-	//platform + wall collisions
+	/* platform + wall collisions */
 	if(this.age > 20) {
 		for(var i = 0; i < platforms.length; i ++) {
 			if(this.x + 30 > platforms[i].x && this.x - 30 < platforms[i].x + platforms[i].w && this.y + 30 > platforms[i].y && this.y + 30 < platforms[i].y + 6) {
@@ -2412,13 +2403,13 @@ Spikeball.prototype.update = function() {
 			this.velY = -this.velY;
 		}
 	}
-	//player collisions
+	/* player collisions */
 	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 30) && this.age > 20 && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("spikeballs");
 	}
 };
 var spikeballs = [];
-//spike wall event
+/* spike wall event */
 function Spikewall(x) {
 	this.fastSpeed = 10;
 	this.slowSpeed = 2;
@@ -2493,7 +2484,7 @@ function addEffects() {
 };
 /* generic event selection + running */
 var theEvents = ["laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rockets", "spikeballs", "block shuffle", "spike wall", "confusion", "blindness", "nausea"];
-// theEvents = TESTING_MODE ? ["block shuffle"] : theEvents;
+theEvents = TESTING_MODE ? ["block shuffle"] : theEvents;
 
 /* game */
 function addEvent() {
@@ -2501,7 +2492,6 @@ function addEvent() {
 	var eventIndex = Math.floor(Math.random() * theEvents.length);
 	currentEvent = theEvents[eventIndex];
 	if(currentEvent === p.previousEvent) {
-		// console.log("previousEvent: " + p.previousEvent + ", currentEvent: " + currentEvent);
 		p.repeatedEvent = true;
 	}
 	p.previousEvent = currentEvent;
@@ -2509,8 +2499,6 @@ function addEvent() {
 		p.numRecords ++;
 		chatMessages.push(new ChatMessage("New Record!", "#0000FF"));
 	}
-	// console.log("Set current event to " + theEvents[eventIndex] + " which is index #" + eventIndex + " in the event array out of " + theEvents.length + " total events");
-	// console.log("the event occurred: " + currentEvent);
 	if(currentEvent === "laser") {
 		lasers.push(new Laser());
 		chatMessages.push(new ChatMessage("Laser incoming!", "#FF8000"));
@@ -2549,7 +2537,7 @@ function addEvent() {
 	}
 	if(currentEvent === "pirhanas") {
 		chatMessages.push(new ChatMessage("Jumping pirhanas incoming!", "#FF8000"));
-		//fancy algorithm to make sure none of the pirhanas are touching
+		/* fancy algorithm to make sure none of the pirhanas are touching */
 		var doneIt = false;
 		while(!doneIt) {
 			pirhanas = [];
@@ -2558,7 +2546,7 @@ function addEvent() {
 			pirhanas.push(new Pirhana(Math.random() * 700 + 50));
 			doneIt = true;
 			for(var i = 0; i < pirhanas.length; i ++) {
-				//check if they collide
+				/* check if they collide */
 				for(var j = 0; j < pirhanas.length; j ++) {
 					if(i !== j && Math.abs(pirhanas[i].x - pirhanas[j].x) < 75) {
 						doneIt = false;
@@ -2678,11 +2666,10 @@ function addEvent() {
 	}
 };
 function runEvent() {
-	// p.nauseated = 100000;
-	if(p.invincible !== 0) {
-		// p.invincible = Infinity;
+	if(p.invincible !== 0 && TESTING_MODE && false) {
+		p.invincible = Infinity;
 	}
-	//coins
+	/* coins */
 	for(var i = 0; i < coins.length; i ++) {
 		coins[i].display();
 		coins[i].update();
@@ -2701,7 +2688,7 @@ function runEvent() {
 		}
 		utilities.canvas.nauseate(coins[i]);
 	}
-	//lasers
+	/* lasers */
 	for(var i = 0; i < lasers.length; i ++) {
 		if(!lasers[i].blinking) {
 			lasers[i].display();
@@ -2724,9 +2711,8 @@ function runEvent() {
 			addEvent();
 		}
 	}
-	//acid
+	/* acid */
 	for(var x = 0; x < 800; x ++) {
-		// break;
 		var brightness = Math.random() * 30;
 		c.fillStyle = "rgb(" + brightness + ", 255, " + brightness + ")";
 		c.fillRect(x, acidY + p.worldY + Math.sin(x / 10) * 10 * Math.sin(frameCount / 10), 1, 800);
@@ -2743,9 +2729,6 @@ function runEvent() {
 			p.velY = Math.min(-8.5, p.velY);
 		}
 	}
-	// console.log("worldY: " + p.worldY);
-	// console.log("acidY: " + acidY);
-	// console.log("current event: " + currentEvent);
 	if(currentEvent === "acid") {
 		if(acidY < 600) {
 			p.worldY -= acidRise;
@@ -2782,14 +2765,6 @@ function runEvent() {
 			}
 			currentEvent = "waiting";
 		}
-		if(p.y < 400 && acidY > -100 && acidRise !== 0) {
-			// p.worldY += 3;
-			// p.y += 3;
-		}
-		if(p.y > 400 && acidY > -100 && acidRise !== 0) {
-			// p.worldY -= 3;
-			// p.y -= 3;
-		}
 	}
 	else if(currentEvent === "waiting") {
 		if(p.worldY > 0) {
@@ -2808,7 +2783,7 @@ function runEvent() {
 		}
 		p.surviveEvent("acid");
 	}
-	//boulders
+	/* boulders */
 	for(var i = 0; i < boulders.length; i ++) {
 		boulders[i].display();
 		utilities.canvas.nauseate(boulders[i]);
@@ -2835,7 +2810,7 @@ function runEvent() {
 	if(currentEvent === "boulder" && boulders.length === 0 && rockParticles.length === 0) {
 		addEvent();
 	}
-	//spinnyblades
+	/* spinnyblades */
 	for(var i = 0; i < spinnyBlades.length; i ++) {
 		spinnyBlades[i].display();
 		utilities.canvas.nauseate(spinnyBlades[i]);
@@ -2848,7 +2823,7 @@ function runEvent() {
 	if(currentEvent === "spinnyblades" && spinnyBlades.length <= 0) {
 		addEvent();
 	}
-	//pirhanas
+	/* pirhanas */
 	for(var i = 0; i < pirhanas.length; i ++) {
 		pirhanas[i].display();
 		utilities.canvas.nauseate(pirhanas[i]);
@@ -2861,7 +2836,7 @@ function runEvent() {
 		addEvent();
 		p.surviveEvent("pirhanas");
 	}
-	//pacmans
+	/* pacmans */
 	for(var i = 0; i < dots.length; i ++) {
 		dots[i].update();
 		dots[i].display();
@@ -2886,7 +2861,7 @@ function runEvent() {
 		addEvent();
 		p.surviveEvent("pacmans");
 	}
-	//rockets
+	/* rockets */
 	for(var i = 0; i < fireParticles.length; i ++) {
 		fireParticles[i].display();
 		utilities.canvas.nauseate(fireParticles[i]);
@@ -2908,7 +2883,7 @@ function runEvent() {
 			coins.push(new Coin(rockets[i].x, rockets[i].y + 5));
 		}
 	}
-	//spikeballs
+	/* spikeballs */
 	for(var i = 0; i < spikeballs.length; i ++) {
 		spikeballs[i].display();
 		utilities.canvas.nauseate(spikeballs[i]);
@@ -2922,7 +2897,7 @@ function runEvent() {
 		addEvent();
 		p.surviveEvent("spikeballs");
 	}
-	//block shuffles
+	/* block shuffles */
 	var allStopped = true;
 	for(var i = 0; i < platforms.length; i ++) {
 		platforms[i].update();
@@ -2934,7 +2909,7 @@ function runEvent() {
 		addEvent();
 		p.surviveEvent("block shuffle");
 	}
-	//spike walls
+	/* spike walls */
 	for(var i = 0; i < spikewalls.length; i ++) {
 		spikewalls[i].display();
 		utilities.canvas.nauseate(spikewalls[i]);
@@ -2946,9 +2921,9 @@ function runEvent() {
 			continue;
 		}
 	}
-	//blindness
+	/* blindness */
 	if(p.blinded > 0) {
-		//fill in mass area for framerate issues
+		/* fill in large area for framerate issues */
 		c.fillStyle = "#000000";
 		c.fillRect(p.x - 800, p.y - 950, 1600, 800);
 		c.fillRect(p.x - 800, p.y + 150, 1600, 1600);
@@ -2973,16 +2948,16 @@ function doByTime() {
 	p.mouseHand = false;
 	utilities.canvas.resize();
 	if(p.onScreen === "home") {
-		//background + erase previous frame
+		/* background + erase previous frame */
 		c.fillStyle = "#C8C8C8";
 		c.fillRect(0, 0, 800, 800);
-		//title
+		/* title */
 		c.font = "50px cursive";
 		c.fillStyle = "#646464";
 		c.textAlign = "center";
 		// c.fillText("Randomonicity", 400, 150);
 		// c.fillText("Survival", 400, 200);
-		//buttons
+		/* buttons */
 		for(var i = 0; i < dollarIcons.length; i ++) {
 			dollarIcons[i].display();
 			if(dollarIcons[i].y >= 545) {
@@ -3003,7 +2978,7 @@ function doByTime() {
 	if(p.onScreen === "play") {
 		c.fillStyle = "#C8C8C8";
 		c.fillRect(0, 0, 800, 800);
-		//player
+		/* player */
 		p.display();
 		utilities.canvas.nauseate(p);
 		p.update();
@@ -3014,12 +2989,12 @@ function doByTime() {
 				continue;
 			}
 		}
-		//arena
+		/* arena */
 		for(var i = 0; i < platforms.length; i ++) {
 			platforms[i].display();
 			utilities.canvas.nauseate(platforms[i]);
 		}
-		//random events
+		/* random events */
 		if(currentEvent === "starting" && timeToEvent <= 0) {
 			addEvent();
 		}
@@ -3031,7 +3006,7 @@ function doByTime() {
 		if(p.y + 46 >= 800 && acidY + p.worldY > 820) {
 			p.die("fall");
 		}
-		//shop status effect indicators
+		/* shop status effect indicators */
 		var hasOne = false;
 		if(coinDoubler.equipped) {
 			coinDoubler.x = 100 * (hasOne ? 2 : 1);
@@ -3063,7 +3038,7 @@ function doByTime() {
 			secondLife.displayLogo(0.5);
 			hasOne = true;
 		}
-		//score + coins
+		/* score + coins */
 		c.fillStyle = "#646464";
 		c.font = "20px monospace";
 		c.textAlign = "left";
@@ -3074,12 +3049,12 @@ function doByTime() {
 	if(p.onScreen === "death") {
 		c.fillStyle = "#C8C8C8";
 		c.fillRect(0, 0, 800, 800);
-		//title
+		/* title */
 		c.fillStyle = "#646464";
 		c.font = "50px cursive";
 		c.textAlign = "center";
 		c.fillText("You Died", 400, 200);
-		//body text
+		/* body text */
 		c.font = "30px monospace";
 		c.textAlign = "left";
 		switch(p.deathCause) {
@@ -3118,7 +3093,7 @@ function doByTime() {
 		c.fillText("Your highscore is " + p.highScore + " points", 200, 400);
 		c.fillText("You collected " + p.coins + " coins", 200, 450);
 		c.fillText("You now have " + p.totalCoins + " coins", 200, 500);
-		//buttons
+		/* buttons */
 		homeFromDeath.display();
 		homeFromDeath.mouseOver = homeFromDeath.hasMouseOver();
 		homeFromDeath.checkForClick();
@@ -3130,16 +3105,16 @@ function doByTime() {
 	if(p.onScreen === "shop") {
 		c.fillStyle = "#C8C8C8";
 		c.fillRect(0, 0, 800, 800);
-		//title
+		/* title */
 		c.font = "50px cursive";
 		c.fillStyle = "#646464";
 		c.textAlign = "center";
 		c.fillText("Shop", 400, 100);
-		//coin counter
+		/* coin counter */
 		c.font = "20px cursive";
 		c.fillStyle = "rgb(255, 255, 0)";
 		c.fillText("coins: " + p.totalCoins, 400, 150);
-		//items
+		/* items */
 		coinDoubler.displayLogo(1);
 		speedIncreaser.displayLogo(1);
 		doubleJumper.displayLogo(1);
@@ -3159,7 +3134,7 @@ function doByTime() {
 		doubleJumper.displayPopup();
 		intangibilityTalisman.displayPopup();
 		secondLife.displayPopup();
-		//home button
+		/* home button */
 		homeFromShop.display();
 		homeFromShop.mouseOver = homeFromShop.hasMouseOver();
 		homeFromShop.checkForClick();
@@ -3167,12 +3142,12 @@ function doByTime() {
 	if(p.onScreen === "achievements") {
 		c.fillStyle = "#C8C8C8";
 		c.fillRect(0, 0, 800, 800);
-		//title
+		/* title */
 		c.fillStyle = "#646464";
 		c.font = "50px cursive";
 		c.textAlign = "center";
 		c.fillText("Achievements", 400, 100);
-		//achievements
+		/* achievements */
 		var achievements = [ac1, ac2, ac3, ac4, ac5, ac6, ac7, ac8, ac9];
 		for(var i = 0; i < achievements.length; i ++) {
 			achievements[i].displayLogo();
@@ -3180,7 +3155,7 @@ function doByTime() {
 		for(var i = 0; i < achievements.length; i ++) {
 			achievements[i].displayInfo();
 		}
-		//home button
+		/* home button */
 		homeFromAcs.display();
 		homeFromAcs.mouseOver = homeFromAcs.hasMouseOver();
 		homeFromAcs.checkForClick();
@@ -3194,7 +3169,7 @@ function doByTime() {
 	ac7.checkProgress();
 	ac8.checkProgress();
 	ac9.checkProgress();
-	//chat messages
+	/* chat messages */
 	for(var i = chatMessages.length - 1; i >= 0; i --) {
 		chatMessages[i].display((chatMessages.length - i + 1) * 40 - 40);
 		if(chatMessages[i].time <= 0) {
@@ -3209,8 +3184,7 @@ function doByTime() {
 	frameCount ++;
 	pastWorldY = p.worldY;
 	utilities.pastInputs.update();
-	// debug
+	/*  debug */
 	c.textAlign = "left";
-	// utilities.canvas.displayTextOverLines("One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen", 400, 400, 400, 50);
 };
 window.setInterval(doByTime, 1000 / FPS);
