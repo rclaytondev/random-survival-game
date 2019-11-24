@@ -3089,6 +3089,7 @@ function doByTime() {
 				c.fillText("You fell way too far", 200, 300);
 				break;
 		}
+		p.highScore = Math.max(p.score, p.highScore);
 		c.fillText("You got a score of " + p.score + " points", 200, 350);
 		c.fillText("Your highscore is " + p.highScore + " points", 200, 400);
 		c.fillText("You collected " + p.coins + " coins", 200, 450);
