@@ -129,7 +129,6 @@ var input = {
 	} ()
 };
 
-
 console. logOnce = function(parameter) {
 	/*
 	Logs the value to the console, but only the first time it is called.
@@ -141,6 +140,20 @@ console. logOnce = function(parameter) {
 		console.traces.push(trace);
 		console. log(parameter);
 	}
+};
+Object.prototype.clone = function() {
+	var clone = new this.constructor();
+	for(var i in this) {
+		if(this.hasOwnProperty(i)) {
+			if(typeof this[i] === "object" && this[i] !== null) {
+				clone[i] = this[i].clone();
+			}
+			else {
+				clone[i] = this[i];
+			}
+		}
+	}
+	return clone;
 };
 Array.prototype.contains = function(obj) {
 	for(var i = 0; i < this.length; i ++) {
@@ -396,21 +409,11 @@ Player.prototype.update = function() {
 		this.surviveEvent("blindness");
 	}
 	/* walking */
-	if(this.timeConfused < 0) {
-		if(input.keys[37]) {
-			this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
-		}
-		else if(input.keys[39]) {
-			this.velX += speedIncreaser.equipped ? 0.2 : 0.1;
-		}
+	if(input.keys[37]) {
+		this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
 	}
-	else {
-		if(input.keys[37]) {
-			this.velX += speedIncreaser.equipped ? 0.2 : 0.1;
-		}
-		else if(input.keys[39]) {
-			this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
-		}
+	else if(input.keys[39]) {
+		this.velX += speedIncreaser.equipped ? 0.2 : 0.1;
 	}
 	this.x += this.velX;
 	this.y += this.velY;
@@ -539,7 +542,9 @@ Player.prototype.reset = function() {
 	this.invincible = 0;
 	this.usedRevive = false;
 	this.coins = 0;
-	effects.add();
+	if(!TESTING_MODE) {
+		effects.add();
+	}
 	if(secondLife.equipped) {
 		this.numRevives = (secondLife.upgrades >= 2) ? 2 : 1;
 	}
@@ -2102,6 +2107,10 @@ Acid.prototype.stopRising = function() {
 		if(game.objects[i] instanceof Platform && game.objects[i].y < 200) {
 			game.objects[i].splicing = true;
 		}
+		/* remove platform afterimages if the player has the confusion effect */
+		if(game.objects[i] instanceof AfterImage && game.objects[i].image instanceof Platform && game.objects[i].image.y < 200) {
+			game.objects[i].splicing = true;
+		}
 	}
 };
 /* boulders event */
@@ -2623,6 +2632,20 @@ Spikewall.prototype.update = function() {
 	}
 };
 /* lasting effects (blindness, confusion, nausea) */
+function AfterImage(image) {
+	this.image = image;
+	this.timeLeft = 20;
+};
+AfterImage.prototype.display = function() {
+	c.globalAlpha = Math.max(Math.min(this.timeLeft / 20, 1), 0);
+	this.image.display();
+};
+AfterImage.prototype.update = function() {
+	this.timeLeft --;
+	if(this.timeLeft <= 0) {
+		this.splicing = true;
+	}
+};
 var effects = {
 	remove: function() {
 		game.events.removeAll("blindness");
@@ -2669,6 +2692,33 @@ var effects = {
 		gradient.addColorStop(1, "rgba(0, 0, 0, 255)");
 		c.fillStyle = gradient;
 		c.fillRect(p.x - 151, p.y - 151, 302, 302);
+	},
+	displayConfusionEffect: function() {
+		/*
+		Creates afterimages of all the objects in the game.
+		*/
+		if(utilities.frameCount % 3 !== 0) {
+			return;
+		}
+		var skippedObjects = [
+			AfterImage, // to prevent infinite recursion
+			FireParticle, // to reduce lag
+			Acid, // to reduce lag + isn't really that noticeable
+			Spikewall, // not really that noticeable
+			Coin, // to make the coins not look strange
+			Dot, // not visible at all since dots don't move
+		];
+		outerLoop: for(var i = 0; i < game.objects.length; i ++) {
+			innerLoop: for(var j = 0; j < skippedObjects.length; j ++) {
+				if(game.objects[i] instanceof skippedObjects[j]) {
+					continue outerLoop;
+				}
+			}
+			if(!(game.objects[i] instanceof AfterImage)) {
+				game.objects.push(new AfterImage(game.objects[i].clone()));
+			}
+		}
+		game.objects.push(new AfterImage(p.clone()));
 	}
 };
 /* generic event selection + running */
@@ -2713,6 +2763,13 @@ var game = {
 		var sorter = function(a, b) {
 			const A_FIRST = -1;
 			const B_FIRST = 1;
+			/* afterimages */
+			if(a instanceof AfterImage) {
+				a = a.image;
+			}
+			if(b instanceof AfterImage) {
+				b = b.image;
+			}
 			/* things that are rendered behind everything else */
 			if(a instanceof Coin || a instanceof Dot) {
 				return A_FIRST;
@@ -2973,9 +3030,12 @@ var game = {
 				}
 			}
 		}
+		if(p.timeConfused > 0) {
+			effects.displayConfusionEffect();
+		}
 	}
 };
-game.events = TESTING_MODE ? ["spikewall"] : game.events;
+game.events = TESTING_MODE ? ["spinnyblades"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
