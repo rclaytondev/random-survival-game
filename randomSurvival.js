@@ -3,12 +3,9 @@ const TESTING_MODE = true;
 
 var canvas = document.getElementById("canvas");
 var c = canvas.getContext("2d");
-var frameCount = 0;
-
-var timeToEvent = -5;
-var p;
 
 var utilities = {
+	frameCount: 0,
 	canvas: {
 		/*
 		Utilities related to drawing on the canvas.
@@ -41,22 +38,18 @@ var utilities = {
 						if(currentLine.substring(j, j + 1) == " ") {
 							var nextLine = lines[i + 1];
 							if(nextLine === undefined) {
-								console.log("this line is the last")
 								nextLine = "";
 							}
 							movedWord = currentLine.substring(j + 1, Infinity);
 							movedWord = movedWord.trim();
 							currentLine = currentLine.substring(0, j);
 							nextLine = movedWord + " " + nextLine;
-							console.log("next line: " + nextLine);
 							lines[i] = currentLine;
 							lines[i + 1] = nextLine;
-							console.log(lines[i + 1]);
 							break forLoop;
 						}
 					}
 					currentLine = lines[i];
-					console.log(lines);
 				}
 			}
 			/* Display the split text */
@@ -64,24 +57,6 @@ var utilities = {
 			for(var i = 0; i < lines.length; i ++) {
 				c.fillText(lines[i], x, lineY);
 				lineY += lineHeight;
-			}
-		},
-		nauseate: function(obj) {
-			/*
-			For when the player has the nausea effect. Displays two copies of 'obj' around it.
-			*/
-			if(p.nauseated > 0) {
-				var offsetX = p.nauseaOffsetArray[p.nauseaOffset].x;
-				var offsetY = p.nauseaOffsetArray[p.nauseaOffset].y;
-				var posBefore = obj.x + ", " + obj.y;
-				obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
-				obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
-				obj.display();
-				obj.x -= 2 * p.nauseaOffsetArray[p.nauseaOffset].x;
-				obj.y -= 2 * p.nauseaOffsetArray[p.nauseaOffset].y;
-				obj.display();
-				obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
-				obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
 			}
 		}
 	},
@@ -103,6 +78,23 @@ var utilities = {
 				utilities.pastInputs.keys[i] = input.keys[i];
 			}
 		}
+	},
+	sort: function(array, comparison) {
+		/*
+		Used when JavaScript's Array.sort() doesn't work because of sorting instability or strange comparison functions. Implements Selection Sort.
+		*/
+		var numSorted = 0;
+		while(numSorted < array.length) {
+			var lowest = numSorted;
+			for(var i = numSorted; i < array.length; i ++) {
+				if(comparison(array[lowest], array[i]) == 1) {
+					lowest = i;
+				}
+			}
+			array.swap(numSorted, lowest);
+			numSorted ++;
+		}
+		return array;
 	}
 };
 var input = {
@@ -136,6 +128,28 @@ var input = {
 		return true;
 	} ()
 };
+
+
+console. logOnce = function(parameter) {
+	/*
+	Logs the value to the console, but only the first time it is called.
+	Note that if you call this function from multiple places in the code, it will log once for each of those places.
+	*/
+	var trace = new Error().stack;
+	console.traces = console.traces || [];
+	if(!console.traces.contains(trace)) {
+		console.traces.push(trace);
+		console. log(parameter);
+	}
+};
+Array.prototype.contains = function(obj) {
+	for(var i = 0; i < this.length; i ++) {
+		if(this[i] === obj) {
+			return true;
+		}
+	}
+	return false;
+};
 Array.prototype.removeAll = function(item) {
 	for(var i = 0; i < this.length; i ++) {
 		if(this[i] === item) {
@@ -143,6 +157,15 @@ Array.prototype.removeAll = function(item) {
 			i --;
 		}
 	}
+};
+Array.prototype.swap = function(index1, index2) {
+	var previousIndex1 = this[index1];
+	this[index1] = this[index2];
+	this[index2] = previousIndex1;
+};
+Array.prototype.randomItem = function() {
+	var index = Math.floor(Math.random() * this.length);
+	return this[index];
 };
 Math.dist = function(x1, y1, x2, y2) {
 	return Math.hypot(x1 - x2, y1 - y2);
@@ -194,38 +217,73 @@ Math.findPointsCircular = function(x, y, r) {
 	return circularPoints;
 };
 Math.findPointsLinear = function(x1, y1, x2, y2) {
+	/*
+	Returns all points on a line w/ endpoints ('x1', 'y1') and ('x2', 'y2') rounded to nearest integer.
+	*/
+	var inverted = false;
+	/* Swap x's and y's if the line is closer to vertical than horizontal */
+	if(Math.abs(x1 - x2) < Math.abs(y1 - y2)) {
+		inverted = true;
+		[x1, y1] = [y1, x1];
+		[x2, y2] = [y2, x2];
+	}
+	/* Calculate line slope */
 	var m = Math.abs(y1 - y2) / Math.abs(x1 - x2);
+	/* Find points on line */
 	var linearPoints = [];
 	if(x1 < x2) {
 		if(y1 < y2) {
-			var Y = y1;
-			for(var X = x1; X < x2; X ++) {
-				Y += m;
-				linearPoints.push({x: X, y: Y});
+			var y = y1;
+			for(var x = x1; x < x2; x ++) {
+				y += m;
+				linearPoints.push({x: x, y: y});
 			}
 		}
 		else if(y2 < y1) {
-			var Y = y2;
-			for(var X = x2; X > x1; X --) {
-				Y += m;
-				linearPoints.push({x: X, y: Y});
+			var y = y2;
+			for(var x = x2; x > x1; x --) {
+				y += m;
+				linearPoints.push({x: x, y: y});
 			}
 		}
 	}
 	else if(x2 < x1) {
 		if(y1 < y2) {
-			var Y = y1;
-			for(var X = x1; X > x2; X --) {
-				Y += m;
-				linearPoints.push({x: X, y: Y});
+			var y = y1;
+			for(var x = x1; x > x2; x --) {
+				y += m;
+				linearPoints.push({x: x, y: y});
 			}
 		}
 		else if(y2 < y1) {
-			var Y = y2;
-			for(var X = x2; X < x1; X ++) {
-				Y += m;
-				linearPoints.push({x: X, y: Y});
+			var y = y2;
+			for(var x = x2; x < x1; x ++) {
+				y += m;
+				linearPoints.push({x: x, y: y});
 			}
+		}
+	}
+	if(x1 === x2) {
+		for(var y = (y1 < y2) ? y1 : y2; y < (y1 < y2) ? y2 : y1; y ++) {
+			linearPoints.push({x: x1, y: y});
+		}
+	}
+	else if(y1 === y2) {
+		if(x1 < x2) {
+			for(var x = x1; x < x2; x ++) {
+				linearPoints.push({x: x, y: y1});
+			}
+		}
+		if(x2 < x1) {
+			for(var x = x2; x < x1; x ++) {
+				linearPoints.push({x: x, y: y1});
+			}
+		}
+	}
+	/* Swap it again to cancel out previous swap and return */
+	if(inverted) {
+		for(var i = 0; i < linearPoints.length; i ++) {
+			[linearPoints[i].x, linearPoints[i].y] = [linearPoints[i].y, linearPoints[i].x];
 		}
 	}
 	return linearPoints;
@@ -238,15 +296,13 @@ function Player() {
 	this.velX = 0;
 	this.velY = 0;
 	this.worldY = 0;
-	this.onScreen = "home";
-	this.mouseHand = false;
 	/* Player animation properties */
 	this.legs = 5;
 	this.legDir = 1;
 	/* Effect properties */
-	this.confused = 0;
-	this.blinded = 0;
-	this.nauseated = 0;
+	this.timeConfused = 0;
+	this.timeBlinded = 0;
+	this.timeNauseated = 0;
 	this.nauseaOffsetArray = Math.findPointsCircular(0, 0, 30);
 	this.nauseaOffset = 0;
 	/* Scoring */
@@ -259,38 +315,25 @@ function Player() {
 	/* Shop item properties */
 	this.invincible = 0;
 	this.numRevives = 1;
+	this.canExtendJump = true;
+	this.timeExtended = 0;
 	/* Achievement properties */
 	this.eventsSurvived = [];
-	this.survivedLaser = true;
-	this.survivedAcid = true;
-	this.survivedBoulders = true;
-	this.survivedBlades = true;
-	this.survivedPacmans = true;
-	this.survivedFish = true;
-	this.survivedRockets = true;
-	this.survivedSpikeballs = true;
-	this.survivedSpikewalls = false;
-	this.survivedShuffle = true;
-	this.survivedConfusion = true;
-	this.survivedNausea = true;
-	this.survivedBlindness = true;
 	this.repeatedEvent = false;
 	this.previousEvent = "nothing";
 	this.numRecords = 0;
 	this.gonePlaces = false;
 	this.beenGhost = false;
-	this.canExtendJump = true;
-	this.timeExtended = 0;
 };
 Player.prototype.display = function() {
 	/*
 	The player is a rectangle. 10 wide, 46 tall. (this.x, this.y) is at the middle of the top of the rectangle.
 	*/
-	if(this.invincible < 0 || frameCount % 2 === 0) {
+	if(this.invincible < 0 || utilities.frameCount % 2 === 0) {
 		c.lineWidth = 5;
 		c.lineCap = "round";
 		/* head */
-		c.fillStyle = "#000000";
+		c.fillStyle = "rgb(0, 0, 0)";
 		c.save();
 		c.translate(this.x, this.y);
 		c.scale(1, 1.2);
@@ -299,7 +342,7 @@ Player.prototype.display = function() {
 		c.fill();
 		c.restore();
 		/* body */
-		c.strokeStyle = "#000000";
+		c.strokeStyle = "rgb(0, 0, 0)";
 		c.beginPath();
 		c.moveTo(this.x, this.y + 12);
 		c.lineTo(this.x, this.y + 36);
@@ -332,28 +375,28 @@ Player.prototype.display = function() {
 	}
 };
 Player.prototype.update = function() {
-	this.confused --;
-	this.blinded --;
-	this.nauseated --;
+	this.timeConfused --;
+	this.timeBlinded --;
+	this.timeNauseated --;
 	this.invincible --;
 	this.nauseaOffset ++;
 	if(this.nauseaOffset >= 190) {
 		this.nauseaOffset = 0;
 	}
-	if(this.confused === 0 || this.blinded === 0 || this.nauseated === 0) {
-		addEffects();
+	if(this.timeConfused === 0 || this.timeBlinded === 0 || this.timeNauseated === 0) {
+		effects.add();
 	}
-	if(this.confused === 0) {
+	if(this.timeConfused === 0) {
 		this.surviveEvent("confusion");
 	}
-	if(this.nauseated === 0) {
+	if(this.timeNauseated === 0) {
 		this.surviveEvent("nauesea");
 	}
-	if(this.blinded === 0) {
+	if(this.timeBlinded === 0) {
 		this.surviveEvent("blindness");
 	}
 	/* walking */
-	if(this.confused < 0) {
+	if(this.timeConfused < 0) {
 		if(input.keys[37]) {
 			this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
 		}
@@ -443,7 +486,7 @@ Player.prototype.update = function() {
 			if(this.velX > 3 || this.velX < -3) {
 				this.gonePlaces = true;
 			}
-			doubleJumpParticles.push(new DoubleJumpParticle(this.x, this.y + 46));
+			game.objects.push(new DoubleJumpParticle(this.x, this.y + 46));
 		}
 	}
 };
@@ -454,7 +497,7 @@ Player.prototype.die = function(cause) {
 			this.invincible = (secondLife.upgrades >= 1) ? FPS * 2 : FPS;
 		}
 		else {
-			this.onScreen = "death";
+			game.screen = "death";
 			this.deathCause = cause;
 			this.totalCoins += this.coins;
 		}
@@ -478,7 +521,6 @@ Player.prototype.surviveEvent = function(event) {
 	this.eventsSurvived.push(event);
 };
 Player.prototype.reset = function() {
-	timeToEvent = FPS;
 	this.score = 0;
 	this.coins = 0;
 	this.x = 400;
@@ -486,32 +528,18 @@ Player.prototype.reset = function() {
 	this.velX = 0;
 	this.velY = 0;
 	this.worldY = 0;
-	coins = [];
-	lasers = [];
-	explosions = [];
-	acidY = 850;
-	boulders = [];
-	rockParticles = [];
-	spinnyBlades = [];
-	pirhanas = [];
-	dots = [];
-	pacmans = [];
-	fireParticles = [];
-	rockets = [];
-	spikewalls = [];
-	this.nauseated = -5;
-	this.confused = -5;
-	this.blinded = -5;
-	spikeballs = [];
-	chatMessages = [];
-	currentEvent = "starting";
+	game.timeToEvent = FPS;
+	game.objects = [];
+	game.initializePlatforms();
+	game.chatMessages = [];
+	game.currentEvent = null;
+	this.timeNauseated = -5;
+	this.timeConfused = -5;
+	this.timeBlinded = -5;
 	this.invincible = 0;
 	this.usedRevive = false;
-	platforms = [new Platform(0, 215, 160, 20), new Platform(800 - 160, 215, 160, 20), new Platform(320, 390, 160, 20), new Platform(0, 565, 160, 20), new Platform(800 - 160, 565, 160, 20)];
 	this.coins = 0;
-	if(!TESTING_MODE) {
-		addEffects();
-	}
+	effects.add();
 	if(secondLife.equipped) {
 		this.numRevives = (secondLife.upgrades >= 2) ? 2 : 1;
 	}
@@ -579,26 +607,32 @@ Platform.prototype.update = function() {
 		p.y = this.y - 46;
 	}
 
-	if(this.x + 2 > this.destX && this.x - 2 < this.destX && this.y + 2 > this.destY && this.y - 2 < this.destY) {
+	if(this.x + 2 > this.destX && this.x - 2 < this.destX && this.y + 2 > this.destY && this.y - 2 < this.destY && (this.velX !== 0 || this.velY !== 0)) {
 		this.velX = 0;
 		this.velY = 0;
 		this.x = this.origX;
 		this.y = this.origY;
+		var numMoving = 0;
+		for(var i = 0; i < game.objects.length; i ++) {
+			if(game.objects[i] instanceof Platform && (game.objects[i].velX !== 0 || game.objects[i].velY !== 0)) {
+				numMoving ++;
+			}
+		}
+		if(numMoving === 0) {
+			game.addEvent();
+			p.surviveEvent("block shuffle");
+		}
 	}
 	this.y -= p.worldY;
 };
 Platform.prototype.display = function() {
 	c.globalAlpha = this.opacity;
 	this.y += p.worldY;
-	c.fillStyle = "#646464";
-	if(p.y - 5 > this.y && p.y + 46 + 6 < this.y + this.h && TESTING_MODE) {
-		c.fillStyle = "rgb(0, 0, 255)";
-	}
+	c.fillStyle = "rgb(100, 100, 100)";
 	c.fillRect(this.x, this.y, this.w, this.h);
 	this.y -= p.worldY;
 	c.globalAlpha = 1;
 };
-var platforms = [new Platform(0, 215, 160, 20), new Platform(800 - 160, 215, 160, 20), new Platform(320, 390, 160, 20), new Platform(0, 565, 160, 20), new Platform(800 - 160, 565, 160, 20)]; // platforms are centered at y=400, 255, and 565.
 
 function DollarIcon() {
 	/*
@@ -608,7 +642,7 @@ function DollarIcon() {
 	this.y = 450;
 };
 DollarIcon.prototype.display = function() {
-	c.fillStyle = "#646464";
+	c.fillStyle = "rgb(100, 100, 100)";
 	c.font = "20px cursive";
 	c.fillText("$", this.x, this.y);
 	this.y += 5;
@@ -628,14 +662,14 @@ function Button(x, y, whereTo, icon) {
 Button.prototype.display = function() {
 	if(this.icon === "play") {
 		/* button outline */
-		c.strokeStyle = "#646464";
+		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 75, 0, 2 * Math.PI);
 		c.stroke();
 		/* small triangle (mouse is not over) */
 		if(!this.mouseOver) {
-			c.fillStyle = "#646464";
+			c.fillStyle = "rgb(100, 100, 100)";
 			c.beginPath();
 			c.moveTo(this.x - 15, this.y - 22.5);
 			c.lineTo(this.x - 15, this.y + 22.5);
@@ -644,7 +678,7 @@ Button.prototype.display = function() {
 		}
 		/* big triangle (mouse is over) */
 		else {
-			c.fillStyle = "#646464";
+			c.fillStyle = "rgb(100, 100, 100)";
 			c.beginPath();
 			c.moveTo(this.x - 20, this.y - 30);
 			c.lineTo(this.x - 20, this.y + 30);
@@ -654,13 +688,13 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "question") {
 		/* button outline */
-		c.strokeStyle = "#646464";
+		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
 		/* question mark */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.textAlign = "center";
 		c.save();
 		c.translate(this.x, this.y);
@@ -676,13 +710,13 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "gear") {
 		/* button outline */
-		c.strokeStyle = "#646464";
+		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
 		/* gear body */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.beginPath();
 		c.arc(this.x, this.y, 20, 0, 2 * Math.PI);
 		c.fill();
@@ -700,24 +734,24 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "dollar") {
 		/* button outline */
-		c.strokeStyle = "#646464";
+		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
 		/* dollar sign */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.font = "50px cursive";
 		c.fillText("$", this.x, this.y + 15);
 		/* dollar sign animation */
-		if(this.mouseOver && frameCount % 10 === 0) {
+		if(this.mouseOver && utilities.frameCount % 10 === 0) {
 			dollarIcons.push(new DollarIcon());
 		}
 		if(dollarIcons.length > 0) {
 			for(var x = this.x - 70; x < this.x + 70; x ++) {
 				for(var y = this.y - 70; y < this.y + 70; y ++) {
 					if(Math.dist(x, y, this.x, this.y) > 52.5) {
-						c.fillStyle = "#C8C8C8";
+						c.fillStyle = "rgb(200, 200, 200)";
 						c.fillRect(x, y, 1, 1);
 					}
 				}
@@ -736,7 +770,7 @@ Button.prototype.display = function() {
 			if(this.r > 50) {
 				this.r = 0;
 			}
-			c.strokeStyle = "#AAAAAA";
+			c.strokeStyle = "rgb(170, 170, 170)";
 			c.beginPath();
 			c.arc(this.x, this.y, this.r, 0, 2 * Math.PI);
 			c.stroke();
@@ -744,7 +778,7 @@ Button.prototype.display = function() {
 				c.save();
 				c.translate(this.x, this.y);
 				c.rotate(r);
-				c.fillStyle = "#C8C8C8";
+				c.fillStyle = "rgb(200, 200, 200)";
 				c.beginPath();
 				c.moveTo(0, 0);
 				c.lineTo(-10, -50);
@@ -754,13 +788,13 @@ Button.prototype.display = function() {
 			}
 		}
 		/* button outline */
-		c.strokeStyle = "#646464";
+		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
 		/* trophy base */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.beginPath();
 		c.arc(this.x, this.y + 23, 13, -3.14159, 0);
 		c.fill();
@@ -777,12 +811,12 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "house") {
 		/* button outline */
-		c.strokeStyle = "#646464";
+		c.strokeStyle = "rgb(100, 100, 100)";
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
 		/* house icon */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.fillRect(this.x - 20, this.y - 15, 15, 35);
 		c.fillRect(this.x - 20, this.y - 15, 40, 15);
 		c.fillRect(this.x + 5, this.y - 15, 15, 35);
@@ -806,7 +840,7 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "retry") {
 		/* button outline */
-		c.strokeStyle = "#646464";
+		c.strokeStyle = "rgb(100, 100, 100)";
 		c.beginPath();
 		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 		c.stroke();
@@ -833,7 +867,7 @@ Button.prototype.hasMouseOver = function() {
 };
 Button.prototype.checkForClick = function() {
 	if(this.mouseOver && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
-		p.onScreen = this.whereTo;
+		game.screen = this.whereTo;
 		if(this.icon === "retry" || this.icon === "play") {
 			p.reset();
 		}
@@ -844,9 +878,8 @@ var shopButton = new Button(275, 500, "shop", "dollar");
 var achievementsButton = new Button(525, 500, "achievements", "trophy");
 var homeFromDeath = new Button(266, 650, "home", "house");
 var homeFromShop = new Button(75, 75, "home", "house");
-var homeFromAcs = new Button(75, 75, "home", "house");
+var homeFromAchievements = new Button(75, 75, "home", "house");
 var retryButton = new Button(533, 650, "play", "retry");
-var currentEvent = "starting";
 
 function DoubleJumpParticle(x, y) {
 	this.x = x;
@@ -856,7 +889,7 @@ function DoubleJumpParticle(x, y) {
 };
 DoubleJumpParticle.prototype.display = function() {
 	c.globalAlpha = this.op;
-	c.strokeStyle = "#FFFF00";
+	c.strokeStyle = "rgb(255, 255, 0)";
 	c.lineWidth = 5;
 	c.beginPath();
 	c.save();
@@ -869,7 +902,11 @@ DoubleJumpParticle.prototype.display = function() {
 	this.op -= 0.02;
 	c.globalAlpha = 1;
 };
-var doubleJumpParticles = [];
+DoubleJumpParticle.prototype.update = function() {
+	if(this.op <= 0) {
+		this.splicing = true;
+	}
+};
 function ShopItem(x, y, name, description, price) {
 	this.x = x;
 	this.y = y;
@@ -893,8 +930,8 @@ ShopItem.prototype.displayLogo = function(size) {
 	c.save();
 	c.translate(this.x, this.y);
 	c.scale(size, size);
-	c.strokeStyle = "#646464";
-	c.fillStyle = "#C8C8C8";
+	c.strokeStyle = "rgb(100, 100, 100)";
+	c.fillStyle = "rgb(200, 200, 200)";
 	c.lineWidth = 5;
 	c.beginPath();
 	c.arc(0, 0, 75, 0, 2 * Math.PI);
@@ -903,13 +940,13 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.fill();
 	}
 	c.beginPath();
-	c.fillStyle = (this.equipped) ? "#646464" : "#C8C8C8";
-	c.strokeStyle = "#646464";
+	c.fillStyle = (this.equipped) ? "rgb(100, 100, 100)" : "rgb(200, 200, 200)";
+	c.strokeStyle = "rgb(100, 100, 100)";
 	c.arc(50, -50, 20, 0, 2 * Math.PI);
 	if(this.bought && this.name !== "Box of Storage") {
 		c.fill();
 		c.stroke();
-		c.fillStyle = (this.equipped) ? "#C8C8C8" : "#646464";
+		c.fillStyle = (this.equipped) ? "rgb(200, 200, 200)" : "rgb(100, 100, 100)";
 		c.textAlign = "center";
 		c.font = "bold 20px monospace";
 		c.fillText(this.upgrades + 1, 50, -45);
@@ -918,7 +955,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.save();
 		c.translate(10, 0);
 		/* body */
-		c.fillStyle = (this.bought) ? "#DFA0AB" : "#646464";
+		c.fillStyle = (this.bought) ? "rgb(223, 160, 171)" : "rgb(100, 100, 100)";
 		c.beginPath();
 		c.arc(0, 0, 30, 30, 0, 2 * Math.PI);
 		c.fill();
@@ -936,12 +973,12 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.lineTo(0, 0);
 		c.fill();
 		/* head - whitespace */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.beginPath();
 		c.arc(0 - 50, 0 - 20, 20, 0, 2 * Math.PI);
 		c.fill();
 		/* coin slot - whitespace */
-		c.strokeStyle = "#C8C8C8";
+		c.strokeStyle = "rgb(200, 200, 200)";
 		c.beginPath();
 		c.arc(0, 0, 20, 1.5 * Math.PI - 0.6, 1.5 * Math.PI + 0.6);
 		c.stroke();
@@ -949,11 +986,11 @@ ShopItem.prototype.displayLogo = function(size) {
 	}
 	else if(this.name === "Boots of Speediness") {
 		/* boots */
-		c.fillStyle = (this.bought) ? "#00DF00" : "#646464";
+		c.fillStyle = (this.bought) ? "rgb(0, 223, 0)" : "rgb(100, 100, 100)";
 		c.fillRect(0 - 10, 0 + 46, 20, 5);
 		c.fillRect(0 + 30, 0 + 46, 20, 5);
 		/* stickman body + limbs */
-		c.strokeStyle = (this.bought) ? "#000000" : "#646464";
+		c.strokeStyle = (this.bought) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(0 - 10, 0 - 10);
 		c.lineTo(0 + 10, 0 + 10);
@@ -969,13 +1006,13 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.stroke();
 		/* stickman head */
 		c.beginPath();
-		c.fillStyle = (this.bought) ? "#000000" : "#646464";
+		c.fillStyle = (this.bought) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
 		c.arc(0 - 17, 0 - 17, 10, 0, 2 * Math.PI);
 		c.fill();
 	}
 	else if(this.name === "Potion of Jumpiness") {
 		/* potion */
-		c.fillStyle = (this.bought) ? "#FFFF00" : "#646464";
+		c.fillStyle = (this.bought) ? "rgb(255, 255, 0)" : "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(0 - 5 - 4, 0 + 4);
 		c.lineTo(0 + 5 + 4, 0 + 4);
@@ -983,7 +1020,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.lineTo(0 - 25, 0 + 20);
 		c.fill();
 		/* beaker body */
-		c.strokeStyle = (this.bought) ? "#000000" : "#646464";
+		c.strokeStyle = (this.bought) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(0 - 5, 0 - 20);
 		c.lineTo(0 - 5, 0);
@@ -998,12 +1035,12 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.stroke();
 	}
 	else if(this.name === "Talisman of Intangibility") {
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.beginPath();
 		c.arc(0, 0, 30, 0, 2 * Math.PI);
 		c.fill();
 		/* gemstone */
-		c.fillStyle = (this.bought) ? "#000080" : "#C8C8C8";
+		c.fillStyle = (this.bought) ? "#000080" : "rgb(200, 200, 200)";
 		c.beginPath();
 		c.moveTo(0 - 6, 0 - 12);
 		c.lineTo(0 + 6, 0 - 12);
@@ -1014,7 +1051,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.lineTo(0 - 6, 0 - 12);
 		c.fill();
 		/* necklace threads */
-		c.strokeStyle = (this.bought) ? "rgb(138, 87, 0)" : "#646464";
+		c.strokeStyle = (this.bought) ? "rgb(138, 87, 0)" : "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(0 - 5, 0 - 29);
 		c.lineTo(0 - 15, 0 - 75);
@@ -1025,7 +1062,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.stroke();
 	}
 	else if(this.name === "Skull of Reanimation") {
-		c.fillStyle = (this.bought) ? "#FFFFFF" : "#646464";
+		c.fillStyle = (this.bought) ? "#FFFFFF" : "rgb(100, 100, 100)";
 		/* skull */
 		c.beginPath();
 		c.arc(0, 0, 30, 0, 2 * Math.PI);
@@ -1033,7 +1070,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		/* skull chin */
 		c.fillRect(0 - 15, 0 + 20, 30, 20);
 		/* eyes - whitespace */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.beginPath();
 		c.arc(0 - 13, 0 - 10, 7, 0, 2 * Math.PI);
 		c.arc(0 + 13, 0 - 10, 7, 0, 2 * Math.PI);
@@ -1044,7 +1081,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.fillRect(0 + 6, 0 + 20, 4, 20);
 	}
 	else if(this.name === "Box of Storage") {
-		c.fillStyle = (this.bought) ? "rgb(138, 87, 0)" : "#646464";
+		c.fillStyle = (this.bought) ? "rgb(138, 87, 0)" : "rgb(100, 100, 100)";
 		/* front face */
 		c.beginPath();
 		c.fillRect(0 - 30, 0 - 10, 40, 40);
@@ -1064,7 +1101,7 @@ ShopItem.prototype.displayLogo = function(size) {
 		c.lineTo(0 + 42, 0 - 40);
 		c.fill();
 		/* lines separating lid from box - whitespace */
-		c.strokeStyle = "#C8C8C8";
+		c.strokeStyle = "rgb(200, 200, 200)";
 		c.lineWidth = 2;
 		c.beginPath();
 		c.moveTo(0 - 30, 0 - 5);
@@ -1123,7 +1160,7 @@ ShopItem.prototype.displayLogo = function(size) {
 ShopItem.prototype.displayInfo = function() {
 	c.globalAlpha = (this.infoOp > 0) ? this.infoOp : 0;
 	if(this.name !== "Potion of Jumpiness" && this.name !== "Box of Storage") {
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(this.x + 75, this.y);
 		c.lineTo(this.x + 85, this.y + 10);
@@ -1131,7 +1168,7 @@ ShopItem.prototype.displayInfo = function() {
 		c.fill();
 		c.fillRect(this.x + 85, this.y - 100, 250, 200);
 		/* title */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.font = "20px monospace";
 		c.textAlign = "left";
 		if(this.name === "Talisman of Intangibility") {
@@ -1140,7 +1177,7 @@ ShopItem.prototype.displayInfo = function() {
 		c.fillText(this.name, this.x + 95, this.y - 80);
 		c.font = "20px monospace";
 		/* line */
-		c.strokeStyle = "#C8C8C8";
+		c.strokeStyle = "rgb(200, 200, 200)";
 		c.beginPath();
 		c.moveTo(this.x + 90, this.y - 70);
 		c.lineTo(this.x + 330, this.y - 70);
@@ -1219,7 +1256,7 @@ ShopItem.prototype.displayInfo = function() {
 		}
 	}
 	else {
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(this.x - 75, this.y);
 		c.lineTo(this.x - 85, this.y + 10);
@@ -1227,13 +1264,13 @@ ShopItem.prototype.displayInfo = function() {
 		c.fill();
 		c.fillRect(this.x - 335, this.y - 100, 250, 200);
 		/* title */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.font = "20px monospace";
 		c.textAlign = "left";
 		c.fillText(this.name, this.x - 325, this.y - 80);
 		c.font = "20px monospace";
 		/* line */
-		c.strokeStyle = "#C8C8C8";
+		c.strokeStyle = "rgb(200, 200, 200)";
 		c.beginPath();
 		c.moveTo(this.x - 90, this.y - 70);
 		c.lineTo(this.x - 330, this.y - 70);
@@ -1307,15 +1344,15 @@ ShopItem.prototype.displayPopup = function() {
 		intangibilityTalisman.infoOp = -0.5;
 		secondLife.infoOp = -0.5;
 		secondItem.infoOp = -0.5;
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.fillRect(250, 250, 300, 300);
 		/* title */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.textAlign = "left";
 		c.fillText("Upgrade Item", 260, 270);
 		/* line */
 		c.beginPath();
-		c.strokeStyle = "#C8C8C8";
+		c.strokeStyle = "rgb(200, 200, 200)";
 		c.moveTo(260, 280);
 		c.lineTo(540, 280);
 		c.stroke();
@@ -1441,11 +1478,6 @@ var speedIncreaser = new ShopItem(800 / 4 * 2, 800 / 3, "Boots of Speediness", "
 var doubleJumper = new ShopItem(800 / 4 * 3, 800 / 3, "Potion of Jumpiness", "Drink this potion to be able to jump higher and double jump!", 10);
 var intangibilityTalisman = new ShopItem(800 / 4, 800 / 3 * 2, "Talisman of Intangibility", "Walk through walls, floors, and enemies with this magical talisman. Press down to use.", 10);
 var secondLife = new ShopItem(800 / 4 * 2, 800 / 3 * 2, "Skull of Reanimation", "Come back from the dead! This ancient skull grants you extra lives each game.", 15);
-if(TESTING_MODE && false) {
-	secondLife.bought = true;
-	secondLife.equipped = true;
-	secondLife.upgrades = 2;
-}
 var secondItem = new ShopItem(800 / 4 * 3, 800 / 3 * 2, "Box of Storage", "Are your hands full? Carry an extra shop item with you each run.", 15);
 
 function Achievement(x, y, name) {
@@ -1457,8 +1489,8 @@ function Achievement(x, y, name) {
 };
 Achievement.prototype.displayLogo = function() {
 	/* background circle */
-	c.fillStyle = "#C8C8C8";
-	c.strokeStyle = "#646464";
+	c.fillStyle = "rgb(200, 200, 200)";
+	c.strokeStyle = "rgb(100, 100, 100)";
 	c.beginPath();
 	c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 	c.fill();
@@ -1466,7 +1498,7 @@ Achievement.prototype.displayLogo = function() {
 	if(this.name === "I Survived") {
 		/* rays of light */
 		for(var r = 0; r < 2 * Math.PI; r += 2 * Math.PI / 6) {
-			c.fillStyle = (this.progress === 100) ? "#FF8000" : "#C8C8C8";
+			c.fillStyle = (this.progress === 100) ? "rgb(255, 128, 0)" : "rgb(200, 200, 200)";
 			c.save();
 			c.translate(this.x, this.y);
 			c.rotate(r);
@@ -1478,7 +1510,7 @@ Achievement.prototype.displayLogo = function() {
 		}
 		/* stickman */
 		c.beginPath();
-		c.strokeStyle = (this.progress === 100) ? "#000000" : "#646464";
+		c.strokeStyle = (this.progress === 100) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
 		c.moveTo(this.x - 20, this.y + 25);
 		c.lineTo(this.x - 20, this.y + 10);
 		c.lineTo(this.x + 20, this.y + 10);
@@ -1490,13 +1522,13 @@ Achievement.prototype.displayLogo = function() {
 		c.lineTo(this.x + 20, this.y - 10);
 		c.lineTo(this.x + 20, this.y - 30);
 		c.stroke();
-		c.fillStyle = (this.progress === 100) ? "#000000" : "#646464";
+		c.fillStyle = (this.progress === 100) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
 		c.beginPath();
 		c.arc(this.x, this.y - 17, 10, 0, 2 * Math.PI);
 		c.fill();
 	}
 	else if(this.name === "Survivalist") {
-		c.fillStyle = (this.progress === 100) ? "#FF0000" : "#646464";
+		c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(this.x - 30, this.y);
 		c.lineTo(this.x + 30, this.y);
@@ -1514,7 +1546,7 @@ Achievement.prototype.displayLogo = function() {
 		c.save();
 		c.translate(this.x - 20, this.y);
 		c.scale(0.5, 0.5);
-		c.fillStyle = (this.progress === 100) ? "#FF0000" : "#646464";
+		c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(-30, 0);
 		c.lineTo(30, 0);
@@ -1531,7 +1563,7 @@ Achievement.prototype.displayLogo = function() {
 		c.save();
 		c.translate(this.x + 20, this.y);
 		c.scale(0.5, 0.5);
-		c.fillStyle = (this.progress === 100) ? "#FF0000" : "#646464";
+		c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(-30, 0);
 		c.lineTo(30, 0);
@@ -1547,7 +1579,7 @@ Achievement.prototype.displayLogo = function() {
 	}
 	else if(this.name === "What are the Odds") {
 		/* front face */
-		c.fillStyle = (this.progress === 100) ? "#0080FF" : "#646464";
+		c.fillStyle = (this.progress === 100) ? "" : "rgb(100, 100, 100)";
 		c.fillRect(this.x - 20 - 6, this.y - 10 + 6, 30, 30);
 		/* top face */
 		c.beginPath();
@@ -1564,7 +1596,7 @@ Achievement.prototype.displayLogo = function() {
 		c.lineTo(this.x + 32 - 6, this.y - 30 + 6);
 		c.fill();
 		/* die 1 - whitespace */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.save();
 		c.translate(this.x  - 1, this.y - 15);
 		c.scale(1, 0.75);
@@ -1599,19 +1631,19 @@ Achievement.prototype.displayLogo = function() {
 
 	}
 	else if(this.name === "Moneybags") {
-		c.fillStyle = (this.progress === 100) ? "#FFFF00" : "#646464";
+		c.fillStyle = (this.progress === 100) ? "rgb(255, 255, 0)" : "rgb(100, 100, 100)";
 		c.font = "bold 40px monospace";
 		c.textAlign = "center";
 		c.fillText("$", this.x, this.y + 12);
 	}
 	else if(this.name === "Extreme Moneybags") {
-		c.fillStyle = (this.progress === 100) ? "#FFFF00" : "#646464";
+		c.fillStyle = (this.progress === 100) ? "rgb(255, 255, 0)" : "rgb(100, 100, 100)";
 		c.font = "bold 40px monospace";
 		c.textAlign = "center";
 		c.fillText("$$", this.x, this.y + 12);
 	}
 	else if(this.name === "Improvement") {
-		c.fillStyle = (this.progress === 100) ? "#008000" : "#646464";
+		c.fillStyle = (this.progress === 100) ? "rgb(0, 128, 0)" : "rgb(100, 100, 100)";
 		c.font = "bold 50px monospace";
 		c.textAlign = "center";
 		c.fillText("+", this.x, this.y + 12);
@@ -1639,7 +1671,7 @@ Achievement.prototype.displayLogo = function() {
 	else if(this.name === "Ghost") {
 		c.save();
 		c.translate(0, 5);
-		c.fillStyle = (this.progress === 100) ? "#FFFFFF" : "#646464";
+		c.fillStyle = (this.progress === 100) ? "rgb(255, 255, 255)" : "rgb(100, 100, 100)";
 		c.fillRect(this.x - 15, this.y - 15, 30, 30);
 		c.beginPath();
 		c.arc(this.x, this.y - 15, 15, Math.PI, 2 * Math.PI);
@@ -1655,7 +1687,7 @@ Achievement.prototype.displayLogo = function() {
 		c.arc(this.x + 12, this.y + 15, 3, 0, Math.PI);
 		c.fill();
 		/* wavy bits - whitespace */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.beginPath();
 		c.arc(this.x - 6, this.y + 15, 3, Math.PI, 2 * Math.PI);
 		c.fill();
@@ -1676,7 +1708,7 @@ Achievement.prototype.displayInfo = function() {
 	c.globalAlpha = (this.infoOp > 0) ? this.infoOp : 0;
 	if(this.x < 450) {
 		/* info box */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(this.x + 50, this.y);
 		c.lineTo(this.x + 60, this.y - 10);
@@ -1684,12 +1716,12 @@ Achievement.prototype.displayInfo = function() {
 		c.fill();
 		c.fillRect(this.x + 60, this.y - 100, 250, 200);
 		/* title */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.font = "20px monospace";
 		c.textAlign = "left";
 		c.fillText(this.name, this.x + 70, this.y - 80);
 		/* line */
-		c.strokeStyle = "#C8C8C8";
+		c.strokeStyle = "rgb(200, 200, 200)";
 		c.beginPath();
 		c.moveTo(this.x + 65, this.y - 70);
 		c.lineTo(this.x + 305, this.y - 70);
@@ -1736,7 +1768,7 @@ Achievement.prototype.displayInfo = function() {
 	}
 	else {
 		/* info box */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.beginPath();
 		c.moveTo(this.x - 50, this.y);
 		c.lineTo(this.x - 60, this.y - 10);
@@ -1744,12 +1776,12 @@ Achievement.prototype.displayInfo = function() {
 		c.fill();
 		c.fillRect(this.x - 310, this.y - 100, 250, 200);
 		/* title */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.font = "20px monospace";
 		c.textAlign = "left";
 		c.fillText(this.name, this.x - 300, this.y - 80);
 		/* line */
-		c.strokeStyle = "#C8C8C8";
+		c.strokeStyle = "rgb(200, 200, 200)";
 		c.beginPath();
 		c.moveTo(this.x - 65, this.y - 70);
 		c.lineTo(this.x - 305, this.y - 70);
@@ -1792,7 +1824,7 @@ Achievement.prototype.displayInfo = function() {
 Achievement.prototype.checkProgress = function() {
 	switch(this.name) {
 		case "I Survived":
-			this.progress = (p.eventsSurvived.length / theEvents.length) * 100;
+			this.progress = (p.eventsSurvived.length / game.events.length) * 100;
 			break;
 		case "Survivalist":
 			var theHighscore = p.score > p.highScore ? p.score : p.highScore;
@@ -1849,19 +1881,19 @@ Achievement.prototype.checkProgress = function() {
 	this.progress = Math.ceil(this.progress * 10) / 10;
 	this.progress = Math.min(this.progress, 100);
 	if(this.progress >= 100 && this.previousProgress < 100) {
-		chatMessages.push(new ChatMessage("Achievement Earned: " + this.name, "#FFFF00"));
+		game.chatMessages.push(new ChatMessage("Achievement Earned: " + this.name, "rgb(255, 255, 0)"));
 	}
 	this.previousProgress = this.progress;
 }
-var ac1 = new Achievement(200, 200, "I Survived");
-var ac2 = new Achievement(400, 200, "Survivalist");
-var ac3 = new Achievement(600, 200, "Extreme Survivalist");
-var ac4 = new Achievement(200, 400, "What are the Odds");
-var ac5 = new Achievement(400, 400, "Moneybags");
-var ac6 = new Achievement(600, 400, "Extreme Moneybags");
-var ac7 = new Achievement(200, 600,  "Improvement");
-var ac8 = new Achievement(400, 600, "Places to Be");
-var ac9 = new Achievement(600, 600, "Ghost");
+var achievement1 = new Achievement(200, 200, "I Survived");
+var achievement2 = new Achievement(400, 200, "Survivalist");
+var achievement3 = new Achievement(600, 200, "Extreme Survivalist");
+var achievement4 = new Achievement(200, 400, "What are the Odds");
+var achievement5 = new Achievement(400, 400, "Moneybags");
+var achievement6 = new Achievement(600, 400, "Extreme Moneybags");
+var achievement7 = new Achievement(200, 600,  "Improvement");
+var achievement8 = new Achievement(400, 600, "Places to Be");
+var achievement9 = new Achievement(600, 600, "Ghost");
 
 function Coin(x, y, timeToAppear, indestructible) {
 	this.x = x;
@@ -1874,7 +1906,7 @@ function Coin(x, y, timeToAppear, indestructible) {
 };
 Coin.prototype.display = function() {
 	if(this.age > this.timeToAppear) {
-		c.fillStyle = "#FFFF00";
+		c.fillStyle = "rgb(255, 255, 0)";
 		c.save();
 		c.translate(this.x, this.y + p.worldY);
 		c.scale(this.spin, 1);
@@ -1893,8 +1925,19 @@ Coin.prototype.update = function() {
 		this.spinDir = 0.05;
 	}
 	this.age ++;
+	if(p.x + 5 > this.x - 20 && p.x - 5 < this.x + 20 && p.y + 46 > this.y + p.worldY - 20 && p.y < this.y + 20 + p.worldY && this.age > this.timeToAppear && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades < 2)) {
+		this.splicing = true;
+		p.coins += (coinDoubler.equipped) ? 2 : 1;
+	}
+	if(coinDoubler.equipped && coinDoubler.upgrades === 1 && Math.dist(this.x, this.y, p.x, p.y) < 200 && this.age > this.timeToAppear) {
+		this.x += (p.x - this.x) / 10;
+		this.y += (p.y - this.y) / 10;
+	}
+	if(coinDoubler.equipped && coinDoubler.upgrades === 2 && this.age > this.timeToAppear) {
+		this.x += (p.x - this.x) / 10;
+		this.y += (p.y - this.y) / 10;
+	}
 };
-var coins = [];
 function ChatMessage(msg, col) {
 	this.msg = msg;
 	this.col = col;
@@ -1907,7 +1950,6 @@ ChatMessage.prototype.display = function(y) {
 	c.fillText(this.msg, 790, y);
 	this.time --;
 };
-var chatMessages = [];
 /* laser event */
 function Explosion(x, y) {
 	this.x = x;
@@ -1917,7 +1959,8 @@ function Explosion(x, y) {
 	this.opacity = 1;
 };
 Explosion.prototype.display = function() {
-	c.strokeStyle = "#FF8000";
+	this.opacity = Math.max(this.opacity, 0);
+	c.strokeStyle = "rgb(255, 128, 0)";
 	c.globalAlpha = this.opacity;
 	c.lineWidth = this.width;
 	c.beginPath();
@@ -1933,8 +1976,12 @@ Explosion.prototype.update = function() {
 	if((Math.dist(this.x, this.y + p.worldY, p.x - 10, p.y) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x + 10, p.y) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x - 10, p.y + 46) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x + 10, p.y + 45) <= this.size) && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("laser");
 	}
+	if(this.opacity <= 0) {
+		this.splicing = true;
+		p.surviveEvent("laser");
+		game.addEvent();
+	}
 };
-var explosions = [];
 function Laser() {
 	this.x = Math.random() * 800;
 	this.y = Math.random() * 800;
@@ -1945,7 +1992,10 @@ function Laser() {
 	this.blinking = false;
 };
 Laser.prototype.display = function() {
-	c.strokeStyle = "#FF0000";
+	if(this.blinking) {
+		return;
+	}
+	c.strokeStyle = "rgb(255, 0, 0)";
 	c.beginPath();
 	c.arc(this.x, this.y + p.worldY, 50, 0, 2 * Math.PI);
 	c.moveTo(this.x, this.y + p.worldY - 60);
@@ -1979,14 +2029,81 @@ Laser.prototype.update = function() {
 			this.numBlinks ++;
 		}
 		if(this.numBlinks > 6) {
-			explosions.push(new Explosion(this.x, this.y));
+			game.objects.push(new Explosion(this.x, this.y));
+			game.objects.push(new Coin(this.x, this.y));
+			this.splicing = true;
 		}
 	}
 };
-var lasers = [];
 /* rising acid event */
-var acidY = 850;
-var acidRise = 0;
+function Acid() {
+	this.y = 850;
+	this.velY = 0;
+};
+Acid.prototype.display = function() {
+	for(var x = 0; x < 800; x ++) {
+		var brightness = Math.random() * 30;
+		c.fillStyle = "rgb(" + brightness + ", 255, " + brightness + ")";
+		c.fillRect(x, this.y + p.worldY + Math.sin(x / 10) * 10 * Math.sin(utilities.frameCount / 10), 1, 800);
+	}
+};
+Acid.prototype.update = function() {
+	/* update position */
+	this.y += this.velY;
+	if(this.y < 600 && this.velY < 0) {
+		/* screen scrolling */
+		p.worldY -= this.velY;
+		p.y -= this.velY;
+	}
+	if(this.y < -100) {
+		this.stopRising();
+	}
+	if(this.velY > 0 && this.y >= 850) {
+		this.velY = 0;
+		this.y = 850;
+		p.surviveEvent("acid");
+		game.addEvent();
+		this.splicing = true;
+	}
+	/* player collisions */
+	if(p.y + 46 > this.y + p.worldY) {
+		p.die("acid");
+		if(p.invincible) {
+			p.velY = Math.min(-5, p.velY);
+			if(input.keys[38]) {
+				p.velY = Math.min(-8.5, p.velY);
+			}
+		}
+	}
+};
+Acid.prototype.beginRising = function() {
+	this.velY = -2;
+	game.objects.push(new Platform(320, 40, 160, 20));
+	game.objects.push(new Platform(0, -135, 160, 20));
+	game.objects.push(new Platform(800 - 160, -135, 160, 20));
+	game.objects.push(new Platform(320, -310, 160, 20));
+	game.objects.push(new Platform(0, -485, 160, 20));
+	game.objects.push(new Platform(800 - 160, -485, 160, 20));
+	for(var i = 0; i < game.objects.length; i ++) {
+		if(game.objects[i] instanceof Platform && game.objects[i].y <= 210) {
+			game.objects[i].opacity = 0;
+		}
+	}
+	game.objects.push(new Coin(400, 0, 0, true));
+	game.chatMessages.push(new ChatMessage("The tides are rising...", "rgb(255, 128, 0)"));
+};
+Acid.prototype.stopRising = function() {
+	this.velY = 1;
+	/* shift everything down back to the original playing area */
+	p.worldY = 0;
+	this.y += 700;
+	/* delete platforms from acid rise */
+	for(var i = 0; i < game.objects.length; i ++) {
+		if(game.objects[i] instanceof Platform && game.objects[i].y < 200) {
+			game.objects[i].splicing = true;
+		}
+	}
+};
 /* boulders event */
 function Boulder(x, y, velX) {
 	this.x = x;
@@ -1996,7 +2113,7 @@ function Boulder(x, y, velX) {
 	this.numBounces = 0;
 };
 Boulder.prototype.display = function() {
-	c.fillStyle = "#646464";
+	c.fillStyle = "rgb(100, 100, 100)";
 	c.beginPath();
 	c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
 	c.fill();
@@ -2005,8 +2122,8 @@ Boulder.prototype.update = function() {
 	this.x += this.velX;
 	this.y += this.velY;
 	this.velY += 0.1;
-	for(var i = 0; i < platforms.length; i ++) {
-		if(this.x + 50 > platforms[i].x && this.x - 50 < platforms[i].x + platforms[i].w && this.y + 50 > platforms[i].y && this.y + 50 < platforms[i].y + 10) {
+	for(var i = 0; i < game.objects.length; i ++) {
+		if(game.objects[i] instanceof Platform && this.x + 50 > game.objects[i].x && this.x - 50 < game.objects[i].x + game.objects[i].w && this.y + 50 > game.objects[i].y && this.y + 50 < game.objects[i].y + 10) {
 			this.numBounces ++;
 			if(this.numBounces === 1) {
 				this.velY = -4;
@@ -2019,8 +2136,18 @@ Boulder.prototype.update = function() {
 			}
 		}
 	}
+	/* killing player */
 	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 50 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 50 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 50 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 50) && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("boulder");
+	}
+	/* delete self if off-screen */
+	if((this.velX < 0 && this.x < 50) || (this.velX > 0 && this.x > 750)) {
+		for(var j = 0; j < 10; j ++) {
+			game.objects.push(new RockParticle(Math.random() * 20 + this.x, Math.random() * 20 + this.y));
+		}
+		game.objects.push(new Coin(this.x, this.y));
+		this.splicing = true;
+		p.surviveEvent("boulder");
 	}
 };
 function RockParticle(x, y) {
@@ -2030,7 +2157,7 @@ function RockParticle(x, y) {
 	this.velY = Math.random(-1, -2);
 };
 RockParticle.prototype.display = function() {
-	c.fillStyle = "#646464";
+	c.fillStyle = "rgb(100, 100, 100)";
 	c.beginPath();
 	c.arc(this.x, this.y, 10, 0, 2 * Math.PI);
 	c.fill();
@@ -2040,9 +2167,15 @@ RockParticle.prototype.update = function() {
 	this.y += this.velY;
 	this.velY += 0.1;
 	this.velX *= 0.96;
+	if(this.y > 850) {
+		this.splicing = true;
+		if(game.numObjects(RockParticle) === 1) {
+			/* This is the last rock particle, so end the event */
+			game.addEvent();
+			p.surviveEvent("boulders");
+		}
+	}
 };
-var rockParticles = [];
-var boulders = [];
 /* spinny blades event */
 function SpinnyBlade(x, y) {
 	this.x = x;
@@ -2052,7 +2185,7 @@ function SpinnyBlade(x, y) {
 	this.opacity = 0;
 };
 SpinnyBlade.prototype.display = function() {
-	c.fillStyle = "#D7D7D7";
+	c.fillStyle = "rgb(215, 215, 215)";
 	c.globalAlpha = this.opacity;
 	c.save();
 	c.translate(this.x, this.y + p.worldY);
@@ -2071,15 +2204,10 @@ SpinnyBlade.prototype.display = function() {
 	c.globalAlpha = 1;
 };
 SpinnyBlade.prototype.update = function() {
-	if(pastWorldY !== p.worldY || this.endPointArray === undefined) {
-		this.endPointArray = Math.findPointsCircular(this.x, this.y + p.worldY, 80);
-	}
 	if(this.opacity >= 1) {
 		this.r += 0.02;
 	}
-	if(this.r > 2 * Math.PI) {
-		this.r -= 2 * Math.PI;
-	}
+	this.r -= (this.r > 2 * Math.PI ? 2 * Math.PI : 0);
 	if(this.r > 0.5 * Math.PI - 0.01 && this.r < 0.5 * Math.PI + 0.01 && this.opacity >= 1) {
 		this.numRevolutions ++;
 	}
@@ -2089,17 +2217,26 @@ SpinnyBlade.prototype.update = function() {
 	if(this.opacity > 0 && this.numRevolutions >= 2) {
 		this.opacity -= 0.05;
 	}
-	var spinPercent = this.r / (2 * Math.PI);
-	var ep1 = this.endPointArray[Math.floor(spinPercent * this.endPointArray.length)];
-	var ep2 = this.endPointArray[Math.floor((spinPercent + ((spinPercent < 0.5) ? 0.5 : -0.5)) * this.endPointArray.length)];
-	var bladeArray = Math.findPointsLinear(ep1.x, ep1.y, ep2.x, ep2.y);
+	var endPoint1 = Math.rotate(0, -80, this.r);
+	var endPoint2 = { x: -endPoint1.x, y: -endPoint1.y };
+	endPoint1.x += this.x; endPoint2.x += this.x;
+	endPoint1.y += this.y; endPoint2.y += this.y;
+	var bladeArray = Math.findPointsLinear(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y);
 	for(var i = 0; i < bladeArray.length; i ++) {
 		if(bladeArray[i].x > p.x - 5 && bladeArray[i].x < p.x + 5 && bladeArray[i].y > p.y && bladeArray[i].y < p.y + 46 && !(input.keys[40] && intangibilityTalisman.equipped)) {
 			p.die("spinnyblades");
 		}
 	}
+	if(this.opacity <= 0 && this.numRevolutions >= 2) {
+		this.splicing = true;
+		p.surviveEvent("spinnyblades");
+		if(game.numObjects(SpinnyBlade) === 1) {
+			/* This is the last spinnyblade, so end the event */
+			p.surviveEvent("spinnyblades");
+			game.addEvent();
+		}
+	}
 };
-var spinnyBlades = [];
 /* jumping pirhanas event */
 function Pirhana(x) {
 	this.x = x;
@@ -2110,7 +2247,7 @@ function Pirhana(x) {
 	this.mouthVel = 0;
 };
 Pirhana.prototype.display = function() {
-	c.fillStyle = "#008000";
+	c.fillStyle = "rgb(0, 128, 0)";
 	c.save();
 	c.translate(this.x, this.y);
 	c.scale(1, this.scaleY);
@@ -2150,8 +2287,14 @@ Pirhana.prototype.update = function() {
 	if(p.x + 5 > this.x - 25 && p.x - 5 < this.x + 25 && p.y + 46 > this.y - 25 && p.y < this.y + 37 && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("pirhanas");
 	}
+	if(this.y > 850 && this.velY > 0) {
+		this.splicing = true;
+		if(game.numObjects(Pirhana) === 1) {
+			game.addEvent();
+			p.surviveEvent("pirhanas");
+		}
+	}
 };
-var pirhanas = [];
 /* giant pacman event */
 function Dot(x, y, timeToAppear) {
 	this.x = x;
@@ -2160,7 +2303,7 @@ function Dot(x, y, timeToAppear) {
 };
 Dot.prototype.display = function() {
 	if(this.timeToAppear <= 0) {
-		c.fillStyle = "#FFFFFF";
+		c.fillStyle = "rgb(255, 255, 255)";
 		c.beginPath();
 		c.arc(this.x, this.y, 20, 0, 2 * Math.PI);
 		c.fill();
@@ -2169,7 +2312,6 @@ Dot.prototype.display = function() {
 Dot.prototype.update = function() {
 	this.timeToAppear --;
 };
-var dots = [];
 function Pacman(x, y, velX) {
 	this.x = x;
 	this.y = y;
@@ -2178,7 +2320,7 @@ function Pacman(x, y, velX) {
 	this.mouthVel = -0.01;
 };
 Pacman.prototype.display = function() {
-	c.fillStyle = "#FFFF00";
+	c.fillStyle = "rgb(255, 255, 0)";
 	c.save();
 	c.translate(this.x, this.y);
 	c.rotate(this.r);
@@ -2211,8 +2353,21 @@ Pacman.prototype.update = function() {
 	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 200 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 200 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 200 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 200) && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("pacmans");
 	}
+	/* remove dots when eaten */
+	for(var i = 0; i < game.objects.length; i ++) {
+		if(game.objects[i] instanceof Dot && game.objects[i].y === this.y && ((game.objects[i].x < this.x - 20 && this.velX > 0) || (game.objects[i].x > this.x + 20 && this.velX < 0))) {
+			game.objects[i].splicing = true;
+		}
+	}
+	/* remove self when off screen */
+	if((this.x > 1200 && this.velX > 0) || (this.x < -200 && this.velX < 0)) {
+		this.splicing = true;
+		if(game.numObjects(Pacman) === 1) {
+			game.addEvent();
+			p.surviveEvent("pacmans");
+		}
+	}
 };
-var pacmans = [];
 /* rocket event */
 function FireParticle(x, y) {
 	this.x = x;
@@ -2232,19 +2387,23 @@ FireParticle.prototype.display = function() {
 	}
 	c.fill();
 	c.globalAlpha = 1;
+};
+FireParticle.prototype.update = function() {
 	this.opacity -= 0.01;
 	this.size -= 0.5;
 	this.x += this.velX;
 	this.y += this.velY;
+	if(this.size <= 0) {
+		this.splicing = true;
+	}
 };
-var fireParticles = [];
 function Rocket(x, y, velX) {
 	this.x = x;
 	this.y = y;
 	this.velX = velX;
 };
 Rocket.prototype.display = function() {
-	c.fillStyle = "#646464";
+	c.fillStyle = "rgb(100, 100, 100)";
 	if(this.velX > 0) {
 		c.fillRect(this.x, this.y, 50, 20);
 		/* tip */
@@ -2290,8 +2449,8 @@ Rocket.prototype.display = function() {
 };
 Rocket.prototype.update = function() {
 	this.x += this.velX;
-	if(frameCount % 1 === 0) {
-		fireParticles.push(new FireParticle(this.x, this.y + 10));
+	if(utilities.frameCount % 1 === 0) {
+		game.objects.push(new FireParticle(this.x, this.y + 10));
 	}
 	if(this.velX > 0) {
 		if(p.x + 5 > this.x - 50 && p.x - 5 < this.x + 100 && p.y + 46 > this.y && p.y < this.y + 10 && !(input.keys[40] && intangibilityTalisman.equipped)) {
@@ -2303,8 +2462,17 @@ Rocket.prototype.update = function() {
 			p.die("rocket");
 		}
 	}
+	/* remove self if off-screen */
+	if(this.x < -100 || this.x > 900) {
+		this.splicing = true;
+		game.addEvent();
+		p.surviveEvent("rocket");
+	}
+	/* add coin if in middle of screen */
+	if(this.x > 398 && this.x < 402) {
+		game.objects.push(new Coin(this.x, this.y + 5));
+	}
 };
-var rockets = [];
 /* spikeball event */
 function Spikeball(velX, velY) {
 	this.x = 400;
@@ -2315,29 +2483,6 @@ function Spikeball(velX, velY) {
 	this.age = 0;
 	this.opacity = 0;
 	this.fadedIn = false;
-};
-Spikeball.prototype.display = function() {
-	c.globalAlpha = this.opacity;
-	/* spike "ball" */
-	c.fillStyle = "#646464";
-	c.strokeStyle = "#646464";
-	c.beginPath();
-	c.arc(this.x, this.y, 12, 0, 2 * Math.PI);
-	c.fill();
-	/* spikes */
-	c.fillStyle = "#646464";
-	for(var r = 0; r < 2 * Math.PI; r += 2 * Math.PI / 10) {
-		c.save();
-		c.translate(this.x, this.y);
-		c.rotate(r + this.r);
-		c.beginPath();
-		c.moveTo(-10, -10);
-		c.lineTo(0, -30);
-		c.lineTo(10, -10);
-		c.fill();
-		c.restore();
-	}
-	c.globalAlpha = 1;
 };
 Spikeball.prototype.display = function() {
 	c.fillStyle = "rgb(150, 150, 155)";
@@ -2382,6 +2527,7 @@ Spikeball.prototype.update = function() {
 	}
 	/* platform + wall collisions */
 	if(this.age > 20) {
+		var platforms = game.getObjectsByType(Platform);
 		for(var i = 0; i < platforms.length; i ++) {
 			if(this.x + 30 > platforms[i].x && this.x - 30 < platforms[i].x + platforms[i].w && this.y + 30 > platforms[i].y && this.y + 30 < platforms[i].y + 6) {
 				this.velY = -this.velY;
@@ -2407,8 +2553,15 @@ Spikeball.prototype.update = function() {
 	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 30) && this.age > 20 && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		p.die("spikeballs");
 	}
+	/* remove self if faded out */
+	if(this.opacity <= 0) {
+		this.splicing = true;
+		if(game.numObjects(Spikeball) === 1) {
+			game.addEvent();
+			p.surviveEvent("spikeballs");
+		}
+	}
 };
-var spikeballs = [];
 /* spike wall event */
 function Spikewall(x) {
 	this.fastSpeed = 10;
@@ -2417,13 +2570,13 @@ function Spikewall(x) {
 	this.velX = (x < 400) ? this.fastSpeed : -this.fastSpeed;
 };
 Spikewall.prototype.display = function() {
-	c.strokeStyle = "#D7D7D7";
-	c.fillStyle = "#646464";
+	c.strokeStyle = "rgb(215, 215, 215)";
+	c.fillStyle = "rgb(100, 100, 100)";
 	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed) {
 		c.fillRect(this.x - 800, 0, 800, 800);
 		c.strokeRect(this.x - 800, 0, 800, 800);
 		for(var y = 0; y < 800; y += 40) {
-			c.fillStyle = "#D7D7D7";
+			c.fillStyle = "rgb(215, 215, 215)";
 			c.beginPath();
 			c.moveTo(this.x, y);
 			c.lineTo(this.x, y + 40);
@@ -2434,7 +2587,7 @@ Spikewall.prototype.display = function() {
 	else {
 		c.fillRect(this.x, 0, 800, 800);
 		for(var y = 0; y < 800; y += 40) {
-			c.fillStyle = "#D7D7D7";
+			c.fillStyle = "rgb(215, 215, 215)";
 			c.beginPath();
 			c.moveTo(this.x, y);
 			c.lineTo(this.x, y + 40);
@@ -2447,488 +2600,69 @@ Spikewall.prototype.update = function() {
 	this.x += this.velX;
 	if(this.velX === this.fastSpeed && this.x > 250) {
 		this.velX = -this.slowSpeed;
-		coins.push(new Coin(80, (Math.random() < 0.5) ? 175 : 525));
+		game.objects.push(new Coin(80, (Math.random() < 0.5) ? 175 : 525));
 	}
 	if(this.velX === -this.fastSpeed && this.x < 550) {
 		this.velX = this.slowSpeed;
-		coins.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
+		game.objects.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
 	}
 	if(this.velX === -this.fastSpeed || this.velX === this.slowSpeed) {
 		if(p.x + 5 > this.x && !(input.keys[40] && intangibilityTalisman.equipped)) {
-			p.die("spike wall");
+			p.die("spikewall");
 		}
 	}
 	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed && !(input.keys[40] && intangibilityTalisman.equipped)) {
 		if(p.x - 5 < this.x) {
-			p.die("spike wall");
+			p.die("spikewall");
 		}
 	}
+	if((this.velX < 0 && this.x < -50) || (this.velX > 0 && this.x > 850)) {
+		this.splicing = true;
+		game.addEvent();
+		p.surviveEvent("spikewall");
+	}
 };
-var spikewalls = [];
 /* lasting effects (blindness, confusion, nausea) */
-function removeEffects() {
-	theEvents.removeAll("blindness");
-	theEvents.removeAll("confusion");
-	theEvents.removeAll("nausea");
-};
-function addEffects() {
-	if(!theEvents.includes("blindness")) {
-		theEvents.push("blindness");
-	}
-	if(!theEvents.includes("confusion")) {
-		theEvents.push("confusion");
-	}
-	if(!theEvents.includes("nausea")) {
-		theEvents.push("nausea");
-	}
-};
-/* generic event selection + running */
-var theEvents = ["laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rockets", "spikeballs", "block shuffle", "spike wall", "confusion", "blindness", "nausea"];
-theEvents = TESTING_MODE ? ["block shuffle"] : theEvents;
-
-/* game */
-function addEvent() {
-	p.score ++;
-	var eventIndex = Math.floor(Math.random() * theEvents.length);
-	currentEvent = theEvents[eventIndex];
-	if(currentEvent === p.previousEvent) {
-		p.repeatedEvent = true;
-	}
-	p.previousEvent = currentEvent;
-	if(p.score === p.highScore + 1) {
-		p.numRecords ++;
-		chatMessages.push(new ChatMessage("New Record!", "#0000FF"));
-	}
-	if(currentEvent === "laser") {
-		lasers.push(new Laser());
-		chatMessages.push(new ChatMessage("Laser incoming!", "#FF8000"));
-	}
-	if(currentEvent === "acid") {
-		acidRise = -2;
-		platforms.push(new Platform(320, 40, 160, 20));
-		platforms.push(new Platform(0, -135, 160, 20));
-		platforms.push(new Platform(800 - 160, -135, 160, 20));
-		platforms.push(new Platform(320, -310, 160, 20));
-		platforms.push(new Platform(0, -485, 160, 20));
-		platforms.push(new Platform(800 - 160, -485, 160, 20));
-		for(var i = 0; i < platforms.length; i ++) {
-			if(platforms[i].y <= 210) {
-				platforms[i].opacity = 0;
-			}
+var effects = {
+	remove: function() {
+		game.events.removeAll("blindness");
+		game.events.removeAll("confusion");
+		game.events.removeAll("nausea");
+	},
+	add: function() {
+		if(!game.events.includes("blindness")) {
+			game.events.push("blindness");
 		}
-		coins.push(new Coin(400, 0, 0, true));
-		chatMessages.push(new ChatMessage("The tides are rising...", "#FF8000"));
-	}
-	if(currentEvent === "boulder") {
-		var chooser = Math.random();
-		chatMessages.push(new ChatMessage("Boulder incoming!", "#FF8000"));
-		if(chooser < 0.5) {
-			boulders.push(new Boulder(850, 100, -3));
+		if(!game.events.includes("confusion")) {
+			game.events.push("confusion");
 		}
-		else {
-			boulders.push(new Boulder(-50, 100, 3));
+		if(!game.events.includes("nausea")) {
+			game.events.push("nausea");
 		}
-	}
-	if(currentEvent === "spinnyblades") {
-		chatMessages.push(new ChatMessage("Spinning blades are appearing", "#FF8000"));
-		for(var i = 0; i < platforms.length; i ++) {
-			spinnyBlades.push(new SpinnyBlade(platforms[i].x + 80, platforms[i].y + 10));
-		}
-	}
-	if(currentEvent === "pirhanas") {
-		chatMessages.push(new ChatMessage("Jumping pirhanas incoming!", "#FF8000"));
-		/* fancy algorithm to make sure none of the pirhanas are touching */
-		var doneIt = false;
-		while(!doneIt) {
-			pirhanas = [];
-			pirhanas.push(new Pirhana(Math.random() * 700 + 50));
-			pirhanas.push(new Pirhana(Math.random() * 700 + 50));
-			pirhanas.push(new Pirhana(Math.random() * 700 + 50));
-			doneIt = true;
-			for(var i = 0; i < pirhanas.length; i ++) {
-				/* check if they collide */
-				for(var j = 0; j < pirhanas.length; j ++) {
-					if(i !== j && Math.abs(pirhanas[i].x - pirhanas[j].x) < 75) {
-						doneIt = false;
-					}
-				}
-			}
-		}
-	}
-	if(currentEvent === "pacmans") {
-		chatMessages.push(new ChatMessage("Pacmans incoming!", "#FF8000"));
-		var coinNum = Math.round(Math.random() * 11 + 1) * 60;
-		coinNum = 7 * 60;
-		for(var x = 0; x < 800; x += 60) {
-			if(x === coinNum) {
-				coins.push(new Coin(x, 200, x * 0.25));
-			} else {
-				dots.push(new Dot(x, 200, x * 0.25));
-			}
-			dots.push(new Dot(800 - x, 600, x * 0.25));
-		}
-		pacmans.push(new Pacman(-200, 200, 1.5));
-		pacmans.push(new Pacman(1000, 600, -1.5));
-	}
-	if(currentEvent === "rockets") {
-		chatMessages.push(new ChatMessage("Rocket incoming!", "#FF8000"));
-		if(p.x > 400) {
-			rockets.push(new Rocket(-50, p.y, 6));
-		}
-		else {
-			rockets.push(new Rocket(850, p.y, -6));
-		}
-	}
-	if(currentEvent === "spikeballs") {
-		chatMessages.push(new ChatMessage("Spikeballs incoming!", "#FF8000"));
-		var angles = [];
-		var buffer = 30;
-		for(var i = 0; i < 360; i ++) {
-			if((i > 90 - buffer && i < 90 + buffer) || (i > 270 - buffer && i < 270 + buffer)) {
-				continue;
-			}
-			angles.push(i);
-		}
-		for(var i = 0; i < 3; i ++) {
-			var index = Math.floor(Math.random() * (angles.length - 1));
-			var angle = angles[index];
-			for(var j = 0; j < angles.length; j ++) {
-				var distanceBetweenAngles = Math.min(Math.abs(angle - angles[j]), Math.abs((angle + 360) - angles[j]), Math.abs((angle - 360) - angles[j]));
-				if(distanceBetweenAngles < buffer) {
-					angles.splice(j, 1);
-					j --;
-					continue;
-				}
-			}
-			var angleRadians = angle / 180 * Math.PI;
-			var velocity = Math.rotateDegrees(0, -5, angle);
-			spikeballs.push(new Spikeball(velocity.x, velocity.y));
-		}
-	}
-	if(currentEvent === "block shuffle") {
-		chatMessages.push(new ChatMessage("The blocks are shuffling", "#FF8000"));
-		for(var i = 0; i < platforms.length; i ++) {
-			if(platforms[i].y < 300) {
-				if(platforms[i].x < 400) {
-					platforms[i].destX = 0;
-					platforms[i].destY = 565;
-				}
-				else {
-					platforms[i].destX = 0;
-					platforms[i].destY = 215;
-				}
-			}
-			if(platforms[i].y > 400) {
-				if(platforms[i].x < 400) {
-					platforms[i].destX = 320;
-					platforms[i].destY = 390;
-				}
-				else {
-					platforms[i].destX = 640;
-					platforms[i].destY = 215;
-				}
-			}
-			if(platforms[i].y > 300 && platforms[i].y < 400) {
-				platforms[i].destX = 640;
-				platforms[i].destY = 565;
-			}
-			platforms[i].calculateVelocity();
-		}
-	}
-	if(currentEvent === "spike wall") {
-		var spikeWallDistance = 1500;
-		if(Math.random() < 0.5) {
-			spikewalls.push(new Spikewall(-spikeWallDistance));
-			chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "#FF8000"));
-		}
-		else {
-			spikewalls.push(new Spikewall(800 + spikeWallDistance));
-			chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "#FF8000"));
-		}
-	}
-	if(currentEvent === "confusion") {
-		timeToEvent = FPS * 3;
-		p.confused = FPS * 15;
-		chatMessages.push(new ChatMessage("You have been confused", "#00FF00"));
-		removeEffects();
-	}
-	if(currentEvent === "blindness") {
-		timeToEvent = FPS * 3;
-		p.blinded = FPS * 15;
-		chatMessages.push(new ChatMessage("You have been blinded", "#00FF00"));
-		removeEffects();
-	}
-	if(currentEvent === "nausea") {
-		timeToEvent = FPS * 3;
-		p.nauseated = FPS * 15;
-		chatMessages.push(new ChatMessage("You have been nauseated", "#00FF00"));
-		removeEffects();
-	}
-};
-function runEvent() {
-	if(p.invincible !== 0 && TESTING_MODE && false) {
-		p.invincible = Infinity;
-	}
-	/* coins */
-	for(var i = 0; i < coins.length; i ++) {
-		coins[i].display();
-		coins[i].update();
-		if(p.x + 5 > coins[i].x - 20 && p.x - 5 < coins[i].x + 20 && p.y + 46 > coins[i].y + p.worldY - 20 && p.y < coins[i].y + 20 + p.worldY && coins[i].age > coins[i].timeToAppear && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades < 2)) {
-			coins.splice(i, 1);
-			p.coins += (coinDoubler.equipped) ? 2 : 1;
-			continue;
-		}
-		if(coinDoubler.equipped && coinDoubler.upgrades === 1 && Math.dist(coins[i].x, coins[i].y, p.x, p.y) < 200 && coins[i].age > coins[i].timeToAppear) {
-			coins[i].x += (p.x - coins[i].x) / 10;
-			coins[i].y += (p.y - coins[i].y) / 10;
-		}
-		if(coinDoubler.equipped && coinDoubler.upgrades === 2 && coins[i].age > coins[i].timeToAppear) {
-			coins[i].x += (p.x - coins[i].x) / 10;
-			coins[i].y += (p.y - coins[i].y) / 10;
-		}
-		utilities.canvas.nauseate(coins[i]);
-	}
-	/* lasers */
-	for(var i = 0; i < lasers.length; i ++) {
-		if(!lasers[i].blinking) {
-			lasers[i].display();
-			utilities.canvas.nauseate(lasers[i]);
-		}
-		lasers[i].update();
-		if(lasers[i].numBlinks > 6) {
-			coins.push(new Coin(lasers[i].x, lasers[i].y));
-			lasers.splice(i, 1);
-			continue;
-		}
-	}
-	for(var i = 0; i < explosions.length; i ++) {
-		explosions[i].display();
-		utilities.canvas.nauseate(explosions[i]);
-		explosions[i].update();
-		if(explosions[i].opacity <= 0) {
-			explosions.splice(i, 1);
-			p.surviveEvent("laser");
-			addEvent();
-		}
-	}
-	/* acid */
-	for(var x = 0; x < 800; x ++) {
-		var brightness = Math.random() * 30;
-		c.fillStyle = "rgb(" + brightness + ", 255, " + brightness + ")";
-		c.fillRect(x, acidY + p.worldY + Math.sin(x / 10) * 10 * Math.sin(frameCount / 10), 1, 800);
-	}
-	if(p.y + 46 > acidY + p.worldY && !(input.keys[40] && intangibilityTalisman.equipped)) {
-		p.die("acid");
-	}
-	if(acidY < 850 && currentEvent !== "acid") {
-		acidY ++;
-	}
-	if(p.invincible && p.y > acidY + p.worldY) {
-		p.velY = Math.min(-5, p.velY);
-		if(input.keys[38]) {
-			p.velY = Math.min(-8.5, p.velY);
-		}
-	}
-	if(currentEvent === "acid") {
-		if(acidY < 600) {
-			p.worldY -= acidRise;
-			p.y -= acidRise;
-		}
-		if(acidY > -100) {
-			acidY += acidRise;
-		}
-		else {
-			console.log("ending acid event");
-			acidY += 700;
-			acidRise = 1;
-			p.worldY -= 700;
-			for(var i = 0; i < coins.length; i ++) {
-				if(!coins[i].indestructible) {
-					coins.splice(i, 1);
-					i --;
-					continue;
-				}
-				else {
-					coins[i].y += 700;
-				}
-			}
-			for(var i = 0; i < platforms.length; i ++) {
-				if(platforms[i].y <= 210) {
-					platforms.splice(i, 1);
-					i --;
-					continue;
-				}
-			}
-			if(TESTING_MODE && false) {
-				console.log("removed most events");
-				theEvents = ["pacmans"];
-			}
-			currentEvent = "waiting";
-		}
-	}
-	else if(currentEvent === "waiting") {
-		if(p.worldY > 0) {
-			p.worldY --;
-			p.y --;
-		}
-		else if(p.worldY < 0) {
-			p.worldY ++;
-			p.y ++;
-		}
-		if(p.worldY < 3 && p.worldY > -3) {
-			p.worldY = 0;
-			if(acidRise >= 0) {
-				addEvent();
-			}
-		}
-		p.surviveEvent("acid");
-	}
-	/* boulders */
-	for(var i = 0; i < boulders.length; i ++) {
-		boulders[i].display();
-		utilities.canvas.nauseate(boulders[i]);
-		boulders[i].update();
-		if((boulders[i].velX < 0 && boulders[i].x < 50) || (boulders[i].velX > 0 && boulders[i].x > 750)) {
-			for(var j = 0; j < 10; j ++) {
-				rockParticles.push(new RockParticle(Math.random() * 20 + boulders[i].x, Math.random() * 20 + boulders[i].y));
-			}
-			coins.push(new Coin(boulders[i].x, boulders[i].y));
-			boulders.splice(i, 1);
-			p.surviveEvent("boulder");
-			continue;
-		}
-	}
-	for(var i = 0; i < rockParticles.length; i ++) {
-		rockParticles[i].display();
-		utilities.canvas.nauseate(rockParticles[i]);
-		rockParticles[i].update();
-		if(rockParticles[i].y > 850) {
-			rockParticles.splice(i, 1);
-			continue;
-		}
-	}
-	if(currentEvent === "boulder" && boulders.length === 0 && rockParticles.length === 0) {
-		addEvent();
-	}
-	/* spinnyblades */
-	for(var i = 0; i < spinnyBlades.length; i ++) {
-		spinnyBlades[i].display();
-		utilities.canvas.nauseate(spinnyBlades[i]);
-		spinnyBlades[i].update();
-		if(spinnyBlades[i].opacity <= 0 && spinnyBlades[i].numRevolutions >= 2) {
-			spinnyBlades.splice(i, 1);
-			p.surviveEvent("spinnyblades");
-		}
-	}
-	if(currentEvent === "spinnyblades" && spinnyBlades.length <= 0) {
-		addEvent();
-	}
-	/* pirhanas */
-	for(var i = 0; i < pirhanas.length; i ++) {
-		pirhanas[i].display();
-		utilities.canvas.nauseate(pirhanas[i]);
-		pirhanas[i].update();
-		if(pirhanas[i].y > 850 && pirhanas[i].velY > 0) {
-			pirhanas.splice(i, 1);
-		}
-	}
-	if(currentEvent === "pirhanas" && pirhanas.length <= 0) {
-		addEvent();
-		p.surviveEvent("pirhanas");
-	}
-	/* pacmans */
-	for(var i = 0; i < dots.length; i ++) {
-		dots[i].update();
-		dots[i].display();
-		utilities.canvas.nauseate(dots[i]);
-		if(dots[i].y === 200 && dots[i].x < pacmans[0].x - 20) {
-			dots.splice(i, 1);
-			continue;
-		}
-		if(dots[i].y === 600 && dots[i].x > pacmans[1].x + 20) {
-			dots.splice(i, 1);
-			continue;
-		}
-	}
-	for(var i = 0; i < pacmans.length; i ++) {
-		pacmans[i].display();
-		pacmans[i].update();
-		if((pacmans[i].x > 1200 && pacmans[i].velX > 0) || (pacmans[i].x < -200 && pacmans[i].velX < 0)) {
-			pacmans.splice(i, 1);
-		}
-	}
-	if(currentEvent === "pacmans" && pacmans.length === 0) {
-		addEvent();
-		p.surviveEvent("pacmans");
-	}
-	/* rockets */
-	for(var i = 0; i < fireParticles.length; i ++) {
-		fireParticles[i].display();
-		utilities.canvas.nauseate(fireParticles[i]);
-		if(fireParticles[i].size <= 0) {
-			fireParticles.splice(i, 1);
-		}
-	}
-	for(var i = 0; i < rockets.length; i ++) {
-		rockets[i].display();
-		utilities.canvas.nauseate(rockets[i]);
-		rockets[i].update();
-		if(rockets[i].x < -100 || rockets[i].x > 900) {
-			rockets.splice(i, 1);
-			addEvent();
-			p.surviveEvent("rockets");
-			continue;
-		}
-		if(rockets[i].x > 398 && rockets[i].x < 402) {
-			coins.push(new Coin(rockets[i].x, rockets[i].y + 5));
-		}
-	}
-	/* spikeballs */
-	for(var i = 0; i < spikeballs.length; i ++) {
-		spikeballs[i].display();
-		utilities.canvas.nauseate(spikeballs[i]);
-		spikeballs[i].update();
-		if(spikeballs[i].opacity <= 0) {
-			spikeballs.splice(i, 1);
-			continue;
-		}
-	}
-	if(currentEvent === "spikeballs" && spikeballs.length === 0) {
-		addEvent();
-		p.surviveEvent("spikeballs");
-	}
-	/* block shuffles */
-	var allStopped = true;
-	for(var i = 0; i < platforms.length; i ++) {
-		platforms[i].update();
-		if(platforms[i].velX !== 0 || platforms[i].velY !== 0) {
-			allStopped = false;
-		}
-	}
-	if(allStopped && currentEvent === "block shuffle") {
-		addEvent();
-		p.surviveEvent("block shuffle");
-	}
-	/* spike walls */
-	for(var i = 0; i < spikewalls.length; i ++) {
-		spikewalls[i].display();
-		utilities.canvas.nauseate(spikewalls[i]);
-		spikewalls[i].update();
-		if((spikewalls[i].velX < 0 && spikewalls[i].x < -50) || (spikewalls[i].velX > 0 && spikewalls[i].x > 850)) {
-			spikewalls.splice(i, 1);
-			addEvent();
-			p.surviveEvent("spike walls");
-			continue;
-		}
-	}
-	/* blindness */
-	if(p.blinded > 0) {
+	},
+	displayNauseaEffect: function(obj) {
+		/*
+		For when the player has the nausea effect. Displays two copies of 'obj' around it.
+		*/
+		var offsetX = p.nauseaOffsetArray[p.nauseaOffset].x;
+		var offsetY = p.nauseaOffsetArray[p.nauseaOffset].y;
+		obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
+		obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
+		obj.display();
+		obj.x -= 2 * p.nauseaOffsetArray[p.nauseaOffset].x;
+		obj.y -= 2 * p.nauseaOffsetArray[p.nauseaOffset].y;
+		obj.display();
+		obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
+		obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
+	},
+	displayBlindnessEffect: function() {
 		/* fill in large area for framerate issues */
-		c.fillStyle = "#000000";
+		c.fillStyle = "rgb(0, 0, 0)";
 		c.fillRect(p.x - 800, p.y - 950, 1600, 800);
 		c.fillRect(p.x - 800, p.y + 150, 1600, 1600);
 		c.fillRect(p.x - 950, p.y - 800, 800, 1600);
 		c.fillRect(p.x + 150, p.y - 800, 800, 1600);
+		/* fill in circular gradient area */
 		c.globalAlpha = 1;
 		var gradient = c.createRadialGradient(p.x, p.y, 50, p.x, p.y, 150);
 		gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
@@ -2937,26 +2671,326 @@ function runEvent() {
 		c.fillRect(p.x - 151, p.y - 151, 302, 302);
 	}
 };
-function doByTime() {
-	if(TESTING_MODE && false) {
-		for(var i = 0; i < platforms.length; i ++) {
-			if(platforms[i].x === 800 - 160 && platforms[i].y === 215) {
-				platforms[i].destX = -Infinity;
+/* generic event selection + running */
+var game = {
+	events: [
+		"laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rocket", "spikeballs", "block shuffle", "spikewall", "confusion", "blindness", "nausea"
+	],
+	currentEvent: null,
+	timeToEvent: -5,
+	objects: [],
+	chatMessages: [],
+	screen: "home",
+
+	numObjects: function(constructor) {
+		return game.getObjectsByType(constructor).length;
+	},
+	getObjectsByType: function(constructor) {
+		/*
+		Returns a list containing references to all instances of 'constructor' in objects.
+		*/
+		var arr = [];
+		for(var i = 0; i < game.objects.length; i ++) {
+			if(game.objects[i] instanceof constructor) {
+				arr.push(game.objects[i]);
+			}
+		}
+		return arr;
+	},
+	initializePlatforms: function() {
+		for(var y = 225; y <= 575; y += 175) {
+			if((y - 225) % (175 * 2) === 0) {
+				game.objects.push(new Platform(0, y - 10, 160, 20));
+				game.objects.push(new Platform(800 - 160, y - 10, 160, 20));
+			}
+			else {
+				game.objects.push(new Platform(400 - (160 / 2), y - 10, 160, 20));
+			}
+		}
+	},
+	sortObjects: function() {
+		var inverted = false;
+		var sorter = function(a, b) {
+			const A_FIRST = -1;
+			const B_FIRST = 1;
+			/* things that are rendered behind everything else */
+			if(a instanceof Coin || a instanceof Dot) {
+				return A_FIRST;
+			}
+			/* things that are rendered in front of everything else */
+			if(a instanceof Spikewall || a instanceof Acid || a instanceof Pacman) {
+				return B_FIRST;
+			}
+			/* special cases */
+			if(a instanceof FireParticle && b instanceof Rocket) {
+				return A_FIRST;
+			}
+			if(a instanceof Platform && b instanceof SpinnyBlade) {
+				return A_FIRST;
+			}
+			if(a instanceof Platform && b instanceof Explosion) {
+				return A_FIRST;
+			}
+			if(a instanceof Platform && b instanceof Dot) {
+				return A_FIRST;
+			}
+			/* inverse cases */
+			if(!inverted) {
+				/* Variable 'inverted' is used to prevent infinite recursion */
+				inverted = true;
+				var invertedOrder = sorter(b, a);
+				inverted = false;
+				return invertedOrder * -1;
+			}
+			/* default case */
+			return A_FIRST;
+		};
+		game.objects = utilities.sort(game.objects, sorter);
+	},
+
+	addEvent: function() {
+		p.score ++;
+		game.currentEvent = game.events.randomItem();
+		if(game.currentEvent === p.previousEvent) {
+			p.repeatedEvent = true;
+		}
+		p.previousEvent = game.currentEvent;
+		if(p.score === p.highScore + 1) {
+			p.numRecords ++;
+			game.chatMessages.push(new ChatMessage("New Record!", "rgb(0, 0, 255)"));
+		}
+
+		if(game.currentEvent === "laser") {
+			game.objects.push(new Laser());
+			game.chatMessages.push(new ChatMessage("Laser incoming!", "rgb(255, 128, 0)"));
+		}
+		else if(game.currentEvent === "acid") {
+			game.objects.push(new Acid());
+			game.objects[game.objects.length - 1].beginRising();
+		}
+		else if(game.currentEvent === "boulder") {
+			var chooser = Math.random();
+			game.chatMessages.push(new ChatMessage("Boulder incoming!", "rgb(255, 128, 0)"));
+			if(chooser < 0.5) {
+				game.objects.push(new Boulder(850, 100, -3));
+			}
+			else {
+				game.objects.push(new Boulder(-50, 100, 3));
+			}
+		}
+		else if(game.currentEvent === "spinnyblades") {
+			game.chatMessages.push(new ChatMessage("Spinning blades are appearing", "rgb(255, 128, 0)"));
+			for(var i = 0; i < game.objects.length; i ++) {
+				if(game.objects[i] instanceof Platform) {
+					game.objects.push(new SpinnyBlade(game.objects[i].x + 80, game.objects[i].y + 10));
+				}
+			}
+		}
+		else if(game.currentEvent === "pirhanas") {
+			game.chatMessages.push(new ChatMessage("Jumping pirhanas incoming!", "rgb(255, 128, 0)"));
+			/* fancy algorithm to make sure none of the pirhanas are touching */
+			var pirhanasSeparated = false;
+			while(!pirhanasSeparated) {
+				for(var i = 0; i < game.objects.length; i ++) {
+					if(game.objects[i] instanceof Pirhana) {
+						game.objects.splice(i, 1);
+						i --;
+						continue;
+					}
+				}
+				game.objects.push(new Pirhana(Math.random() * 700 + 50));
+				game.objects.push(new Pirhana(Math.random() * 700 + 50));
+				game.objects.push(new Pirhana(Math.random() * 700 + 50));
+				pirhanasSeparated = true;
+				for(var i = 0; i < game.objects.length; i ++) {
+					/* check if they collide */
+					for(var j = 0; j < game.objects.length; j ++) {
+						if(i !== j && game.objects[i] instanceof Pirhana && game.objects[j] instanceof Pirhana && Math.abs(game.objects[i].x - game.objects[j].x) < 75) {
+							pirhanasSeparated = false;
+						}
+					}
+				}
+			}
+		}
+		else if(game.currentEvent === "pacmans") {
+			game.chatMessages.push(new ChatMessage("Pacmans incoming!", "rgb(255, 128, 0)"));
+			var coinNum = Math.round(Math.random() * 11 + 1) * 60;
+			coinNum = 7 * 60;
+			for(var x = 0; x < 800; x += 60) {
+				if(x === coinNum) {
+					game.objects.push(new Coin(x, 200, x * 0.25));
+				} else {
+					game.objects.push(new Dot(x, 200, x * 0.25));
+				}
+				game.objects.push(new Dot(800 - x, 600, x * 0.25));
+			}
+			game.objects.push(new Pacman(-200, 200, 1.5));
+			game.objects.push(new Pacman(1000, 600, -1.5));
+		}
+		else if(game.currentEvent === "rocket") {
+			game.chatMessages.push(new ChatMessage("Rocket incoming!", "rgb(255, 128, 0)"));
+			if(p.x > 400) {
+				game.objects.push(new Rocket(-50, p.y, 6));
+			}
+			else {
+				game.objects.push(new Rocket(850, p.y, -6));
+			}
+		}
+		else if(game.currentEvent === "spikeballs") {
+			game.chatMessages.push(new ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
+			var angles = [];
+			var buffer = 30;
+			for(var i = 0; i < 360; i ++) {
+				if((i > 90 - buffer && i < 90 + buffer) || (i > 270 - buffer && i < 270 + buffer)) {
+					continue;
+				}
+				angles.push(i);
+			}
+			for(var i = 0; i < 3; i ++) {
+				var index = Math.floor(Math.random() * (angles.length - 1));
+				var angle = angles[index];
+				for(var j = 0; j < angles.length; j ++) {
+					var distanceBetweenAngles = Math.min(Math.abs(angle - angles[j]), Math.abs((angle + 360) - angles[j]), Math.abs((angle - 360) - angles[j]));
+					if(distanceBetweenAngles < buffer) {
+						angles.splice(j, 1);
+						j --;
+						continue;
+					}
+				}
+				var angleRadians = angle / 180 * Math.PI;
+				var velocity = Math.rotateDegrees(0, -5, angle);
+				game.objects.push(new Spikeball(velocity.x, velocity.y));
+			}
+		}
+		else if(game.currentEvent === "block shuffle") {
+			game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
+			var platforms = game.getObjectsByType(Platform);
+			for(var i = 0; i < platforms.length; i ++) {
+				if(platforms[i].y < 300) {
+					if(platforms[i].x < 400) {
+						platforms[i].destX = 0;
+						platforms[i].destY = 565;
+					}
+					else {
+						platforms[i].destX = 0;
+						platforms[i].destY = 215;
+					}
+				}
+				if(platforms[i].y > 400) {
+					if(platforms[i].x < 400) {
+						platforms[i].destX = 320;
+						platforms[i].destY = 390;
+					}
+					else {
+						platforms[i].destX = 640;
+						platforms[i].destY = 215;
+					}
+				}
+				if(platforms[i].y > 300 && platforms[i].y < 400) {
+					platforms[i].destX = 640;
+					platforms[i].destY = 565;
+				}
+				platforms[i].calculateVelocity();
+			}
+		}
+		else if(game.currentEvent === "spikewall") {
+			var spikeWallDistance = 1500;
+			if(Math.random() < 0.5) {
+				game.objects.push(new Spikewall(-spikeWallDistance));
+				game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "rgb(255, 128, 0)"));
+			}
+			else {
+				game.objects.push(new Spikewall(800 + spikeWallDistance));
+				game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "rgb(255, 128, 0)"));
+			}
+		}
+		else if(game.currentEvent === "confusion") {
+			game.timeToEvent = FPS * 3;
+			p.timeConfused = FPS * 15;
+			game.chatMessages.push(new ChatMessage("You have been confused", "rgb(0, 255, 0)"));
+			effects.remove();
+			game.currentEvent = null;
+		}
+		else if(game.currentEvent === "blindness") {
+			game.timeToEvent = FPS * 3;
+			p.timeBlinded = FPS * 15;
+			game.chatMessages.push(new ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
+			effects.remove();
+			game.currentEvent = null;
+		}
+		else if(game.currentEvent === "nausea") {
+			game.timeToEvent = FPS * 3;
+			p.timeNauseated = FPS * 15;
+			game.chatMessages.push(new ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
+			effects.remove();
+			game.currentEvent = null;
+		}
+	},
+	runEvent: function() {
+		game.timeToEvent --;
+		if(game.timeToEvent <= 0 && game.currentEvent === null) {
+			game.addEvent();
+		}
+		/* update objects */
+		for(var i = 0; i < game.objects.length; i ++) {
+			if(typeof game.objects[i].update === "function") {
+				game.objects[i].update();
+			}
+			else {
+				console.warn("An in-game object of type " + game.objects[i].constructor.name + " did not have a update() method.");
+			}
+			if(game.objects[i].splicing) {
+				game.objects.splice(i, 1);
+				i --;
+				continue;
+			}
+		}
+		/* display objects */
+		game.sortObjects();
+		for(var i = 0; i < game.objects.length; i ++) {
+			if(game.objects[i].splicing) {
+				continue;
+			}
+			if(typeof game.objects[i].display === "function") {
+				game.objects[i].display();
+			}
+			else {
+				console.warn("An in-game object of type " + game.objects[i].constructor.name + " did not have a display() method.");
+			}
+		}
+		/* visual effects */
+		if(p.timeBlinded > 0) {
+			effects.displayBlindnessEffect();
+		}
+		if(p.timeNauseated > 0) {
+			effects.displayNauseaEffect(p);
+			for(var i = 0; i < game.objects.length; i ++) {
+				if(game.objects[i].splicing) {
+					continue;
+				}
+				if(typeof game.objects[i].display === "function") {
+					effects.displayNauseaEffect(game.objects[i]);
+				}
 			}
 		}
 	}
-	p.mouseHand = false;
+};
+game.events = TESTING_MODE ? ["spikewall"] : game.events;
+
+function doByTime() {
 	utilities.canvas.resize();
-	if(p.onScreen === "home") {
+	if(game.screen === "home") {
 		/* background + erase previous frame */
-		c.fillStyle = "#C8C8C8";
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		c.font = "50px cursive";
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.textAlign = "center";
-		// c.fillText("Randomonicity", 400, 150);
-		// c.fillText("Survival", 400, 200);
+		if(!TESTING_MODE) {
+			c.fillText("Randomonicity", 400, 150);
+			c.fillText("Survival", 400, 200);
+		}
 		/* buttons */
 		for(var i = 0; i < dollarIcons.length; i ++) {
 			dollarIcons[i].display();
@@ -2975,35 +3009,15 @@ function doByTime() {
 		playButton.mouseOver = playButton.hasMouseOver();
 		playButton.checkForClick();
 	}
-	if(p.onScreen === "play") {
-		c.fillStyle = "#C8C8C8";
+	else if(game.screen === "play") {
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* player */
 		p.display();
-		utilities.canvas.nauseate(p);
 		p.update();
-		for(var i = 0; i < doubleJumpParticles.length; i ++) {
-			doubleJumpParticles[i].display();
-			if(doubleJumpParticles[i].op <= 0) {
-				doubleJumpParticles.splice(i, 1);
-				continue;
-			}
-		}
-		/* arena */
-		for(var i = 0; i < platforms.length; i ++) {
-			platforms[i].display();
-			utilities.canvas.nauseate(platforms[i]);
-		}
 		/* random events */
-		if(currentEvent === "starting" && timeToEvent <= 0) {
-			addEvent();
-		}
-		runEvent();
-		timeToEvent --;
-		if(timeToEvent === 0) {
-			addEvent();
-		}
-		if(p.y + 46 >= 800 && acidY + p.worldY > 820) {
+		game.runEvent();
+		if(p.y + 46 >= 800 && (game.numObjects(Acid) === 0 || game.getObjectsByType(Acid)[0].y + p.worldY > 820)) {
 			p.die("fall");
 		}
 		/* shop status effect indicators */
@@ -3039,18 +3053,18 @@ function doByTime() {
 			hasOne = true;
 		}
 		/* score + coins */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.font = "20px monospace";
 		c.textAlign = "left";
 		c.fillText("Score: " + p.score, 10, 790);
 		c.textAlign = "right";
 		c.fillText("Coins: " + p.coins, 790, 790);
 	}
-	if(p.onScreen === "death") {
-		c.fillStyle = "#C8C8C8";
+	else if(game.screen === "death") {
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.font = "50px cursive";
 		c.textAlign = "center";
 		c.fillText("You Died", 400, 200);
@@ -3082,7 +3096,7 @@ function doByTime() {
 			case "spikeball":
 				c.fillText("You were taken out by a spikeball", 200, 300);
 				break;
-			case "spike wall":
+			case "spikewall":
 				c.fillText("You were impaled on a wall of spikes", 200, 300);
 				break;
 			case "fall":
@@ -3101,14 +3115,13 @@ function doByTime() {
 		retryButton.display();
 		retryButton.mouseOver = retryButton.hasMouseOver();
 		retryButton.checkForClick();
-
 	}
-	if(p.onScreen === "shop") {
-		c.fillStyle = "#C8C8C8";
+	else if(game.screen === "shop") {
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		c.font = "50px cursive";
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.textAlign = "center";
 		c.fillText("Shop", 400, 100);
 		/* coin counter */
@@ -3140,16 +3153,16 @@ function doByTime() {
 		homeFromShop.mouseOver = homeFromShop.hasMouseOver();
 		homeFromShop.checkForClick();
 	}
-	if(p.onScreen === "achievements") {
-		c.fillStyle = "#C8C8C8";
+	else if(game.screen === "achievements") {
+		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.fillStyle = "#646464";
+		c.fillStyle = "rgb(100, 100, 100)";
 		c.font = "50px cursive";
 		c.textAlign = "center";
 		c.fillText("Achievements", 400, 100);
 		/* achievements */
-		var achievements = [ac1, ac2, ac3, ac4, ac5, ac6, ac7, ac8, ac9];
+		var achievements = [achievement1, achievement2, achievement3, achievement4, achievement5, achievement6, achievement7, achievement8, achievement9];
 		for(var i = 0; i < achievements.length; i ++) {
 			achievements[i].displayLogo();
 		}
@@ -3157,35 +3170,31 @@ function doByTime() {
 			achievements[i].displayInfo();
 		}
 		/* home button */
-		homeFromAcs.display();
-		homeFromAcs.mouseOver = homeFromAcs.hasMouseOver();
-		homeFromAcs.checkForClick();
+		homeFromAchievements.display();
+		homeFromAchievements.mouseOver = homeFromAchievements.hasMouseOver();
+		homeFromAchievements.checkForClick();
 	}
-	ac1.checkProgress();
-	ac2.checkProgress();
-	ac3.checkProgress();
-	ac4.checkProgress();
-	ac5.checkProgress();
-	ac6.checkProgress();
-	ac7.checkProgress();
-	ac8.checkProgress();
-	ac9.checkProgress();
+
+	var achievements = [achievement1, achievement2, achievement3, achievement4, achievement5, achievement6, achievement7, achievement8, achievement9];
+	for(var i = 0; i < achievements.length; i ++) {
+		achievements[i].checkProgress();
+	}
 	/* chat messages */
-	for(var i = chatMessages.length - 1; i >= 0; i --) {
-		chatMessages[i].display((chatMessages.length - i + 1) * 40 - 40);
-		if(chatMessages[i].time <= 0) {
-			chatMessages.splice(i, 1);
+	for(var i = game.chatMessages.length - 1; i >= 0; i --) {
+		game.chatMessages[i].display((game.chatMessages.length - i + 1) * 40 - 40);
+		if(game.chatMessages[i].time <= 0) {
+			game.chatMessages.splice(i, 1);
+			i --;
 			continue;
 		}
-		if(p.onScreen !== "play" && !(chatMessages[i].col === "#FFFF00")) {
-			chatMessages.splice(i, 1);
+		if(game.screen !== "play" && !(game.chatMessages[i].col === "rgb(255, 255, 0)")) {
+			game.chatMessages.splice(i, 1);
 			continue;
 		}
 	}
-	frameCount ++;
+
+	utilities.frameCount ++;
 	pastWorldY = p.worldY;
 	utilities.pastInputs.update();
-	/*  debug */
-	c.textAlign = "left";
 };
 window.setInterval(doByTime, 1000 / FPS);
