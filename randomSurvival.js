@@ -2500,6 +2500,7 @@ Spikeball.prototype.display = function() {
 	c.save();
 	c.translate(this.x, this.y + p.worldY);
 	c.rotate(this.r);
+	c.beginPath();
 	for(var degrees = 0; degrees < 360; degrees += 18) {
 		if(degrees % 36 === 0) {
 			var point = Math.rotateDegrees(0, -30, degrees);
@@ -3035,7 +3036,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["spinnyblades"] : game.events;
+game.events = TESTING_MODE ? ["spikeballs"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
