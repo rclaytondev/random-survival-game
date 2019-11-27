@@ -183,6 +183,12 @@ Array.prototype.randomItem = function() {
 Math.dist = function(x1, y1, x2, y2) {
 	return Math.hypot(x1 - x2, y1 - y2);
 };
+Math.map = function(value, min1, max1, min2, max2) {
+	/*
+	Maps 'value' from range ['min1' - 'max1'] to ['min2' - 'max2']
+	*/
+	return (value - min1) / (max1 - min1) * (max2 - min2) + min2;
+};
 Math.rotateDegrees = function(x, y, deg) {
 	var rad = (deg / 180.0) * Math.PI;
 	return Math.rotate(x, y, rad);
@@ -300,6 +306,14 @@ Math.findPointsLinear = function(x1, y1, x2, y2) {
 		}
 	}
 	return linearPoints;
+};
+Math.constrain = function(num, min, max) {
+	/*
+	Returns 'num' constrained to be between 'min' and 'max'.
+	*/
+	num = Math.min(num, max);
+	num = Math.max(num, min);
+	return num;
 };
 
 function Player() {
@@ -2635,11 +2649,33 @@ Spikewall.prototype.update = function() {
 /* lasting effects (blindness, confusion, nausea) */
 function AfterImage(image) {
 	this.image = image;
-	this.timeLeft = 20;
+	var timeElapsed = (FPS * 15) - p.timeConfused;
+	if(timeElapsed < FPS * 14) {
+		this.timeLeft = Math.map(
+			timeElapsed,
+			0, FPS * 15,
+			30, 20
+		);
+	}
+	else {
+		this.timeLeft = Math.map(
+			timeElapsed,
+			FPS * 14, FPS * 15,
+			20, 0
+		);
+	}
+	this.timeToExist = this.timeLeft;
 };
 AfterImage.prototype.display = function() {
-	c.globalAlpha = Math.max(Math.min(this.timeLeft / 20, 1), 0);
+	var opacity = this.timeLeft / this.timeToExist;
+	opacity = Math.constrain(opacity, 0, 1);
+	c.save();
+	if(this.image instanceof Player) {
+		c.translate(0, 1 * p.worldY);
+	}
+	c.globalAlpha = opacity;
 	this.image.display();
+	c.restore();
 };
 AfterImage.prototype.update = function() {
 	this.timeLeft --;
@@ -2666,33 +2702,66 @@ var effects = {
 	},
 	displayNauseaEffect: function(obj) {
 		/*
-		For when the player has the nausea effect. Displays two copies of 'obj' around it.
+		Displays two copies of 'obj' around it.
 		*/
 		var offsetX = p.nauseaOffsetArray[p.nauseaOffset].x;
 		var offsetY = p.nauseaOffsetArray[p.nauseaOffset].y;
-		obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
-		obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
+		var timeElapsed = (FPS * 15) - p.timeNauseated;
+		if(timeElapsed < FPS * 14) {
+			var intensity = Math.map(timeElapsed, 0, FPS * 14, 1.5, 1);
+		}
+		else {
+			var intensity = Math.map(timeElapsed, FPS * 14, FPS * 15, 1, 0);
+		}
+		offsetX *= intensity;
+		offsetY *= intensity;
+		obj.x += offsetX;
+		obj.y += offsetY;
 		obj.display();
-		obj.x -= 2 * p.nauseaOffsetArray[p.nauseaOffset].x;
-		obj.y -= 2 * p.nauseaOffsetArray[p.nauseaOffset].y;
+		obj.x -= 2 * offsetX;
+		obj.y -= 2 * offsetY;
 		obj.display();
-		obj.x += p.nauseaOffsetArray[p.nauseaOffset].x;
-		obj.y += p.nauseaOffsetArray[p.nauseaOffset].y;
+		obj.x += offsetX;
+		obj.y += offsetY;
 	},
 	displayBlindnessEffect: function() {
-		/* fill in large area for framerate issues */
-		c.fillStyle = "rgb(0, 0, 0)";
-		c.fillRect(p.x - 800, p.y - 950, 1600, 800);
-		c.fillRect(p.x - 800, p.y + 150, 1600, 1600);
-		c.fillRect(p.x - 950, p.y - 800, 800, 1600);
-		c.fillRect(p.x + 150, p.y - 800, 800, 1600);
-		/* fill in circular gradient area */
+		/*
+		When timeElapsed is 0, largeRadius is 150 and smallRadius is 50.
+		When timeElapsed is FPS * 15, largeRadius and smallRadius are SCREEN_DIAGONAL_LENGTH.
+		*/
+		const SCREEN_DIAGONAL_LENGTH = Math.dist(0, 0, 800, 800);
+		var timeElapsed = (FPS * 15) - p.timeBlinded;
+		if(timeElapsed < FPS * 14) {
+			var largeRadius = Math.map(
+				timeElapsed,
+				0, FPS * 14,
+				150, 400
+			);
+			var smallRadius = Math.map(
+				timeElapsed,
+				0, FPS * 14,
+				50, 390
+			);
+		}
+		else {
+			var largeRadius = Math.map(
+				timeElapsed,
+				FPS * 14, FPS * 15,
+				400, SCREEN_DIAGONAL_LENGTH
+			);
+			var smallRadius = Math.map(
+				timeElapsed,
+				FPS * 14, FPS * 15,
+				390, SCREEN_DIAGONAL_LENGTH
+			);
+		}
+
 		c.globalAlpha = 1;
-		var gradient = c.createRadialGradient(p.x, p.y, 50, p.x, p.y, 150);
+		var gradient = c.createRadialGradient(p.x, p.y, smallRadius, p.x, p.y, largeRadius);
 		gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
 		gradient.addColorStop(1, "rgba(0, 0, 0, 255)");
 		c.fillStyle = gradient;
-		c.fillRect(p.x - 151, p.y - 151, 302, 302);
+		c.fillRect(0, 0, 800, 800);
 	},
 	displayConfusionEffect: function() {
 		/*
@@ -2715,11 +2784,15 @@ var effects = {
 					continue outerLoop;
 				}
 			}
-			if(!(game.objects[i] instanceof AfterImage)) {
-				game.objects.push(new AfterImage(game.objects[i].clone()));
+			if(game.objects[i].splicing) {
+				continue;
 			}
+			game.objects.push(new AfterImage(game.objects[i].clone()));
 		}
-		game.objects.push(new AfterImage(p.clone()));
+
+		var playerAfterImage = p.clone();
+		playerAfterImage.y -= p.worldY;
+		game.objects.push(new AfterImage(playerAfterImage.clone()));
 	}
 };
 /* generic event selection + running */
@@ -3036,7 +3109,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["spikeballs"] : game.events;
+game.events = TESTING_MODE ? ["acid"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
