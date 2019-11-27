@@ -1914,14 +1914,13 @@ var achievement7 = new Achievement(200, 600,  "Improvement");
 var achievement8 = new Achievement(400, 600, "Places to Be");
 var achievement9 = new Achievement(600, 600, "Ghost");
 
-function Coin(x, y, timeToAppear, indestructible) {
+function Coin(x, y, timeToAppear) {
 	this.x = x;
 	this.y = y;
 	this.spin = -1;
 	this.spinDir = 0.05;
 	this.timeToAppear = timeToAppear || 0;
 	this.age = 0;
-	this.indestructible = indestructible || false;
 };
 Coin.prototype.display = function() {
 	if(this.age > this.timeToAppear) {
@@ -2108,7 +2107,7 @@ Acid.prototype.beginRising = function() {
 			game.objects[i].opacity = 0;
 		}
 	}
-	game.objects.push(new Coin(400, 0, 0, true));
+	game.objects.push(new Coin(400, 0, 0));
 	game.chatMessages.push(new ChatMessage("The tides are rising...", "rgb(255, 128, 0)"));
 };
 Acid.prototype.stopRising = function() {
@@ -2118,12 +2117,16 @@ Acid.prototype.stopRising = function() {
 	this.y += 700;
 	/* delete platforms from acid rise */
 	for(var i = 0; i < game.objects.length; i ++) {
-		if(game.objects[i] instanceof Platform && game.objects[i].y < 200) {
+		if(game.objects[i].y < 200) {
 			game.objects[i].splicing = true;
 		}
 		/* remove platform afterimages if the player has the confusion effect */
 		if(game.objects[i] instanceof AfterImage && game.objects[i].image instanceof Platform && game.objects[i].image.y < 200) {
 			game.objects[i].splicing = true;
+		}
+		/* translate other afterimages down */
+		if(game.objects[i] instanceof AfterImage && !game.objects[i].splicing) {
+			game.objects[i].image.y += 700;
 		}
 	}
 };
