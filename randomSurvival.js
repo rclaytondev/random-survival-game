@@ -326,6 +326,8 @@ function Player() {
 	/* Player animation properties */
 	this.legs = 5;
 	this.legDir = 1;
+	this.facing = "forward";
+	this.armHeight = 10;
 	/* Effect properties */
 	this.timeConfused = 0;
 	this.timeBlinded = 0;
@@ -368,10 +370,23 @@ Player.prototype.display = function() {
 		c.arc(0, 12, 10, 0, 2 * Math.PI);
 		c.fill();
 		c.restore();
+		/* eyes */
+		if(this.facing === "left" || this.facing === "forward") {
+			c.fillStyle = "rgb(200, 200, 200)";
+			c.beginPath();
+			c.arc(this.x - 4, this.y + 10, 3, 0, 2 * Math.PI);
+			c.fill();
+		}
+		if(this.facing === "right" || this.facing === "forward") {
+			c.fillStyle = "rgb(200, 200, 200)";
+			c.beginPath();
+			c.arc(this.x + 4, this.y + 10, 3, 0, 2 * Math.PI);
+			c.fill();
+		}
 		/* body */
 		c.strokeStyle = "rgb(0, 0, 0)";
 		c.beginPath();
-		c.moveTo(this.x, this.y + 12);
+		c.moveTo(this.x, this.y + 15);
 		c.lineTo(this.x, this.y + 36);
 		c.stroke();
 		/* legs */
@@ -382,8 +397,8 @@ Player.prototype.display = function() {
 		c.lineTo(this.x + this.legs, this.y + 46);
 		c.stroke();
 		/* leg animations */
+		this.legs += this.legDir;
 		if(input.keys[37] || input.keys[39]) {
-			this.legs += this.legDir;
 			if(this.legs >= 5) {
 				this.legDir = -0.5;
 			}
@@ -391,12 +406,17 @@ Player.prototype.display = function() {
 				this.legDir = 0.5;
 			}
 		}
+		else {
+			this.legDir = 0;
+			this.legDir = (this.legs > 0) ? 0.5 : -0.5;
+			this.legDir = (this.legs <= -5 || this.legs >= 5) ? 0 : this.legDir;
+		}
 		/* arms */
 		c.beginPath();
 		c.moveTo(this.x, this.y + 26);
-		c.lineTo(this.x + 10, this.y + 36);
+		c.lineTo(this.x + 10, this.y + 26 + this.armHeight);
 		c.moveTo(this.x, this.y + 26);
-		c.lineTo(this.x - 10, this.y + 36);
+		c.lineTo(this.x - 10, this.y + 26 + this.armHeight);
 		c.stroke();
 		c.lineCap = "butt";
 	}
@@ -424,9 +444,11 @@ Player.prototype.update = function() {
 	}
 	/* walking */
 	if(input.keys[37]) {
+		this.facing = "left";
 		this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
 	}
 	else if(input.keys[39]) {
+		this.facing = "right";
 		this.velX += speedIncreaser.equipped ? 0.2 : 0.1;
 	}
 	this.x += this.velX;
@@ -436,6 +458,15 @@ Player.prototype.update = function() {
 	if(input.keys[38] && this.velY === 0) {
 		this.velY = -6;
 		jumpedThisFrame = true;
+		if(!input.keys[37] && !input.keys[39]) {
+			this.facing = "forward";
+		}
+	}
+	if(this.velY === 0) {
+		this.armHeight += (this.armHeight < 10) ? 1 : 0;
+	}
+	else {
+		this.armHeight += (this.armHeight > -5) ? -1 : 0;
 	}
 	/* gravity */
 	this.velY += 0.1;
@@ -544,6 +575,8 @@ Player.prototype.reset = function() {
 	this.y = 300;
 	this.velX = 0;
 	this.velY = 0;
+	this.facing = "forward";
+	this.armHeight = 10; 
 	this.worldY = 0;
 	game.timeToEvent = FPS;
 	game.objects = [];
@@ -3118,7 +3151,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["spinnyblades"] : game.events;
+// game.events = TESTING_MODE ? ["spinnyblades"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
