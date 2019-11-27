@@ -2852,7 +2852,7 @@ var game = {
 				return A_FIRST;
 			}
 			/* things that are rendered in front of everything else */
-			if(a instanceof Spikewall || a instanceof Acid || a instanceof Pacman) {
+			if(a instanceof Spikewall || a instanceof Acid || a instanceof Pacman || a instanceof Player) {
 				return B_FIRST;
 			}
 			/* special cases */
@@ -2866,6 +2866,12 @@ var game = {
 				return A_FIRST;
 			}
 			if(a instanceof Platform && b instanceof Dot) {
+				return A_FIRST;
+			}
+			if(a instanceof Platform && b instanceof Spikeball) {
+				return A_FIRST;
+			}
+			if(a instanceof Platform && b instanceof Laser) {
 				return A_FIRST;
 			}
 			/* inverse cases */
@@ -3112,7 +3118,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["acid"] : game.events;
+game.events = TESTING_MODE ? ["spinnyblades"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
