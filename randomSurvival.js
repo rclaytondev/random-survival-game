@@ -189,6 +189,12 @@ Math.map = function(value, min1, max1, min2, max2) {
 	*/
 	return (value - min1) / (max1 - min1) * (max2 - min2) + min2;
 };
+Math.toRadians = function(deg) {
+	return deg / 180 * Math.PI;
+};
+Math.toDegrees = function(rad) {
+	return rad / Math.PI * 180;
+};
 Math.rotateDegrees = function(x, y, deg) {
 	var rad = (deg / 180.0) * Math.PI;
 	return Math.rotate(x, y, rad);
@@ -314,6 +320,22 @@ Math.constrain = function(num, min, max) {
 	num = Math.min(num, max);
 	num = Math.max(num, min);
 	return num;
+};
+Math.randomInRange = function(min, max) {
+	/*
+	Returns a random number between 'min' and 'max', including 'min' but excluding 'max'.
+	*/
+	return Math.map(Math.random(), 0, 1, min, max);
+};
+Math.normalize = function(x, y) {
+	/*
+	Scales the point ('x', 'y') so that it is 1 pixel away from the origin.
+	*/
+	var dist = Math.dist(0, 0, x, y);
+	return {
+		x: x / dist,
+		y: y / dist
+	};
 };
 
 function Player() {
@@ -2170,16 +2192,34 @@ function Boulder(x, y, velX) {
 	this.velX = velX;
 	this.velY = 0;
 	this.numBounces = 0;
+	this.vertices = [];
+	this.rotation = 0;
+	var r = 0;
+	while(r < 360) {
+		r += Math.randomInRange(45, 60);
+		if(r > 350) {
+			r = 360;
+		}
+		this.vertices.push(Math.rotateDegrees(0, -50, r));
+	}
 };
 Boulder.prototype.display = function() {
 	c.fillStyle = "rgb(100, 100, 100)";
+	c.save();
+	c.translate(this.x, this.y);
+	c.rotate(Math.toRadians(this.rotation));
 	c.beginPath();
-	c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
+	c.moveTo(this.vertices[0].x, this.vertices[0].y);
+	for(var i = 1; i < this.vertices.length; i ++) {
+		c.lineTo(this.vertices[i].x, this.vertices[i].y);
+	}
 	c.fill();
+	c.restore();
 };
 Boulder.prototype.update = function() {
 	this.x += this.velX;
 	this.y += this.velY;
+	this.rotation += (this.velX > 0) ? 5 : -5;
 	this.velY += 0.1;
 	for(var i = 0; i < game.objects.length; i ++) {
 		if(game.objects[i] instanceof Platform && this.x + 50 > game.objects[i].x && this.x - 50 < game.objects[i].x + game.objects[i].w && this.y + 50 > game.objects[i].y && this.y + 50 < game.objects[i].y + 10) {
@@ -2201,31 +2241,62 @@ Boulder.prototype.update = function() {
 	}
 	/* delete self if off-screen */
 	if((this.velX < 0 && this.x < 50) || (this.velX > 0 && this.x > 750)) {
-		for(var j = 0; j < 10; j ++) {
-			game.objects.push(new RockParticle(Math.random() * 20 + this.x, Math.random() * 20 + this.y));
-		}
-		game.objects.push(new Coin(this.x, this.y));
-		this.splicing = true;
+		this.shatter();
 		p.surviveEvent("boulder");
 	}
 };
-function RockParticle(x, y) {
+Boulder.prototype.shatter = function() {
+	game.objects.push(new Coin(this.x, this.y));
+	this.splicing = true;
+
+	/* add rock particles */
+	for(var i = 0; i < this.vertices.length; i ++) {
+		var currentVertex = this.vertices[i];
+		if(i === this.vertices.length - 1) {
+			var nextVertex = this.vertices[0];
+		}
+		else {
+			var nextVertex = this.vertices[i + 1];
+		}
+
+		var vertices = [{ x: 0, y: 0 }, currentVertex, nextVertex];
+		var averageLoc = {
+			x: (currentVertex.x + nextVertex.x) / 2,
+			y: (currentVertex.y + nextVertex.y) / 2
+		};
+		var velocity = Math.normalize(averageLoc.x, averageLoc.y);
+		velocity.x += Math.randomInRange(-1, 1);
+		velocity.y += Math.randomInRange(-1, 1);
+		game.objects.push(new RockParticle(this.x, this.y, vertices, velocity.x, velocity.y));
+	}
+};
+function RockParticle(x, y, vertices, velX, velY) {
 	this.x = x;
 	this.y = y;
-	this.velX = Math.random(-5, 5);
-	this.velY = Math.random(-1, -2);
+	this.vertices = vertices;
+	this.velX = velX;
+	this.velY = velY;
+	this.rotation = 0;
 };
 RockParticle.prototype.display = function() {
 	c.fillStyle = "rgb(100, 100, 100)";
+	c.save();
+	c.translate(this.x, this.y);
+	c.rotate(Math.toRadians(this.rotation));
 	c.beginPath();
-	c.arc(this.x, this.y, 10, 0, 2 * Math.PI);
+	c.moveTo(this.vertices[0].x, this.vertices[0].y);
+	for(var i = 1; i < this.vertices.length; i ++) {
+		c.lineTo(this.vertices[i].x, this.vertices[i].y);
+	}
 	c.fill();
+	c.restore();
 };
 RockParticle.prototype.update = function() {
 	this.x += this.velX;
 	this.y += this.velY;
 	this.velY += 0.1;
 	this.velX *= 0.96;
+	this.rotation += this.velX;
 	if(this.y > 850) {
 		this.splicing = true;
 		if(game.numObjects(RockParticle) === 1) {
@@ -3151,7 +3222,7 @@ var game = {
 		}
 	}
 };
-// game.events = TESTING_MODE ? ["spinnyblades"] : game.events;
+game.events = TESTING_MODE ? ["blindness"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
