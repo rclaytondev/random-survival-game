@@ -1,5 +1,6 @@
 const FPS = 60;
 const TESTING_MODE = true;
+const SHOW_HITBOXES = true;
 
 var canvas = document.getElementById("canvas");
 var c = canvas.getContext("2d");
@@ -95,6 +96,147 @@ var utilities = {
 			numSorted ++;
 		}
 		return array;
+	},
+
+	killCollisionCircle: function(x, y, radius, deathCause) {
+		/*
+		Kills the player if the player is inside the circular region.
+		*/
+		var radiusSq = radius * radius;
+		if(
+			Math.distSq(p.x + p.hitbox.left, p.y + p.hitbox.top, x, y) < radiusSq ||
+			Math.distSq(p.x + p.hitbox.right, p.y + p.hitbox.top, x, y) < radiusSq ||
+			Math.distSq(p.x + p.hitbox.left, p.y + p.hitbox.bottom, x, y) < radiusSq ||
+			Math.distSq(p.x + p.hitbox.right, p.y + p.hitbox.bottom, x, y) < radiusSq
+		) {
+			p.die(deathCause);
+		}
+
+		game.hitboxes.push({
+			type: "circle",
+			color: "red",
+			x: x, y: y, radius: radius
+		});
+	},
+	killCollisionRect: function(x, y, w, h, deathCause) {
+		/*
+		Kills the player if the player is inside the rectangular region.
+		*/
+		if(
+			p.x + p.hitbox.right > x &&
+			p.x + p.hitbox.left < x + w &&
+			p.y + p.hitbox.bottom > y &&
+			p.y + p.hitbox.top < y + h
+		) {
+			p.die(deathCause);
+		}
+
+		game.hitboxes.push({
+			type: "rect",
+			color: "red",
+			x: x, y: y, w: w, h: h,
+			sides: ["top", "bottom", "left", "right"]
+		});
+	},
+	killCollisionPoint: function(x, y, deathCause) {
+		if(
+			x > p.x + p.hitbox.left &&
+			x < p.x + p.hitbox.right &&
+			y > p.y + p.hitbox.top &&
+			y < p.y + p.hitbox.bottom
+		) {
+			p.die(deathCause);
+		}
+
+		game.hitboxes.push({
+			type: "rect",
+			color: "red",
+			x: x - 1, y: y - 1, w: 2, h: 2,
+			sides: ["top", "bottom", "left", "right"]
+		});
+	},
+
+	collisionRect: function(x, y, w, h, settings) {
+		settings = settings || {};
+		settings.velX = settings.velX || 0; // velocity of object requesting collisions
+		settings.velY = settings.velY || 0;
+		settings.caller = settings.caller || null; // object requesting collisions
+		settings.sides = settings.sides || ["top", "bottom", "left", "right"];
+
+		game.objects.push(p);
+		for(var i = 0; i < game.objects.length; i ++) {
+			if(game.objects[i].hitbox !== undefined && typeof game.objects[i].handleCollision === "function") {
+				var obj = game.objects[i];
+				var collisionBuffer = { top: 5, bottom: 5, left: 5, right: 5 };
+				if(obj.hasOwnProperty("velY")) {
+					collisionBuffer.top = obj.velY - settings.velY + 2;
+					collisionBuffer.bottom = settings.velY - obj.velY + 2;
+				}
+				if(obj.hasOwnProperty("velX")) {
+					collisionBuffer.left = obj.velX - settings.velX + 2;
+					collisionBuffer.right = settings.velX - obj.velX + 2;
+				}
+				for(var j in collisionBuffer) {
+					if(collisionBuffer.hasOwnProperty(j)) {
+						collisionBuffer[j] = Math.max(collisionBuffer[j], 5);
+					}
+				}
+				if(obj instanceof Player) {
+					y += p.worldY;
+				}
+				if(
+					obj.x + obj.hitbox.right >= x &&
+					obj.x + obj.hitbox.left <= x + w &&
+					obj.y + obj.hitbox.bottom >= y &&
+					obj.y + obj.hitbox.bottom <= y + collisionBuffer.top &&
+					settings.sides.includes("top")
+				) {
+					obj.y = Math.min(obj.y, y - obj.hitbox.bottom) + 1;
+					obj.handleCollision("floor", settings.caller);
+				}
+				else if(
+					obj.x + obj.hitbox.right >= x &&
+					obj.x + obj.hitbox.left <= x + w &&
+					obj.y + obj.hitbox.top <= y + h &&
+					obj.y + obj.hitbox.top >= y + h - collisionBuffer.bottom &&
+					settings.sides.includes("bottom")
+				) {
+					obj.y = Math.max(obj.y, y + h - obj.hitbox.top);
+					obj.handleCollision("ceiling", settings.caller);
+				}
+				else if(
+					obj.y + obj.hitbox.bottom >= y &&
+					obj.y + obj.hitbox.top <= y + h &&
+					obj.x + obj.hitbox.right >= x &&
+					obj.x + obj.hitbox.right <= x + collisionBuffer.left &&
+					settings.sides.includes("left")
+				) {
+					obj.x = Math.min(obj.x, x - obj.hitbox.right);
+					obj.handleCollision("wall-to-right", this);
+				}
+				else if(
+					obj.y + obj.hitbox.bottom >= y &&
+					obj.y + obj.hitbox.top <= y + h &&
+					obj.x + obj.hitbox.left <= x + w &&
+					obj.x + obj.hitbox.left >= x + w - collisionBuffer.right &&
+					settings.sides.includes("right")
+				) {
+					obj.x = Math.max(obj.x, x + w - obj.hitbox.left);
+					obj.handleCollision("wall-to-left", this);
+				}
+				if(obj instanceof Player) {
+					y -= p.worldY;
+				}
+			}
+		}
+		game.objects.removeAllInstances(Player);
+
+		game.hitboxes.push({
+			type: "rect",
+			color: "blue",
+			x: x, y: y, w: w, h: h,
+			sides: settings.sides
+		});
 	}
 };
 var input = {
@@ -155,6 +297,13 @@ Object.prototype.clone = function() {
 	}
 	return clone;
 };
+Object.prototype.extend = function(parent) {
+	/*
+	Sets this to inherit all methods belonging to 'parent'.
+	*/
+	this.prototype = Object.create(parent.prototype);
+	this.prototype.constructor = this;
+};
 Array.prototype.contains = function(obj) {
 	for(var i = 0; i < this.length; i ++) {
 		if(this[i] === obj) {
@@ -171,6 +320,14 @@ Array.prototype.removeAll = function(item) {
 		}
 	}
 };
+Array.prototype.removeAllInstances = function(constructor) {
+	for(var i = 0; i < this.length; i ++) {
+		if(this[i] instanceof constructor) {
+			this.splice(i, 1);
+			i --;
+		}
+	}
+};
 Array.prototype.swap = function(index1, index2) {
 	var previousIndex1 = this[index1];
 	this[index1] = this[index2];
@@ -182,6 +339,14 @@ Array.prototype.randomItem = function() {
 };
 Math.dist = function(x1, y1, x2, y2) {
 	return Math.hypot(x1 - x2, y1 - y2);
+};
+Math.distSq = function(x1, y1, x2, y2) {
+	/*
+	Returns the distance between the points squared for better performance.
+	*/
+	var dx = x1 - x2;
+	var dy = y1 - y2;
+	return (dx * dx) + (dy * dy);
 };
 Math.map = function(value, min1, max1, min2, max2) {
 	/*
@@ -345,6 +510,7 @@ function Player() {
 	this.velX = 0;
 	this.velY = 0;
 	this.worldY = 0;
+	this.hitbox = { right: 5, left: -5, top: 0, bottom: 46 };
 	/* Player animation properties */
 	this.legs = 5;
 	this.legDir = 1;
@@ -375,6 +541,8 @@ function Player() {
 	this.numRecords = 0;
 	this.gonePlaces = false;
 	this.beenGhost = false;
+	/* Other properties */
+	this.standingOnPlatform = null;
 };
 Player.prototype.display = function() {
 	/*
@@ -505,10 +673,12 @@ Player.prototype.update = function() {
 		}
 	}
 	if(this.x < 10 && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades >= 1)) {
-		this.velX = 1;
+		this.velX = 0;
+		this.x = Math.max(this.x, 10);
 	}
 	if(this.x > 790 && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades >= 1)) {
-		this.velX = -1;
+		this.velX = 0;
+		this.x = Math.min(this.x, 790);
 	}
 	/* movement cap */
 	if(this.velX > 3 && !speedIncreaser.equipped) {
@@ -560,6 +730,56 @@ Player.prototype.update = function() {
 		}
 	}
 };
+Player.prototype.reset = function() {
+	this.score = 0;
+	this.coins = 0;
+	this.x = 400;
+	this.y = 300;
+	this.velX = 0;
+	this.velY = 0;
+	this.facing = "forward";
+	this.armHeight = 10;
+	this.worldY = 0;
+	game.timeToEvent = FPS;
+	game.objects = [];
+	game.initializePlatforms();
+	game.chatMessages = [];
+	game.currentEvent = null;
+	this.timeNauseated = -5;
+	this.timeConfused = -5;
+	this.timeBlinded = -5;
+	this.invincible = 0;
+	this.usedRevive = false;
+	this.coins = 0;
+	if(!TESTING_MODE) {
+		effects.add();
+	}
+	if(secondLife.equipped) {
+		this.numRevives = (secondLife.upgrades >= 2) ? 2 : 1;
+	}
+	else {
+		this.numRevives = 0;
+	}
+};
+Player.prototype.handleCollision = function(dir, platform) {
+	if(dir === "floor") {
+		this.velY = Math.min(this.velY, 0);
+		this.hasDoubleJumped = false;
+		this.canExtendJump = true;
+		this.timeExtended = 0;
+		this.standingOnPlatform = platform;
+	}
+	else if(dir === "ceiling") {
+		this.velY = Math.max(this.velY, 1);
+	}
+	else if(dir === "wall-to-left") {
+		this.velX = Math.max(this.velX, 0);
+	}
+	else if(dir === "wall-to-right") {
+		this.velX = Math.min(this.velX, 0);
+	}
+};
+
 Player.prototype.die = function(cause) {
 	if(this.invincible < 0) {
 		if(secondLife.equipped && this.numRevives > 0) {
@@ -590,37 +810,10 @@ Player.prototype.surviveEvent = function(event) {
 	}
 	this.eventsSurvived.push(event);
 };
-Player.prototype.reset = function() {
-	this.score = 0;
-	this.coins = 0;
-	this.x = 400;
-	this.y = 300;
-	this.velX = 0;
-	this.velY = 0;
-	this.facing = "forward";
-	this.armHeight = 10; 
-	this.worldY = 0;
-	game.timeToEvent = FPS;
-	game.objects = [];
-	game.initializePlatforms();
-	game.chatMessages = [];
-	game.currentEvent = null;
-	this.timeNauseated = -5;
-	this.timeConfused = -5;
-	this.timeBlinded = -5;
-	this.invincible = 0;
-	this.usedRevive = false;
-	this.coins = 0;
-	if(!TESTING_MODE) {
-		effects.add();
-	}
-	if(secondLife.equipped) {
-		this.numRevives = (secondLife.upgrades >= 2) ? 2 : 1;
-	}
-	else {
-		this.numRevives = 0;
-	}
+Player.prototype.isIntangible = function() {
+	return (input.keys[40] && intangibilityTalisman.equipped);
 };
+
 var p = new Player();
 
 function Platform(x, y, w, h) {
@@ -642,45 +835,14 @@ Platform.prototype.calculateVelocity = function() {
 };
 Platform.prototype.update = function() {
 	this.opacity += (this.opacity < 1) ? 0.05 : 0;
-	this.y += p.worldY;
-	/* Collisions */
-	const COLLISION_BUFFER = 6;
-	var collidesWithTop = false;
-	if(!(input.keys[40] && intangibilityTalisman.equipped)) {
-		/* Top */
-		if(p.x + 5 >= this.x && p.x - 5 <= this.x + this.w && p.y + 46 >= this.y && p.y + 46 <= this.y + Math.max(/*COLLISION_BUFFER*/10, p.velY) + this.velY + 2) {
-			collidesWithTop = true;
-		}
-		/* Bottom */
-		if(p.x + 5 >= this.x && p.x - 5 <= this.x + this.w && p.y - COLLISION_BUFFER <= this.y + this.h && p.y >= this.y + this.h) {
-			p.velY = Math.max(1, p.velY);
-			p.y = Math.max(this.y + this.h, p.y);
-		}
-		/* Left */
-		if(p.y - 5 < this.y + this.h && p.y + 46 + COLLISION_BUFFER > this.y + this.h && p.x + 5 > this.x && p.x + 5 < this.x + (this.w / 2)) {
-			p.velX = Math.min(this.velX - 1, p.velX);
-			p.x = Math.min(p.x, this.x - 5);
-		}
-		/* Right */
-		if(p.y - 5 < this.y + this.h && p.y + 46 + COLLISION_BUFFER > this.y + this.h && p.x - 5 < this.x + this.w && p.x - 5 > this.x + (this.w / 2)) {
-			p.velX = Math.max(this.velX + 1, p.velX);
-			p.x = Math.max(p.x, this.x + this.w + 5);
-		}
-	}
-
 	this.x += this.velX;
 	this.y += this.velY;
-
-	if(collidesWithTop) {
-		p.velY = Math.min(p.velY, 0);
-		p.y = Math.min(this.y - 46, p.y);
-		p.hasDoubleJumped = false;
-		p.canExtendJump = true;
-		p.timeExtended = 0;
+	if(p.standingOnPlatform === this) {
 		p.x += this.velX;
-		p.y = this.y - 46;
+		p.y += this.velY;
 	}
 
+	/* stop moving for block shuffle event */
 	if(this.x + 2 > this.destX && this.x - 2 < this.destX && this.y + 2 > this.destY && this.y - 2 < this.destY && (this.velX !== 0 || this.velY !== 0)) {
 		this.velX = 0;
 		this.velY = 0;
@@ -697,7 +859,15 @@ Platform.prototype.update = function() {
 			p.surviveEvent("block shuffle");
 		}
 	}
-	this.y -= p.worldY;
+};
+Platform.prototype.collide = function() {
+	utilities.collisionRect(
+		this.x, this.y, this.w, this.h,
+		{
+			caller: this,
+			velX: this.velX, velY: this.velY
+		}
+	);
 };
 Platform.prototype.display = function() {
 	c.globalAlpha = this.opacity;
@@ -2046,8 +2216,8 @@ Explosion.prototype.update = function() {
 	this.size ++;
 	this.width += 0.5;
 	this.opacity -= 0.01;
-	if((Math.dist(this.x, this.y + p.worldY, p.x - 10, p.y) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x + 10, p.y) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x - 10, p.y + 46) <= this.size || Math.dist(this.x, this.y + p.worldY, p.x + 10, p.y + 45) <= this.size) && !(input.keys[40] && intangibilityTalisman.equipped)) {
-		p.die("laser");
+	if(!p.isIntangible()) {
+		utilities.killCollisionCircle(this.x, this.y, this.size, "laser");
 	}
 	if(this.opacity <= 0) {
 		this.splicing = true;
@@ -2202,6 +2372,7 @@ function Boulder(x, y, velX) {
 		}
 		this.vertices.push(Math.rotateDegrees(0, -50, r));
 	}
+	this.hitbox = { top: -50, bottom: 50, left: -50, right: 50 };
 };
 Boulder.prototype.display = function() {
 	c.fillStyle = "rgb(100, 100, 100)";
@@ -2217,27 +2388,13 @@ Boulder.prototype.display = function() {
 	c.restore();
 };
 Boulder.prototype.update = function() {
+	this.velY += 0.1;
 	this.x += this.velX;
 	this.y += this.velY;
 	this.rotation += (this.velX > 0) ? 5 : -5;
-	this.velY += 0.1;
-	for(var i = 0; i < game.objects.length; i ++) {
-		if(game.objects[i] instanceof Platform && this.x + 50 > game.objects[i].x && this.x - 50 < game.objects[i].x + game.objects[i].w && this.y + 50 > game.objects[i].y && this.y + 50 < game.objects[i].y + 10) {
-			this.numBounces ++;
-			if(this.numBounces === 1) {
-				this.velY = -4;
-			}
-			if(this.numBounces === 2) {
-				this.velY = -3;
-			}
-			if(this.numBounces === 3) {
-				this.velY = -2;
-			}
-		}
-	}
 	/* killing player */
-	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 50 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 50 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 50 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 50) && !(input.keys[40] && intangibilityTalisman.equipped)) {
-		p.die("boulder");
+	if(!p.isIntangible()) {
+		utilities.killCollisionCircle(this.x, this.y, 50, "boulder");
 	}
 	/* delete self if off-screen */
 	if((this.velX < 0 && this.x < 50) || (this.velX > 0 && this.x > 750)) {
@@ -2268,6 +2425,20 @@ Boulder.prototype.shatter = function() {
 		velocity.x += Math.randomInRange(-1, 1);
 		velocity.y += Math.randomInRange(-1, 1);
 		game.objects.push(new RockParticle(this.x, this.y, vertices, velocity.x, velocity.y));
+	}
+};
+Boulder.prototype.handleCollision = function(direction, platform) {
+	if(direction === "floor") {
+		this.numBounces ++;
+		if(this.numBounces === 1) {
+			this.velY = -4;
+		}
+		else if(this.numBounces === 2) {
+			this.velY = -3;
+		}
+		else {
+			this.velY = -2;
+		}
 	}
 };
 function RockParticle(x, y, vertices, velX, velY) {
@@ -2353,8 +2524,9 @@ SpinnyBlade.prototype.update = function() {
 	endPoint1.y += this.y; endPoint2.y += this.y;
 	var bladeArray = Math.findPointsLinear(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y);
 	for(var i = 0; i < bladeArray.length; i ++) {
-		if(bladeArray[i].x > p.x - 5 && bladeArray[i].x < p.x + 5 && bladeArray[i].y > p.y && bladeArray[i].y < p.y + 46 && !(input.keys[40] && intangibilityTalisman.equipped)) {
-			p.die("spinnyblades");
+		var point = bladeArray[i];
+		if(!p.isIntangible()) {
+			utilities.killCollisionPoint(point.x, point.y);
 		}
 	}
 	if(this.opacity <= 0 && this.numRevolutions >= 2) {
@@ -2414,8 +2586,8 @@ Pirhana.prototype.update = function() {
 		this.mouthVel = 0;
 		this.mouth = 1;
 	}
-	if(p.x + 5 > this.x - 25 && p.x - 5 < this.x + 25 && p.y + 46 > this.y - 25 && p.y < this.y + 37 && !(input.keys[40] && intangibilityTalisman.equipped)) {
-		p.die("pirhanas");
+	if(!p.isIntangible()) {
+		utilities.killCollisionRect(this.x - 25, this.y - 25, 50, 62, "pirhanas");
 	}
 	if(this.y > 850 && this.velY > 0) {
 		this.splicing = true;
@@ -2480,8 +2652,8 @@ Pacman.prototype.update = function() {
 	else if(this.mouth >= 1) {
 		this.mouthVel = -0.01;
 	}
-	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 200 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 200 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 200 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 200) && !(input.keys[40] && intangibilityTalisman.equipped)) {
-		p.die("pacmans");
+	if(!p.isIntangible()) {
+		utilities.killCollisionCircle(this.x, this.y, 200, "pacmans");
 	}
 	/* remove dots when eaten */
 	for(var i = 0; i < game.objects.length; i ++) {
@@ -2583,13 +2755,13 @@ Rocket.prototype.update = function() {
 		game.objects.push(new FireParticle(this.x, this.y + 10));
 	}
 	if(this.velX > 0) {
-		if(p.x + 5 > this.x - 50 && p.x - 5 < this.x + 100 && p.y + 46 > this.y && p.y < this.y + 10 && !(input.keys[40] && intangibilityTalisman.equipped)) {
-			p.die("rocket");
+		if(!p.isIntangible()) {
+			utilities.killCollisionRect(this.x - 50, this.y, 150, 10, "rocket");
 		}
 	}
 	else {
-		if(p.x + 5 > this.x - 100 && p.x - 5 < this.x + 50 && p.y + 46 > this.y && p.y < this.y + 10 && !(input.keys[40] && intangibilityTalisman.equipped)) {
-			p.die("rocket");
+		if(!p.isIntangible()) {
+			utilities.killCollisionRect(this.x - 100, this.y, 150, 10, "rocket");
 		}
 	}
 	/* remove self if off-screen */
@@ -2613,6 +2785,8 @@ function Spikeball(velX, velY) {
 	this.age = 0;
 	this.opacity = 0;
 	this.fadedIn = false;
+	this.hitbox = { left: -30, right: 30, top: -30, bottom: 30 };
+	this.collideWithBorders = true;
 };
 Spikeball.prototype.display = function() {
 	c.fillStyle = "rgb(150, 150, 155)";
@@ -2656,33 +2830,9 @@ Spikeball.prototype.update = function() {
 		this.age ++;
 		this.opacity -= 0.002;
 	}
-	/* platform + wall collisions */
-	if(this.age > 20) {
-		var platforms = game.getObjectsByType(Platform);
-		for(var i = 0; i < platforms.length; i ++) {
-			if(this.x + 30 > platforms[i].x && this.x - 30 < platforms[i].x + platforms[i].w && this.y + 30 > platforms[i].y && this.y + 30 < platforms[i].y + 6) {
-				this.velY = -this.velY;
-			}
-			if(this.x + 30 > platforms[i].x && this.x - 30 < platforms[i].x + platforms[i].w && this.y - 30 < platforms[i].y + platforms[i].h && this.y - 30 > platforms[i].y + platforms[i].h - 6) {
-				this.velY = -this.velY;
-			}
-			if(this.y + 30 > platforms[i].y && this.y - 30 < platforms[i].y + platforms[i].h && this.x + 30 > platforms[i].x && this.x + 30 < platforms[i].x + 6) {
-				this.velX = -this.velX;
-			}
-			if(this.y + 30 > platforms[i].y && this.y - 30 < platforms[i].y + platforms[i].h && this.x - 30 < platforms[i].x + platforms[i].w && this.x - 30 > platforms[i].x + platforms[i].w - 6) {
-				this.velX = -this.velX;
-			}
-		}
-		if(this.x + 30 > 800 || this.x - 30 < 0) {
-			this.velX = -this.velX;
-		}
-		if(this.y - 30 < 0 || this.y + 30 > 800) {
-			this.velY = -this.velY;
-		}
-	}
 	/* player collisions */
-	if((Math.dist(this.x, this.y, p.x - 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y) <= 30 || Math.dist(this.x, this.y, p.x - 5, p.y + 46) <= 30 || Math.dist(this.x, this.y, p.x + 5, p.y + 46) <= 30) && this.age > 20 && !(input.keys[40] && intangibilityTalisman.equipped)) {
-		p.die("spikeballs");
+	if(this.age > 20 && !p.isIntangible()) {
+		utilities.killCollisionCircle(this.x, this.y, 30, "spikeballs");
 	}
 	/* remove self if faded out */
 	if(this.opacity <= 0) {
@@ -2691,6 +2841,20 @@ Spikeball.prototype.update = function() {
 			game.addEvent();
 			p.surviveEvent("spikeballs");
 		}
+	}
+};
+Spikeball.prototype.handleCollision = function(direction, platform) {
+	if(direction === "floor") {
+		this.velY = -Math.abs(this.velY);
+	}
+	else if(direction === "ceiling") {
+		this.velY = Math.abs(this.velY);
+	}
+	else if(direction === "wall-to-left") {
+		this.velX = Math.abs(this.velX);
+	}
+	else if(direction === "wall-to-right") {
+		this.velX = -Math.abs(this.velX);
 	}
 };
 /* spike wall event */
@@ -2738,11 +2902,11 @@ Spikewall.prototype.update = function() {
 		game.objects.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
 	}
 	if(this.velX === -this.fastSpeed || this.velX === this.slowSpeed) {
-		if(p.x + 5 > this.x && !(input.keys[40] && intangibilityTalisman.equipped)) {
+		if(p.x + 5 > this.x && !p.isIntangible()) {
 			p.die("spikewall");
 		}
 	}
-	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed && !(input.keys[40] && intangibilityTalisman.equipped)) {
+	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed && !p.isIntangible()) {
 		if(p.x - 5 < this.x) {
 			p.die("spikewall");
 		}
@@ -2911,6 +3075,7 @@ var game = {
 	timeToEvent: -5,
 	objects: [],
 	chatMessages: [],
+	hitboxes: [], // debugging only. for showing hitboxes if SHOW_HITBOXES is true
 	screen: "home",
 
 	numObjects: function(constructor) {
@@ -2936,6 +3101,103 @@ var game = {
 			}
 			else {
 				game.objects.push(new Platform(400 - (160 / 2), y - 10, 160, 20));
+			}
+		}
+	},
+	displayHitboxes: function(hitbox) {
+		if(hitbox === undefined || hitbox === null) {
+			/* generate hitboxes */
+			for(var i = 0; i < game.objects.length; i ++) {
+				var obj = game.objects[i];
+				if(typeof obj.hitbox === "object") {
+					game.hitboxes.push({
+						type: "rect",
+						color: "green",
+						x: obj.x + obj.hitbox.left,
+						y: obj.y + obj.hitbox.top,
+						w: obj.hitbox.right - obj.hitbox.left,
+						h: obj.hitbox.bottom - obj.hitbox.top,
+						sides: ["top", "bottom", "left", "right"]
+					})
+				}
+			}
+			game.hitboxes.push({
+				type: "rect",
+				color: "green",
+				x: p.x + p.hitbox.left,
+				y: p.y + p.hitbox.top,
+				w: p.hitbox.right - p.hitbox.left,
+				h: p.hitbox.bottom - p.hitbox.top,
+				sides: ["top", "bottom", "left", "right"]
+			});
+			/* sort hitboxes by type */
+			function sorter(a, b) {
+				const A_FIRST = -1;
+				const B_FIRST = 1;
+				/*
+				blue hitboxes < green hitboxes < red hitboxes
+				*/
+				var sortOrderA;
+				if(a.color === "blue") { sortOrderA = -1; }
+				else if(a.color === "green") { sortOrderA = 0; }
+				else if(a.color === "red") { sortOrderA = 1; }
+				var sortOrderB;
+				if(b.color === "blue") { sortOrderB = -1; }
+				else if(b.color === "green") { sortOrderB = 0; }
+				else if(b.color === "red") { sortOrderB = 1; }
+				return sortOrderA - sortOrderB;
+			};
+			game.hitboxes.sort(sorter);
+			/* load all hitboxes */
+			for(var i = 0; i < game.hitboxes.length; i ++) {
+				let hitbox = game.hitboxes[i];
+				if(hitbox !== undefined && hitbox !== null) {
+					game.displayHitboxes(hitbox);
+				}
+			}
+		}
+		else {
+			var color = (Math.sin(utilities.frameCount / 10) * 55 + 200);
+			if(hitbox.color === "blue") {
+				c.strokeStyle = "rgb(0, 0, " + color + ")";
+			}
+			else if(hitbox.color === "green") {
+				c.strokeStyle = "rgb(0, " + color + ", 0)";
+			}
+			else if(hitbox.color === "red") {
+				c.strokeStyle = "rgb(" + color + ", 0, 0)";
+			}
+			c.lineWidth = 5;
+			if(hitbox.type === "rect") {
+				if(hitbox.sides.contains("top")) {
+					c.beginPath();
+					c.moveTo(hitbox.x - (c.lineWidth / 2), hitbox.y);
+					c.lineTo(hitbox.x + hitbox.w + (c.lineWidth / 2), hitbox.y);
+					c.stroke();
+				}
+				if(hitbox.sides.contains("bottom")) {
+					c.beginPath();
+					c.moveTo(hitbox.x - (c.lineWidth / 2), hitbox.y + hitbox.h);
+					c.lineTo(hitbox.x + hitbox.w + (c.lineWidth / 2), hitbox.y + hitbox.h);
+					c.stroke();
+				}
+				if(hitbox.sides.contains("left")) {
+					c.beginPath();
+					c.moveTo(hitbox.x, hitbox.y);
+					c.lineTo(hitbox.x, hitbox.y + hitbox.h);
+					c.stroke();
+				}
+				if(hitbox.sides.contains("right")) {
+					c.beginPath();
+					c.moveTo(hitbox.x + hitbox.w, hitbox.y);
+					c.lineTo(hitbox.x + hitbox.w, hitbox.y + hitbox.h);
+					c.stroke();
+				}
+			}
+			else if(hitbox.type === "circle") {
+				c.beginPath();
+				c.arc(hitbox.x, hitbox.y, hitbox.radius, 0, 2 * Math.PI);
+				c.stroke();
 			}
 		}
 	},
@@ -2991,7 +3253,31 @@ var game = {
 		};
 		game.objects = utilities.sort(game.objects, sorter);
 	},
-
+	loadCollisions: function() {
+		p.standingOnPlatform = null;
+		for(var i = 0; i < game.objects.length; i ++) {
+			var obj = game.objects[i];
+			/* border collisions */
+			if(obj.collideWithBorders && typeof obj.hitbox === "object") {
+				if(obj.x + obj.hitbox.right >= canvas.width) {
+					obj.handleCollision("wall-to-right");
+				}
+				else if(obj.x + obj.hitbox.left <= 0) {
+					obj.handleCollision("wall-to-left");
+				}
+				if(obj.y + obj.hitbox.bottom >= canvas.height) {
+					obj.handleCollision("floor");
+				}
+				else if(obj.y + obj.hitbox.top <= 0) {
+					obj.handleCollision("ceiling");
+				}
+			}
+			/* platform collisions */
+			if(typeof obj.collide === "function") {
+				obj.collide();
+			}
+		}
+	},
 	addEvent: function() {
 		p.score ++;
 		game.currentEvent = game.events.randomItem();
@@ -3202,6 +3488,8 @@ var game = {
 				console.warn("An in-game object of type " + game.objects[i].constructor.name + " did not have a display() method.");
 			}
 		}
+		/* collisions */
+		game.loadCollisions();
 		/* visual effects */
 		if(p.timeBlinded > 0) {
 			effects.displayBlindnessEffect();
@@ -3223,6 +3511,7 @@ var game = {
 	}
 };
 game.events = TESTING_MODE ? ["blindness"] : game.events;
+game.events = TESTING_MODE ? ["block shuffle"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
@@ -3257,11 +3546,13 @@ function doByTime() {
 		playButton.checkForClick();
 	}
 	else if(game.screen === "play") {
+		game.hitboxes = [];
+
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* player */
-		p.display();
 		p.update();
+		p.display();
 		/* random events */
 		game.runEvent();
 		if(p.y + 46 >= 800 && (game.numObjects(Acid) === 0 || game.getObjectsByType(Acid)[0].y + p.worldY > 820)) {
@@ -3306,6 +3597,10 @@ function doByTime() {
 		c.fillText("Score: " + p.score, 10, 790);
 		c.textAlign = "right";
 		c.fillText("Coins: " + p.coins, 790, 790);
+		/* debug */
+		if(SHOW_HITBOXES) {
+			game.displayHitboxes();
+		}
 	}
 	else if(game.screen === "death") {
 		c.fillStyle = "rgb(200, 200, 200)";
