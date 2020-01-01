@@ -1,6 +1,6 @@
 const FPS = 60;
 const TESTING_MODE = true;
-const SHOW_HITBOXES = true;
+const SHOW_HITBOXES = false;
 
 var canvas = document.getElementById("canvas");
 var c = canvas.getContext("2d");
@@ -162,11 +162,34 @@ var utilities = {
 		settings.velY = settings.velY || 0;
 		settings.caller = settings.caller || null; // object requesting collisions
 		settings.sides = settings.sides || ["top", "bottom", "left", "right"];
+		settings.includedTypes = settings.includedTypes || null; // if provided, this parameter will exclude all types of objects other than those given.
+		settings.excludedTypes = settings.excludedTypes || null; // if provided, this parameter will exclude the types of objects given.
 
 		game.objects.push(p);
-		for(var i = 0; i < game.objects.length; i ++) {
-			if(game.objects[i].hitbox !== undefined && typeof game.objects[i].handleCollision === "function") {
-				var obj = game.objects[i];
+		objectLoop: for(var i = 0; i < game.objects.length; i ++) {
+			var obj = game.objects[i];
+
+			if(Array.isArray(settings.excludedTypes)) {
+				for(var j = 0; j < settings.excludedTypes; j ++) {
+					if(obj instanceof settings.excludedTypes[j]) {
+						continue objectLoop;
+					}
+				}
+			}
+			else if(Array.isArray(settings.includedTypes)) {
+				var isIncluded = false;
+				innerLoop: for(var j = 0; j < settings.includedTypes.length; j ++) {
+					if(obj instanceof settings.includedTypes[j]) {
+						isIncluded = true;
+						break innerLoop;
+					}
+				}
+				if(!isIncluded) {
+					continue objectLoop;
+				}
+			}
+
+			if(game.objects[i].hitbox !== undefined && game.objects[i].hitbox !== null && typeof game.objects[i].hitbox === "object" && typeof game.objects[i].handleCollision === "function") {
 				var collisionBuffer = { top: 5, bottom: 5, left: 5, right: 5 };
 				if(obj.hasOwnProperty("velY")) {
 					collisionBuffer.top = obj.velY - settings.velY + 2;
@@ -338,7 +361,12 @@ Array.prototype.randomItem = function() {
 	return this[index];
 };
 Math.dist = function(x1, y1, x2, y2) {
-	return Math.hypot(x1 - x2, y1 - y2);
+	if(arguments.length === 4) {
+		return Math.hypot(x1 - x2, y1 - y2); // 2-dimensional distance
+	}
+	else if(arguments.length === 2) {
+		return Math.abs(arguments[0] - arguments[1]); // 1-dimensional distance
+	}
 };
 Math.distSq = function(x1, y1, x2, y2) {
 	/*
@@ -545,6 +573,7 @@ function Player() {
 	this.standingOnPlatform = null;
 };
 Player.prototype.display = function() {
+	c.globalAlpha = 1;
 	/*
 	The player is a rectangle. 10 wide, 46 tall. (this.x, this.y) is at the middle of the top of the rectangle.
 	*/
@@ -763,6 +792,9 @@ Player.prototype.reset = function() {
 };
 Player.prototype.handleCollision = function(dir, platform) {
 	if(dir === "floor") {
+		if(platform instanceof LaserBot && this.velY > 0) {
+			platform.isDead = true;
+		}
 		this.velY = Math.min(this.velY, 0);
 		this.hasDoubleJumped = false;
 		this.canExtendJump = true;
@@ -877,6 +909,41 @@ Platform.prototype.display = function() {
 	this.y -= p.worldY;
 	c.globalAlpha = 1;
 };
+Platform.prototype.locationToString = function() {
+	/*
+	Returns which area of the screen the platform is in, for debugging.
+	*/
+	var center = {
+		x: this.x + (this.w / 2),
+		y: this.y + (this.h / 2)
+	};
+	var xLocation;
+	if(center.x < canvas.width / 3) {
+		xLocation = "left";
+	}
+	else if(center.x > canvas.width / 3 * 2) {
+		xLocation = "right";
+	}
+	else {
+		xLocation = "middle";
+	}
+	var yLocation;
+	if(center.y < canvas.height / 3) {
+		yLocation = "top";
+	}
+	else if(center.y > canvas.height / 3 * 2) {
+		yLocation = "bottom";
+	}
+	else {
+		yLocation = "middle";
+	}
+	if(xLocation === "middle" && yLocation === "middle") {
+		return "platform in the center";
+	}
+	else {
+		return "platform in the " + yLocation + "-" + xLocation;
+	}
+};
 
 function DollarIcon() {
 	/*
@@ -904,6 +971,8 @@ function Button(x, y, whereTo, icon) {
 	this.mousedOverBefore = false;
 };
 Button.prototype.display = function() {
+	c.globalAlpha = 1;
+	c.lineWidth = 5;
 	if(this.icon === "play") {
 		/* button outline */
 		c.strokeStyle = "rgb(100, 100, 100)";
@@ -3066,10 +3135,369 @@ var effects = {
 		game.objects.push(new AfterImage(playerAfterImage.clone()));
 	}
 };
+/* enemies */
+function Enemy() {};
+function LaserBot(x, y) {
+	Enemy.call(this);
+	this.x = x;
+	this.y = y;
+	this.velY = 0;
+	this.velX = 0;
+	this.hitbox = { top: -60, bottom: 0, left: -10, right: 10 };
+	this.isDead = false;
+
+	this.timeSinceShot = Math.randomInRange(0, 70);
+	this.standingOnPlatform = null;
+	this.destination = null; // which platform it is moving toward
+	this.goingToDestination = false;
+	this.destX = null;
+	this.jumpHeight = 5;
+	this.canJumpToPlatform = false;
+	this.jumpsSinceMove = 0;
+	this.jumpsRequired = 1; // how many jumps needed before switching platforms
+	this.initialized = false; // whether it has moved entirely onto the screen
+
+	this.facing = "right";
+	this.springY = 1;
+	this.springVelY = 0;
+	this.buttonY = 0;
+};
+LaserBot.extend(Enemy);
+LaserBot.prototype.display = function() {
+	var bodyY = this.y - 20 - (30 * this.springY);
+	c.globalAlpha = 1;
+	/* self-destruct button */
+	c.fillStyle = "rgb(255, 0, 0)";
+	c.fillRect(this.x - 5, bodyY - 5 + this.buttonY, 10, 10);
+	/* body */
+	c.fillStyle = "rgb(150, 150, 155)";
+	c.strokeStyle = "rgb(150, 150, 155)";
+	c.fillRect(this.x - 10, bodyY, 20, 20);
+	/* spring */
+	c.lineWidth = 2;
+	c.save();
+	c.translate(this.x, this.y);
+	c.scale(1, this.springY);
+	c.beginPath();
+	for(var y = 0; y >= -30; y -= 3) {
+		var x = (y % (3 * 2) === 0) ? -7 : 7;
+		if(y === 0) {
+			c.moveTo(x, y);
+		}
+		else {
+			c.lineTo(x, y);
+		}
+	}
+	c.stroke();
+	c.restore();
+	/* laser */
+	if(this.facing === "right") {
+		c.beginPath();
+		c.moveTo(this.x + 10, bodyY + 3);
+		c.lineTo(this.x + 20, bodyY + 3);
+		c.stroke();
+	}
+	else {
+		c.beginPath();
+		c.moveTo(this.x - 10, bodyY + 3);
+		c.lineTo(this.x - 20, bodyY + 3);
+		c.stroke();
+	}
+};
+LaserBot.prototype.update = function() {
+	if(this.y > 850) {
+		this.splicing = true;
+		var laserBots = game.getObjectsByType(LaserBot);
+		if(laserBots.length === 1) {
+			/* this is the final LaserBot; end the event */
+			game.addEvent();
+			p.surviveEvent("laserbots");
+		}
+	}
+	/* movement */
+	if(!this.isDead) {
+		if(this.destination !== null) {
+			this.destX = this.destination.x + (this.destination.w / 2);
+		}
+		if(!this.initialized) {
+			this.destX = (this.x < canvas.width / 2) ? 80 : canvas.width - 80;
+			this.goingToDestination = true;
+		}
+		if(this.destX !== null && this.goingToDestination) {
+			if(this.x < this.destX) {
+				this.velX = 4;
+			}
+			else if(this.x > this.destX) {
+				this.velX = -4;
+			}
+			if(!this.initialized) {
+				this.velX /= 4;
+			}
+			if(Math.abs(this.x - this.destX) < 4) {
+				this.x = this.destX;
+				this.velX = 0;
+				this.destX = null;
+				this.destination = null;
+				this.goingToDestination = false;
+				this.initialized = true;
+			}
+		}
+		this.x += this.velX;
+	}
+	else {
+		this.destX = null;
+		this.destination = null;
+		this.standingOnPlatform = null;
+		this.velY = Math.max(this.velY, 3);
+		this.springVelY = (this.springY < 1) ? 0.1 : 0;
+	}
+	this.y += this.velY;
+	if(p.standingOnPlatform === this) {
+		if(this.isDead) {
+			if(input.keys[38]) {
+				p.velY = -5;
+			}
+			else {
+				p.velY = -3;
+			}
+			p.standingOnPlatform = null;
+		}
+		else {
+			p.x += this.velX;
+			p.y += this.velY;
+		}
+	}
+	this.velY += 0.1;
+	/* animation properties */
+	this.springY += this.springVelY;
+	this.buttonY += (this.isDead && this.buttonY < 10) ? 1 : 0;
+	this.facing = (this.x < p.x) ? "right" : "left";
+	/* shooting */
+	this.timeSinceShot ++;
+	if(this.timeSinceShot > 100) {
+		this.shoot();
+	}
+	/* off-screen collisions */
+	if(!this.initialized) {
+		var platforms = game.getObjectsByType(Platform);
+		var closestPlatform = 0;
+		if(this.x < 0) {
+			for(var i = 0; i < platforms.length; i ++) {
+				if(Math.dist(platforms[i].x, 0) <= 1 && Math.dist(platforms[i].y, this.y) < Math.dist(platforms[closestPlatform].y, this.y)) {
+					closestPlatform = i;
+				}
+			}
+			utilities.collisionRect(-150, platforms[closestPlatform].y, 150, 20, { includedTypes: [LaserBot] });
+		}
+		else if(this.x > canvas.width) {
+			for(var i = 0; i < platforms.length; i ++) {
+				if(Math.dist(platforms[i].x, 800 - 160) <= 1 && Math.dist(platforms[i].y, this.y) < Math.dist(platforms[closestPlatform].y, this.y)) {
+					closestPlatform = i;
+				}
+			}
+			utilities.collisionRect(800, platforms[closestPlatform].y, 150, 20, { includedTypes: [LaserBot] });
+		}
+	}
+};
+LaserBot.prototype.calculateDestination = function() {
+	if(this.standingOnPlatform !== null && this.destination === null && this.jumpsSinceMove > this.jumpsRequired) {
+		const JUMP_HEIGHT = 100;
+		const LEFT_PLATFORM_X = 0;
+		const MIDDLE_PLATFORM_X = (canvas.width / 2) - (160 / 2);
+		const RIGHT_PLATFORM_X = canvas.width - (160 / 2);
+		var platforms = game.getObjectsByType(Platform);
+		for(var i = 0; i < platforms.length; i ++) {
+			var platform = platforms[i];
+			if(
+				p.y < platform.y &&
+				p.y + p.hitbox.bottom > platform.y - JUMP_HEIGHT &&
+				this.standingOnPlatform !== platform
+			) {
+				/* this laserbot now wants to be on this platform */
+				if(!LaserBot.isPlatformOccupied(platform)) {
+					this.goToPlatform(platform);
+					if(this.destination !== null) {
+						break;
+					}
+				}
+				else if(platform.x !== MIDDLE_PLATFORM_X && this.standingOnPlatform.x !== MIDDLE_PLATFORM_X) {
+					/* if it wants to go to a side platform and isn't on the middle platform, go to the middle platform (if unoccupied) */
+					for(var j = 0; j < platforms.length; j ++) {
+						if(Math.dist(platforms[j].x, MIDDLE_PLATFORM_X) <= 1 && !LaserBot.isPlatformOccupied(platforms[j])) {
+							this.goToPlatform(platforms[j]);
+						}
+					}
+				}
+			}
+		}
+	}
+};
+LaserBot.prototype.goToPlatform = function(platform) {
+	/*
+	This function should only be called when one assumes that:
+	 - This laserbot has not calculated where to go
+	 - The destination platform is unoccupied
+	 - This laserbot wants to go to that platform
+	*/
+	const MIDDLE_PLATFORM_X = (canvas.width / 2) - (160 / 2);
+	if(Math.dist(platform.x, MIDDLE_PLATFORM_X) <= 1) {
+		/* going to the middle platform */
+		this.destX = platform.x + (platform.w / 2);
+		this.destination = platform;
+		if(this.standingOnPlatform.y >= platform.y) {
+			this.jumpHeight = 7;
+		}
+		else {
+			this.jumpHeight = 3;
+		}
+		this.canJumpToPlatform = false;
+	}
+	else {
+		/* going to one of the corner platforms */
+		if(Math.dist(this.standingOnPlatform.x, MIDDLE_PLATFORM_X) <= 1) {
+			this.destX = platform.x + (platform.w / 2);
+			this.destination = platform;
+			if(this.standingOnPlatform.y > platform.y) {
+				this.jumpHeight = 7;
+			}
+			else {
+				this.jumpHeight = 3;
+			}
+			this.canJumpToPlatform = false;
+		}
+		else {
+			/* find middle platform and go to it */
+			var platforms = game.getObjectsByType(Platform);
+			for(var i = 0; i < platforms.length; i ++) {
+				if(Math.dist(platforms[i].x, MIDDLE_PLATFORM_X) <= 1 && !LaserBot.isPlatformOccupied(platforms[i])) {
+					this.goToPlatform(platforms[i]);
+				}
+			}
+		}
+	}
+};
+LaserBot.prototype.handleCollision = function(direction, platform) {
+	if(this.isDead) {
+		this.hitbox = null; // no more platform collisions
+		return;
+	}
+	if(direction === "floor") {
+		const SPEED = 0.1;
+		this.velY = 0;
+		if(this.springVelY === 0) {
+			this.springVelY = -SPEED;
+		}
+		else if(this.springVelY === -SPEED && this.springY <= 0) {
+			this.springVelY = SPEED;
+		}
+		else if(this.springVelY === SPEED && this.springY >= 1) {
+			/* calculate which platform it wants to be on */
+			this.calculateDestination();
+
+			this.springVelY = 0;
+			this.springY = 1;
+			if(this.jumpsSinceMove > this.jumpsRequired) {
+				this.velY = -this.jumpHeight;
+				this.jumpHeight = 5;
+			}
+			else {
+				this.velY = -5; // default jump height when not switching platforms
+			}
+			if(this.destination !== null && this.jumpsSinceMove > this.jumpsRequired) {
+				this.goingToDestination = true;
+				this.jumpsSinceMove = 0;
+			}
+			this.jumpsSinceMove ++;
+			this.canJumpToPlatform = true;
+		}
+		this.standingOnPlatform = platform;
+		if(!this.goingToDestination && this.destX !== platform.x + (platform.w / 2)) {
+			this.destX = platform.x + (platform.w / 2);
+		}
+	}
+};
+LaserBot.prototype.collide = function() {
+	if(this.isDead) { return; }
+	var bodyY = this.y - 20 - (30 * this.springY);
+	utilities.collisionRect(
+		this.x - 10, bodyY, 20, 20,
+		{
+			sides: ["left", "right", "top"],
+			caller: this,
+			velX: this.velX,
+			velY: this.velY - (this.springVelY * 30)
+		}
+	);
+};
+LaserBot.prototype.shoot = function() {
+	var bodyY = this.y - 20 - (30 * this.springY);
+	this.timeSinceShot = 0;
+	if(this.facing === "right") {
+		game.objects.push(new LaserBotProjectile(this.x, bodyY + 3, 4, this));
+	}
+	else {
+		game.objects.push(new LaserBotProjectile(this.x, bodyY + 3, -4, this));
+	}
+};
+LaserBot.isPlatformOccupied = function(platform) {
+	/*
+	Used for the LaserBot's logic. Returns whether the platform has a LaserBot on it, or whether there is a LaserBot going to the platform.
+	*/
+	var laserBots = game.getObjectsByType(LaserBot);
+	for(var i = 0; i < laserBots.length; i ++) {
+		if(laserBots[i].destination === platform || laserBots[i].standingOnPlatform === platform) {
+			return true;
+		}
+	}
+	return false;
+};
+function LaserBotProjectile(x, y, velX, shooter) {
+	this.x = x;
+	this.y = y;
+	this.velX = velX;
+	this.length = 0;
+	this.shooter = shooter; // which laserbot shot this laser
+};
+LaserBotProjectile.prototype.display = function() {
+	c.strokeStyle = "rgb(255, 0, 0)";
+	c.lineWidth = 5;
+	c.beginPath();
+	c.moveTo(this.x, this.y);
+	if(this.velX > 0) {
+		c.lineTo(this.x - this.length, this.y);
+	}
+	else {
+		c.lineTo(this.x + this.length, this.y);
+	}
+	c.stroke();
+};
+LaserBotProjectile.prototype.update = function() {
+	this.x += this.velX;
+	if(this.length < 50) {
+		this.length += Math.abs(this.velX);
+		if(this.shooter !== undefined && this.shooter !== null) {
+			this.y = this.shooter.y - 20 - (30 * this.shooter.springY) + 3;
+			this.x += this.shooter.velX;
+		}
+	}
+	if(!p.isIntangible()) {
+		if(this.velX < 0) {
+			utilities.killCollisionRect(this.x, this.y, this.length, 1, "laserbots");
+		}
+		else {
+			utilities.killCollisionRect(this.x - this.length, this.y, this.length, 1, "laserbots");
+		}
+	}
+	if(this.x < 0 - 50 || this.x > canvas.width + 50) {
+		this.splicing = true;
+	}
+};
 /* generic event selection + running */
 var game = {
 	events: [
-		"laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rocket", "spikeballs", "block shuffle", "spikewall", "confusion", "blindness", "nausea"
+		"laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rocket", "spikeballs", "block shuffle", "spikewall",
+		"confusion", "blindness", "nausea",
+		"laserbots"
 	],
 	currentEvent: null,
 	timeToEvent: -5,
@@ -3109,7 +3537,7 @@ var game = {
 			/* generate hitboxes */
 			for(var i = 0; i < game.objects.length; i ++) {
 				var obj = game.objects[i];
-				if(typeof obj.hitbox === "object") {
+				if(typeof obj.hitbox === "object" && obj.hitbox !== null) {
 					game.hitboxes.push({
 						type: "rect",
 						color: "green",
@@ -3201,6 +3629,26 @@ var game = {
 			}
 		}
 	},
+	addEnemiesAtPosition: function(enemyType, num, positions, noisiness) {
+		num = num || 1;
+		positions = positions || [
+			{ x: 0 - 50, y: 225 - 75 },
+			{ x: 0 - 50, y: 575 - 75 },
+			{ x: canvas.width + 50, y: 225 - 75 },
+			{ x: canvas.width + 50, y: 575 - 75 }
+		];
+		noisiness = noisiness || 0;
+		for(var i = 0; i < num; i ++) {
+			var index = Math.floor(Math.random() * positions.length);
+			var pos = positions[index];
+			game.objects.push(new (enemyType)(pos.x, pos.y));
+			var theEnemy = game.objects[game.objects.length - 1];
+			theEnemy.x += Math.randomInRange(-noisiness, noisiness);
+			theEnemy.y += Math.randomInRange(-noisiness, noisiness);
+			positions.splice(index, 1);
+		}
+	},
+
 	sortObjects: function() {
 		var inverted = false;
 		var sorter = function(a, b) {
@@ -3225,6 +3673,9 @@ var game = {
 			if(a instanceof FireParticle && b instanceof Rocket) {
 				return A_FIRST;
 			}
+			if(a instanceof LaserBot && b instanceof LaserBotProjectile) {
+				return B_FIRST;
+			}
 			if(a instanceof Platform && b instanceof SpinnyBlade) {
 				return A_FIRST;
 			}
@@ -3238,6 +3689,12 @@ var game = {
 				return A_FIRST;
 			}
 			if(a instanceof Platform && b instanceof Laser) {
+				return A_FIRST;
+			}
+			if(a instanceof Platform && b instanceof Enemy) {
+				return B_FIRST;
+			}
+			if(a instanceof Platform && b instanceof LaserBotProjectile) {
 				return A_FIRST;
 			}
 			/* inverse cases */
@@ -3455,6 +3912,11 @@ var game = {
 			effects.remove();
 			game.currentEvent = null;
 		}
+		else if(game.currentEvent === "laserbots") {
+			game.chatMessages.push(new ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
+			var numEnemies = 2;
+			game.addEnemiesAtPosition(LaserBot, numEnemies, null, 50);
+		}
 	},
 	runEvent: function() {
 		game.timeToEvent --;
@@ -3510,8 +3972,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["blindness"] : game.events;
-game.events = TESTING_MODE ? ["block shuffle"] : game.events;
+game.events = TESTING_MODE ? ["laserbots"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
@@ -3640,6 +4101,9 @@ function doByTime() {
 				break;
 			case "spikewall":
 				c.fillText("You were impaled on a wall of spikes", 200, 300);
+				break;
+			case "laserbots":
+				c.fillText("You were zapped by a laserbot", 200, 300);
 				break;
 			case "fall":
 				c.fillText("You fell way too far", 200, 300);
