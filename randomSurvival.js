@@ -4202,5 +4202,18 @@ function doByTime() {
 	utilities.frameCount ++;
 	pastWorldY = p.worldY;
 	utilities.pastInputs.update();
+
+	c.fillStyle = "rgb(255, 255, 255)";
+	c.textAlign = "left";
+	c.font = "15px monospace";
+	if(TESTING_MODE && SHOW_HITBOXES) {
+		c.fillText("testing mode and hitboxes are on", 10, 20);
+	}
+	else if(TESTING_MODE) {
+		c.fillText("testing mode is on", 10, 20);
+	}
+	else if(SHOW_HITBOXES) {
+		c.fillText("hitboxes are on", 10, 20);
+	}
 };
 window.setInterval(doByTime, 1000 / FPS);
