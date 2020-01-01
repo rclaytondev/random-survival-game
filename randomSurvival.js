@@ -615,21 +615,6 @@ Player.prototype.display = function() {
 		c.moveTo(this.x, this.y + 36);
 		c.lineTo(this.x + this.legs, this.y + 46);
 		c.stroke();
-		/* leg animations */
-		this.legs += this.legDir;
-		if(input.keys[37] || input.keys[39]) {
-			if(this.legs >= 5) {
-				this.legDir = -0.5;
-			}
-			else if(this.legs <= -5) {
-				this.legDir = 0.5;
-			}
-		}
-		else {
-			this.legDir = 0;
-			this.legDir = (this.legs > 0) ? 0.5 : -0.5;
-			this.legDir = (this.legs <= -5 || this.legs >= 5) ? 0 : this.legDir;
-		}
 		/* arms */
 		c.beginPath();
 		c.moveTo(this.x, this.y + 26);
@@ -672,6 +657,21 @@ Player.prototype.update = function() {
 	}
 	this.x += this.velX;
 	this.y += this.velY;
+	/* leg animations */
+	this.legs += this.legDir;
+	if(input.keys[37] || input.keys[39]) {
+		if(this.legs >= 5) {
+			this.legDir = -0.5;
+		}
+		else if(this.legs <= -5) {
+			this.legDir = 0.5;
+		}
+	}
+	else {
+		this.legDir = 0;
+		this.legDir = (this.legs > 0) ? 0.5 : -0.5;
+		this.legDir = (this.legs <= -5 || this.legs >= 5) ? 0 : this.legDir;
+	}
 	/* jumping */
 	var jumpedThisFrame = false;
 	if(input.keys[38] && this.velY === 0) {
@@ -3972,7 +3972,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["laserbots"] : game.events;
+game.events = TESTING_MODE ? ["nausea"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
