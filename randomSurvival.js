@@ -646,32 +646,13 @@ Player.prototype.update = function() {
 	if(this.timeBlinded === 0) {
 		this.surviveEvent("blindness");
 	}
+	/* inputs */
+	this.input();
+	/* leg + arm animations */
+	this.updateAnimations();
 	/* walking */
-	if(input.keys[37]) {
-		this.facing = "left";
-		this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
-	}
-	else if(input.keys[39]) {
-		this.facing = "right";
-		this.velX += speedIncreaser.equipped ? 0.2 : 0.1;
-	}
 	this.x += this.velX;
 	this.y += this.velY;
-	/* leg animations */
-	this.legs += this.legDir;
-	if(input.keys[37] || input.keys[39]) {
-		if(this.legs >= 5) {
-			this.legDir = -0.5;
-		}
-		else if(this.legs <= -5) {
-			this.legDir = 0.5;
-		}
-	}
-	else {
-		this.legDir = 0;
-		this.legDir = (this.legs > 0) ? 0.5 : -0.5;
-		this.legDir = (this.legs <= -5 || this.legs >= 5) ? 0 : this.legDir;
-	}
 	/* jumping */
 	var jumpedThisFrame = false;
 	if(input.keys[38] && this.velY === 0) {
@@ -680,12 +661,6 @@ Player.prototype.update = function() {
 		if(!input.keys[37] && !input.keys[39]) {
 			this.facing = "forward";
 		}
-	}
-	if(this.velY === 0) {
-		this.armHeight += (this.armHeight < 10) ? 1 : 0;
-	}
-	else {
-		this.armHeight += (this.armHeight > -5) ? -1 : 0;
 	}
 	/* gravity */
 	this.velY += 0.1;
@@ -710,27 +685,16 @@ Player.prototype.update = function() {
 		this.x = Math.min(this.x, 790);
 	}
 	/* movement cap */
-	if(this.velX > 3 && !speedIncreaser.equipped) {
-		this.velX = 3;
+	var maxSpeed = 3;
+	if(speedIncreaser.equipped) {
+		if(speedIncreaser.upgrades < 2) {
+			maxSpeed = 4.5;
+		}
+		else {
+			maxSpeed = 6;
+		}
 	}
-	else if(this.velX < -3 && !speedIncreaser.equipped) {
-		this.velX = -3;
-	}
-	if(this.velX < -4.5 && (!speedIncreaser.equipped || speedIncreaser.upgrades < 2)) {
-		this.velX = -4.5;
-	}
-	else if(this.velX > 4.5 && (!speedIncreaser.equipped || speedIncreaser.upgrades < 2)) {
-		this.velX = 4.5;
-	}
-	if(this.velX > 6) {
-		this.velX = 6;
-	}
-	else if(this.velX < -6) {
-		this.velX = -6;
-	}
-	if(this.velY > 6) {
-		this.velY = 6;
-	}
+	this.velX = Math.constrain(this.velX, -maxSpeed, maxSpeed);
 	/* high jumping */
 	if(this.canExtendJump && input.keys[38] && this.timeExtended < 40 && doubleJumper.equipped) {
 		this.velY = -6;
@@ -757,6 +721,40 @@ Player.prototype.update = function() {
 			}
 			game.objects.push(new DoubleJumpParticle(this.x, this.y + 46));
 		}
+	}
+};
+Player.prototype.input = function() {
+	if(input.keys[37]) {
+		this.facing = "left";
+		this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
+	}
+	else if(input.keys[39]) {
+		this.facing = "right";
+		this.velX += speedIncreaser.equipped ? 0.2 : 0.1;
+	}
+};
+Player.prototype.updateAnimations = function() {
+	/* leg animations */
+	this.legs += this.legDir;
+	if(input.keys[37] || input.keys[39]) {
+		if(this.legs >= 5) {
+			this.legDir = -0.5;
+		}
+		else if(this.legs <= -5) {
+			this.legDir = 0.5;
+		}
+	}
+	else {
+		this.legDir = 0;
+		this.legDir = (this.legs > 0) ? 0.5 : -0.5;
+		this.legDir = (this.legs <= -5 || this.legs >= 5) ? 0 : this.legDir;
+	}
+	/* arm animations */
+	if(this.velY === 0) {
+		this.armHeight += (this.armHeight < 10) ? 1 : 0;
+	}
+	else {
+		this.armHeight += (this.armHeight > -5) ? -1 : 0;
 	}
 };
 Player.prototype.reset = function() {
@@ -2539,7 +2537,7 @@ RockParticle.prototype.update = function() {
 	this.rotation += this.velX;
 	if(this.y > 850) {
 		this.splicing = true;
-		if(game.numObjects(RockParticle) === 1) {
+		if(game.numObjects(RockParticle) === 0) {
 			/* This is the last rock particle, so end the event */
 			game.addEvent();
 			p.surviveEvent("boulders");
@@ -2601,7 +2599,7 @@ SpinnyBlade.prototype.update = function() {
 	if(this.opacity <= 0 && this.numRevolutions >= 2) {
 		this.splicing = true;
 		p.surviveEvent("spinnyblades");
-		if(game.numObjects(SpinnyBlade) === 1) {
+		if(game.numObjects(SpinnyBlade) === 0) {
 			/* This is the last spinnyblade, so end the event */
 			p.surviveEvent("spinnyblades");
 			game.addEvent();
@@ -2660,7 +2658,7 @@ Pirhana.prototype.update = function() {
 	}
 	if(this.y > 850 && this.velY > 0) {
 		this.splicing = true;
-		if(game.numObjects(Pirhana) === 1) {
+		if(game.numObjects(Pirhana) === 0) {
 			game.addEvent();
 			p.surviveEvent("pirhanas");
 		}
@@ -2733,7 +2731,7 @@ Pacman.prototype.update = function() {
 	/* remove self when off screen */
 	if((this.x > 1200 && this.velX > 0) || (this.x < -200 && this.velX < 0)) {
 		this.splicing = true;
-		if(game.numObjects(Pacman) === 1) {
+		if(game.numObjects(Pacman) === 0) {
 			game.addEvent();
 			p.surviveEvent("pacmans");
 		}
@@ -2906,7 +2904,7 @@ Spikeball.prototype.update = function() {
 	/* remove self if faded out */
 	if(this.opacity <= 0) {
 		this.splicing = true;
-		if(game.numObjects(Spikeball) === 1) {
+		if(game.numObjects(Spikeball) === 0) {
 			game.addEvent();
 			p.surviveEvent("spikeballs");
 		}
@@ -3492,12 +3490,125 @@ LaserBotProjectile.prototype.update = function() {
 		this.splicing = true;
 	}
 };
+function BadGuy(x, y) {
+	this.x = x;
+	this.y = y;
+	this.velX = 0;
+	this.velY = 0;
+	this.player = new Player();
+	this.player.invincible = -1;
+	this.hitbox = this.player.hitbox;
+	/* arm + leg animation properties */
+	this.legWidth = 0;
+	this.legDir = 0.5;
+	this.armHeight = 0; // -5 (arms lifted) to 10 (arms down)
+	this.armDir = 0;
+};
+BadGuy.extend(Enemy);
+BadGuy.prototype.display = function() {
+	/* display stick figure graphics (same as player) */
+	this.player.legs = this.legWidth;
+	this.player.armHeight = this.armHeight;
+	this.player.facing = "none"; // remove default grey player eyes
+	this.player.display();
+	/* display red eyes */
+	c.fillStyle = "rgb(255, 0, 0)";
+	c.beginPath();
+	if(this.x > p.x) {
+		c.arc(this.player.x - 4, this.player.y + 10, 3, 0, 2 * Math.PI);
+	}
+	else {
+		c.arc(this.player.x + 4, this.player.y + 10, 3, 0, 2 * Math.PI);
+	}
+	c.fill();
+};
+BadGuy.prototype.update = function() {
+	this.player.x = this.x;
+	this.player.y = this.y;
+	this.x += this.velX;
+	this.y += this.velY;
+	this.velX = Math.constrain(this.velX, -3, 3);
+	const SPEED = 0.1;
+	if(this.x < p.x) {
+		this.velX += SPEED;
+	}
+	else {
+		this.velX -= SPEED;
+	}
+	this.velY += 0.1;
+	/* leg + arm animations */
+	this.updateAnimations();
+	/* death */
+	if(this.y > 850) {
+		this.splicing = true;
+		if(game.numObjects(BadGuy) === 0) {
+			game.addEvent();
+			p.surviveEvent("bad guys");
+		}
+	}
+	/* kill player */
+	utilities.killCollisionRect(this.x - 5, this.y, 10, 46, "bad guys");
+	/* border collisions */
+	if(this.x + this.hitbox.right > canvas.width) {
+		this.velX = Math.min(this.velX, -5);
+	}
+	else if(this.x + this.hitbox.left < 0) {
+		this.velX = Math.max(this.velX, 5);
+	}
+};
+BadGuy.prototype.updateAnimations = function() {
+	/* leg animations */
+	this.legWidth += this.legDir;
+	if(this.legWidth < -5) {
+		this.legDir = 0.5;
+	}
+	else if(this.legWidth > 5) {
+		this.legDir = -0.5;
+	}
+	/* arm animations */
+	this.armHeight += this.armDir;
+	this.armHeight = Math.constrain(this.armHeight, -5, 10);
+	if(this.velY === 0.1) {
+		this.armDir = 1;
+	}
+	else {
+		this.armDir = -1;
+	}
+};
+BadGuy.prototype.collide = function() {
+	utilities.collisionRect(
+		this.x - 5, this.y, 10, 46,
+		{
+			includedTypes: [BadGuy],
+			caller: this,
+			velX: this.velX,
+			velY: this.velY
+		}
+	);
+};
+BadGuy.prototype.handleCollision = function(direction, platform) {
+	if(direction === "floor") {
+		this.velY = 0;
+		if(platform !== null && (this.x - 5 < platform.x || this.x + 5 > platform.x + platform.w)) {
+			this.velY = -6;
+		}
+	}
+	else if(direction === "wall-to-left") {
+		this.velX = 3;
+	}
+	else if(direction === "wall-to-right") {
+		this.velX = -3;
+	}
+	else if(direction === "ceiling") {
+		this.velY = 4;
+	}
+};
 /* generic event selection + running */
 var game = {
 	events: [
 		"laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rocket", "spikeballs", "block shuffle", "spikewall",
 		"confusion", "blindness", "nausea",
-		"laserbots"
+		"laserbots", "bad guys"
 	],
 	currentEvent: null,
 	timeToEvent: -5,
@@ -3515,7 +3626,7 @@ var game = {
 		*/
 		var arr = [];
 		for(var i = 0; i < game.objects.length; i ++) {
-			if(game.objects[i] instanceof constructor) {
+			if(game.objects[i] instanceof constructor && !game.objects[i].splicing) {
 				arr.push(game.objects[i]);
 			}
 		}
@@ -3917,6 +4028,11 @@ var game = {
 			var numEnemies = 2;
 			game.addEnemiesAtPosition(LaserBot, numEnemies, null, 50);
 		}
+		else if(game.currentEvent === "bad guys") {
+			game.chatMessages.push(new ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
+			var numEnemies = 2;
+			game.addEnemiesAtPosition(BadGuy, numEnemies, null, 25);
+		}
 	},
 	runEvent: function() {
 		game.timeToEvent --;
@@ -3972,7 +4088,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["nausea"] : game.events;
+game.events = TESTING_MODE ? ["bad guys"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
@@ -4051,6 +4167,13 @@ function doByTime() {
 			secondLife.displayLogo(0.5);
 			hasOne = true;
 		}
+		/* offscreen enemy collisions */
+		if(game.numObjects(Enemy) !== 0) {
+			utilities.collisionRect(-100,         225 - 10, 100, 20);
+			utilities.collisionRect(-100,         575 - 10, 100, 20);
+			utilities.collisionRect(canvas.width, 225 - 10, 100, 20);
+			utilities.collisionRect(canvas.width, 575 - 10, 100, 20);
+		}
 		/* score + coins */
 		c.fillStyle = "rgb(100, 100, 100)";
 		c.font = "20px monospace";
@@ -4104,6 +4227,9 @@ function doByTime() {
 				break;
 			case "laserbots":
 				c.fillText("You were zapped by a laserbot", 200, 300);
+				break;
+			case "bad guys":
+				c.fillText("The bad guys got you", 200, 300);
 				break;
 			case "fall":
 				c.fillText("You fell way too far", 200, 300);
