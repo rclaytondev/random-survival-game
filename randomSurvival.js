@@ -2261,37 +2261,6 @@ ChatMessage.prototype.display = function(y) {
 	this.time --;
 };
 /* laser event */
-function Explosion(x, y) {
-	this.x = x;
-	this.y = y;
-	this.size = 0;
-	this.width = 10;
-	this.opacity = 1;
-};
-Explosion.prototype.display = function() {
-	this.opacity = Math.max(this.opacity, 0);
-	c.strokeStyle = "rgb(255, 128, 0)";
-	c.globalAlpha = this.opacity;
-	c.lineWidth = this.width;
-	c.beginPath();
-	c.arc(this.x, this.y + p.worldY, this.size, 0, 2 * Math.PI);
-	c.stroke();
-	c.globalAlpha = 1;
-	c.lineWidth = 5;
-};
-Explosion.prototype.update = function() {
-	this.size ++;
-	this.width += 0.5;
-	this.opacity -= 0.01;
-	if(!p.isIntangible()) {
-		utilities.killCollisionCircle(this.x, this.y, this.size, "laser");
-	}
-	if(this.opacity <= 0) {
-		this.splicing = true;
-		p.surviveEvent("laser");
-		game.addEvent();
-	}
-};
 function Laser() {
 	this.x = Math.random() * 800;
 	this.y = Math.random() * 800;
@@ -2339,10 +2308,41 @@ Laser.prototype.update = function() {
 			this.numBlinks ++;
 		}
 		if(this.numBlinks > 6) {
-			game.objects.push(new Explosion(this.x, this.y));
+			this.explode();
 			game.objects.push(new Coin(this.x, this.y));
 			this.splicing = true;
 		}
+	}
+};
+Laser.prototype.explode = function() {
+	const MIN_PARTICLE_VELOCITY = 1;
+	const MAX_PARTICLE_VELOCITY = 5;
+	const MIN_PARTICLE_SIZE = 5;
+	const MAX_PARTICLE_SIZE = 20;
+	const SIZE_DECREASE_SPEED = 0.1;
+	const FADEOUT_SPEED = 0.02;
+	const NUM_PARTICLES = 200;
+	const MIN_OPACITY = 0.55;
+	const MAX_OPACITY = 0.95;
+	for(var i = 0; i < NUM_PARTICLES; i ++) {
+		var degrees = Math.randomInRange(0, 360);
+		var distance = Math.randomInRange(MIN_PARTICLE_VELOCITY, MAX_PARTICLE_VELOCITY);
+		var velocity = Math.rotateDegrees(0, distance, degrees);
+		game.objects.push(
+			new FireParticle(
+				this.x,
+				this.y,
+				Math.randomInRange(MIN_PARTICLE_SIZE, MAX_PARTICLE_SIZE),
+				{
+					SIZE_DECREASE_SPEED: SIZE_DECREASE_SPEED,
+					FADEOUT_SPEED: FADEOUT_SPEED,
+					velX: velocity.x,
+					velY: velocity.y,
+					KILLS_PLAYER: true
+				}
+			)
+		);
+		game.objects[game.objects.length - 1].opacity = Math.randomInRange(MIN_OPACITY, MAX_OPACITY);
 	}
 };
 /* rising acid event */
@@ -2738,14 +2738,19 @@ Pacman.prototype.update = function() {
 	}
 };
 /* rocket event */
-function FireParticle(x, y) {
+function FireParticle(x, y, size, settings) {
 	this.x = x;
 	this.y = y;
-	this.velX = Math.random();
-	this.velY = Math.random();
+	this.velX = settings.velX || Math.random();
+	this.velY = settings.velY || Math.random();
 	this.opacity = 0.75;
 	this.color = Math.random() * 20 + 100;
-	this.size = 10;
+	this.size = size || 10;
+
+	settings = settings || {};
+	this.SIZE_DECREASE_SPEED = settings.SIZE_DECREASE_SPEED || 0.5;
+	this.FADEOUT_SPEED = settings.FADEOUT_SPEED || 0.01;
+	this.KILLS_PLAYER = settings.KILLS_PLAYER || false;
 };
 FireParticle.prototype.display = function() {
 	c.globalAlpha = this.opacity;
@@ -2758,12 +2763,19 @@ FireParticle.prototype.display = function() {
 	c.globalAlpha = 1;
 };
 FireParticle.prototype.update = function() {
-	this.opacity -= 0.01;
-	this.size -= 0.5;
+	this.opacity -= this.FADEOUT_SPEED;
+	this.size -= this.SIZE_DECREASE_SPEED;
 	this.x += this.velX;
 	this.y += this.velY;
-	if(this.size <= 0) {
+	if(this.size <= 0 || this.opacity <= 0) {
 		this.splicing = true;
+		if(game.currentEvent === "laser" && game.numObjects(FireParticle) === 0) {
+			game.addEvent();
+			p.surviveEvent("laser");
+		}
+	}
+	if(this.KILLS_PLAYER && this.opacity > 0.15) {
+		utilities.killCollisionRect(this.x - this.size, this.y - this.size, this.size * 2, this.size * 2, "laser");
 	}
 };
 function Rocket(x, y, velX) {
@@ -3790,9 +3802,6 @@ var game = {
 			if(a instanceof Platform && b instanceof SpinnyBlade) {
 				return A_FIRST;
 			}
-			if(a instanceof Platform && b instanceof Explosion) {
-				return A_FIRST;
-			}
 			if(a instanceof Platform && b instanceof Dot) {
 				return A_FIRST;
 			}
@@ -4088,7 +4097,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["bad guys"] : game.events;
+game.events = TESTING_MODE ? ["laser"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
