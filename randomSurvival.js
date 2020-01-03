@@ -2779,6 +2779,7 @@ Pacman.prototype.update = function() {
 };
 /* rocket event */
 function FireParticle(x, y, size, settings) {
+	settings = settings || {};
 	this.x = x;
 	this.y = y;
 	this.velX = settings.velX || Math.random();
@@ -2787,7 +2788,6 @@ function FireParticle(x, y, size, settings) {
 	this.color = Math.random() * 20 + 100;
 	this.size = size || 10;
 
-	settings = settings || {};
 	this.SIZE_DECREASE_SPEED = settings.SIZE_DECREASE_SPEED || 0.5;
 	this.FADEOUT_SPEED = settings.FADEOUT_SPEED || 0.01;
 	this.KILLS_PLAYER = settings.KILLS_PLAYER || false;
