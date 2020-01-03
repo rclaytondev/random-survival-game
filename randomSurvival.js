@@ -260,6 +260,26 @@ var utilities = {
 			x: x, y: y, w: w, h: h,
 			sides: settings.sides
 		});
+	},
+
+	isPlayerInRect: function(x, y, w, h) {
+		return (
+			p.x + p.hitbox.right > x &&
+			p.x + p.hitbox.left < x + w &&
+			p.y + p.hitbox.bottom > y &&
+			p.y + p.hitbox.top < y + h
+		);
+	},
+	collidesWith: function(obj1, obj2) {
+		if((typeof obj1.hitbox !== "object" || obj1.hitbox === null) || (typeof obj2.hitbox !== "object" || obj2.hitbox === null)) {
+			return false;
+		}
+		return (
+			obj1.x + obj1.hitbox.right > obj2.x + obj2.hitbox.left &&
+			obj1.x + obj1.hitbox.left < obj2.x + obj2.hitbox.right &&
+			obj1.y + obj1.hitbox.bottom > obj2.y + obj2.hitbox.top &&
+			obj1.y + obj1.hitbox.top < obj2.y + obj2.hitbox.bottom
+		);
 	}
 };
 var input = {
@@ -305,6 +325,13 @@ console. logOnce = function(parameter) {
 		console.traces.push(trace);
 		console. log(parameter);
 	}
+};
+CanvasRenderingContext2D.prototype.fillArc = function(x, y, radius, startAngle, endAngle) {
+	this.beginPath();
+	this.moveTo(x, y);
+	this.arc(x, y, radius, startAngle, endAngle);
+	this.lineTo(x, y);
+	this.fill();
 };
 Object.prototype.clone = function() {
 	var clone = new this.constructor();
@@ -359,6 +386,16 @@ Array.prototype.swap = function(index1, index2) {
 Array.prototype.randomItem = function() {
 	var index = Math.floor(Math.random() * this.length);
 	return this[index];
+};
+Math.average = function(values) {
+	if(Array.isArray(arguments[0])) {
+		return Math.average.apply(Math, arguments);
+	}
+	var sum = 0;
+	for(var i = 0; i < arguments.length; i ++) {
+		sum += arguments[i];
+	}
+	return sum / arguments.length;
 };
 Math.dist = function(x1, y1, x2, y2) {
 	if(arguments.length === 4) {
@@ -571,6 +608,7 @@ function Player() {
 	this.beenGhost = false;
 	/* Other properties */
 	this.standingOnPlatform = null;
+	this.beingAbductedBy = null; // used for UFO enemies
 };
 Player.prototype.display = function() {
 	c.globalAlpha = 1;
@@ -775,6 +813,7 @@ Player.prototype.reset = function() {
 	this.timeNauseated = -5;
 	this.timeConfused = -5;
 	this.timeBlinded = -5;
+	this.beingAbductedBy = null;
 	this.invincible = 0;
 	this.usedRevive = false;
 	this.coins = 0;
@@ -2314,7 +2353,8 @@ Laser.prototype.update = function() {
 		}
 	}
 };
-Laser.prototype.explode = function() {
+Laser.prototype.explode = function(nonLethal) {
+	nonLethal = nonLethal || false;
 	const MIN_PARTICLE_VELOCITY = 1;
 	const MAX_PARTICLE_VELOCITY = 5;
 	const MIN_PARTICLE_SIZE = 5;
@@ -2338,7 +2378,7 @@ Laser.prototype.explode = function() {
 					FADEOUT_SPEED: FADEOUT_SPEED,
 					velX: velocity.x,
 					velY: velocity.y,
-					KILLS_PLAYER: true
+					KILLS_PLAYER: !nonLethal
 				}
 			)
 		);
@@ -3615,12 +3655,209 @@ BadGuy.prototype.handleCollision = function(direction, platform) {
 		this.velY = 4;
 	}
 };
+function Alien(x, y) {
+	// referred to as UFOs in-game
+	this.x = x;
+	this.y = y;
+	this.velX = 0;
+	this.velY = 0;
+	this.rotation = 0;
+	this.tractorBeamOpacity = 0;
+
+	this.hitbox = { top: -40, bottom: 20, left: -40, right: 40 };
+	this.ACCELERATION = 0.05;
+	this.MAX_VELOCITY = 4;
+
+	this.TRACTOR_BEAM_HEIGHT = 90;
+	this.TRACTOR_BEAM_ACTIVATION_SPEED = 0.05;
+};
+Alien.extend(Enemy);
+Alien.prototype.display = function() {
+	c.save(); {
+		c.translate(this.x, this.y);
+		c.rotate(Math.toRadians(this.rotation));
+		/* tractor beam */
+		c.save(); {
+			c.globalAlpha = this.tractorBeamOpacity;
+			var gradient = c.createLinearGradient(0, 0, 0, this.TRACTOR_BEAM_HEIGHT);
+			gradient.addColorStop(1, "rgb(255, 255, 0, 0)");
+			gradient.addColorStop(0, "rgb(255, 255, 0, 1)");
+			c.fillStyle = gradient;
+			c.beginPath();
+			c.moveTo(-15, 0);
+			c.lineTo(15, 0);
+			c.lineTo(30, this.TRACTOR_BEAM_HEIGHT);
+			c.lineTo(-30, this.TRACTOR_BEAM_HEIGHT);
+			c.fill();
+		} c.restore();
+		/* spaceship body */
+		c.save(); {
+			c.fillStyle = "rgb(150, 150, 155)";
+			c.scale(1, 0.5);
+			c.beginPath();
+			c.arc(0, 0, 40, 0, 2 * Math.PI);
+			c.fill();
+		} c.restore();
+		/* moving lines (to make spaceship look like it is spinning) */
+		c.save(); {
+			c.scale(1, 0.5);
+			c.beginPath();
+			c.arc(0, 0, 40, 0, 2 * Math.PI);
+			c.clip();
+			c.strokeStyle = "rgb(120, 120, 125)";
+			for(var r = 0; r <= 360; r += 360 / 8) {
+				var rotation = r + (utilities.frameCount * 4); // for animation
+				var point = Math.rotateDegrees(-50, 0, rotation);
+				c.beginPath();
+				c.moveTo(0, -20);
+				c.lineTo(point.x, point.y - 20);
+				c.stroke();
+			}
+		} c.restore();
+		/* spaceship cockpit - bottom arc */
+		c.fillStyle = "rgb(13, 191, 61)";
+		c.save(); {
+			c.translate(0, -20);
+			c.scale(1, 0.5);
+			c.fillArc(0, 0, 20, Math.toRadians(90 - 70), Math.toRadians(90 + 70));
+		} c.restore();
+		/* spaceship cockpit - top arc */
+		c.save(); {
+			c.translate(0, -20);
+			/* calculate where the bottom arc ended */
+			var point = Math.rotateDegrees(0, 20, 70);
+			var left = point.x;
+			var right = -point.x;
+			var top = -5;
+			var bottom = point.y - 2;
+			c.fillRect(left, top, right - left, bottom - top);
+			c.fillArc(0, top, right, Math.toRadians(180), Math.toRadians(360));
+		} c.restore();
+		/* debug */
+	} c.restore();
+};
+Alien.prototype.update = function() {
+	/* movement */
+	var destX = p.x;
+	var destY = p.y - 75;
+	if(p.beingAbductedBy !== null && p.beingAbductedBy !== this) {
+		/* move away from player */
+		this.velX += (this.x < destX) ? -this.ACCELERATION : this.ACCELERATION;
+		this.velY += (this.y < destY) ? -this.ACCELERATION : this.ACCELERATION;
+	}
+	else {
+		/* move towards player */
+		this.velX += (this.x > destX) ? -this.ACCELERATION : this.ACCELERATION;
+		this.velY += (this.y > destY) ? -this.ACCELERATION : this.ACCELERATION;
+	}
+	var aliens = game.getObjectsByType(Alien);
+	for(var i = 0; i < aliens.length; i ++) {
+		if(aliens[i] !== this) {
+			var distance = Math.dist(this.x, this.y, aliens[i].x, aliens[i].y);
+			/* move away from other UFOs, depending on how close they are (closer = faster) */
+			if(distance < 150) {
+				const SPEED = 0.1;
+				this.velX += (this.x < aliens[i].x) ? -SPEED : SPEED;
+				this.velY += (this.y < aliens[i].y) ? -SPEED : SPEED;
+			}
+		}
+	}
+	this.x += this.velX;
+	this.y += this.velY;
+	this.velX = Math.constrain(this.velX, -this.MAX_VELOCITY, this.MAX_VELOCITY);
+	this.velY = Math.constrain(this.velY, -this.MAX_VELOCITY, this.MAX_VELOCITY);
+	/* tractor beam activation */
+	if(Math.dist(this.x, this.y, destX, destY) <= 100) {
+		this.tractorBeamOpacity += this.TRACTOR_BEAM_ACTIVATION_SPEED;
+	}
+	else {
+		this.tractorBeamOpacity -= this.TRACTOR_BEAM_ACTIVATION_SPEED;
+	}
+	this.tractorBeamOpacity = Math.constrain(this.tractorBeamOpacity, 0, 1);
+	/* tractor beam player abduction */
+	if(this.tractorBeamOpacity > 0.25) {
+		if(utilities.isPlayerInRect(this.x - 30, this.y, 60, this.TRACTOR_BEAM_HEIGHT + 15)) {
+			p.beingAbductedBy = this;
+		}
+		else if(p.beingAbductedBy === this) {
+			p.beingAbductedBy = null;
+		}
+	}
+	if(p.beingAbductedBy === this) {
+		if((this.velX < 0 && p.x > this.x) || (this.velX > 0 && p.x < this.x)) {
+			p.velX = this.velX;
+		}
+		else {
+			p.velX = 0;
+		}
+		p.velY = this.velY;
+		if(p.y + p.hitbox.top > this.y + 30) {
+			p.velY --;
+		}
+		else {
+			p.velY ++;
+		}
+		if(p.y < -100) {
+			p.die("aliens");
+		}
+	}
+	/* collide with other UFOs */
+	var aliens = game.getObjectsByType(Alien);
+	for(var i = 0; i < aliens.length; i ++) {
+		if(aliens[i] !== this && utilities.collidesWith(this, aliens[i])) {
+			this.splicing = true;
+			aliens[i].splicing = true;
+			if(p.beingAbductedBy === this || p.beingAbductedBy === aliens[i]) {
+				p.beingAbductedBy = null;
+			}
+			if(game.numObjects(Alien) === 0) {
+				p.surviveEvent("aliens");
+				game.addEvent();
+			}
+			/* create explosion */
+			var laser = new Laser();
+			laser.x = Math.average(this.x, aliens[i].x);
+			laser.y = Math.average(this.y, aliens[i].y);
+			laser.explode(true);
+		}
+	}
+	/* screen edge collisions */
+	if(this.x + this.hitbox.right > canvas.width) {
+		this.velX = -Math.abs(this.velX);
+	}
+	else if(this.x + this.hitbox.left < 0) {
+		this.velX = Math.abs(this.velX);
+	}
+	/* move toward center of screen to avoid top platforms while abducting player */
+	if(p.beingAbductedBy === this) {
+		if(this.x > canvas.width - 160) {
+			this.velX -= 0.2;
+		}
+		else if(this.x < 160) {
+			this.velX += 0.2;
+		}
+	}
+};
+Alien.prototype.handleCollision = function(direction, platform) {
+	if(direction === "floor") {
+		this.velY = -Math.abs(this.velY);
+	}
+	else if(direction === "ceiling") {
+		this.velY = Math.abs(this.velY);
+	}
+	else if(direction === "wall-to-right") {
+		this.velX = -Math.abs(this.velX);
+	}
+	else if(direction === "wall-to-left") {
+		this.velX = Math.abs(this.velX);
+	}
+};
 /* generic event selection + running */
 var game = {
 	events: [
 		"laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rocket", "spikeballs", "block shuffle", "spikewall",
 		"confusion", "blindness", "nausea",
-		"laserbots", "bad guys"
+		"laserbots", "bad guys", "aliens"
 	],
 	currentEvent: null,
 	timeToEvent: -5,
@@ -4042,6 +4279,21 @@ var game = {
 			var numEnemies = 2;
 			game.addEnemiesAtPosition(BadGuy, numEnemies, null, 25);
 		}
+		else if(game.currentEvent === "aliens") {
+			game.chatMessages.push(new ChatMessage("UFOs are invading!", "rgb(255, 0, 0)"));
+			var numEnemies = 2;
+			if(numEnemies === 2) {
+				var xPosition = (Math.random() < 0.5) ? (0 - 50) : (canvas.width + 50);
+				game.addEnemiesAtPosition(
+					Alien, 2,
+					[
+						{ x: xPosition, y: 225 - 75 },
+						{ x: xPosition, y: 575 - 75 }
+					],
+					0
+				);
+			}
+		}
 	},
 	runEvent: function() {
 		game.timeToEvent --;
@@ -4097,7 +4349,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["laser"] : game.events;
+game.events = TESTING_MODE ? ["aliens"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
@@ -4239,6 +4491,9 @@ function doByTime() {
 				break;
 			case "bad guys":
 				c.fillText("The bad guys got you", 200, 300);
+				break;
+			case "aliens":
+				c.fillText("You were abducted by a UFO", 200, 300);
 				break;
 			case "fall":
 				c.fillText("You fell way too far", 200, 300);
