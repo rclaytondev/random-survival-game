@@ -863,7 +863,7 @@ Player.prototype.die = function(cause) {
 	}
 	else if(this.y + 46 > 800) {
 		this.y = 800 - 46;
-		if(input.keys[39]) {
+		if(input.keys[38]) {
 			this.velY = -7;
 		}
 	}
