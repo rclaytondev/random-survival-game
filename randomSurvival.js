@@ -3257,8 +3257,7 @@ LaserBot.prototype.display = function() {
 LaserBot.prototype.update = function() {
 	if(this.y > 850) {
 		this.splicing = true;
-		var laserBots = game.getObjectsByType(LaserBot);
-		if(laserBots.length === 1) {
+		if(game.numObjects(LaserBot) === 0) {
 			/* this is the final LaserBot; end the event */
 			game.addEvent();
 			p.surviveEvent("laserbots");
@@ -4349,7 +4348,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["aliens"] : game.events;
+game.events = TESTING_MODE ? ["laserbots"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
