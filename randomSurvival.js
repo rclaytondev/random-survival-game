@@ -1,5 +1,5 @@
 const FPS = 60;
-const TESTING_MODE = true;
+const TESTING_MODE = false;
 const SHOW_HITBOXES = false;
 
 var canvas = document.getElementById("canvas");
@@ -30,7 +30,13 @@ var utilities = {
 			}
 		},
 		displayTextOverLines: function(text, x, y, width, lineHeight) {
-			var lines = [text];
+			if(Array.isArray(text)) {
+				/* array of strings -> put a line break between each array item + any other line breaks needed to make space */
+				var lines = text.clone();
+			}
+			else {
+				var lines = [text];
+			}
 			/* Split text into multiple lines */
 			for(var i = 0; i < lines.length; i ++) {
 				var currentLine = lines[i];
@@ -96,6 +102,12 @@ var utilities = {
 			numSorted ++;
 		}
 		return array;
+	},
+	mouseInRect: function(x, y, w, h) {
+		return (input.mouse.x > x && input.mouse.x < x + w && input.mouse.y > y && input.mouse.y < y + h);
+	},
+	mouseInCircle: function(x, y, r) {
+		return Math.distSq(input.mouse.x, input.mouse.y, x, y) <= (r * r);
 	},
 
 	killCollisionCircle: function(x, y, radius, deathCause) {
@@ -165,7 +177,9 @@ var utilities = {
 		settings.includedTypes = settings.includedTypes || null; // if provided, this parameter will exclude all types of objects other than those given.
 		settings.excludedTypes = settings.excludedTypes || null; // if provided, this parameter will exclude the types of objects given.
 
-		game.objects.push(p);
+		if(!p.isIntangible()) {
+			game.objects.push(p);
+		}
 		objectLoop: for(var i = 0; i < game.objects.length; i ++) {
 			var obj = game.objects[i];
 
@@ -287,6 +301,7 @@ var input = {
 		x: 0,
 		y: 0,
 		pressed: false,
+		cursor: "default"
 	},
 	keys: [],
 	getMousePos: function(event) {
@@ -703,7 +718,8 @@ Player.prototype.update = function() {
 	/* gravity */
 	this.velY += 0.1;
 	/* Collisions */
-	if(intangibilityTalisman.upgrades >= 1) {
+	const SCREEN_BORDERS = (!this.isIntangible() || shop.intangibilityTalisman.numUpgrades < 2);
+	if(!SCREEN_BORDERS) {
 		if(this.x > 800) {
 			this.x = 0;
 		}
@@ -714,27 +730,30 @@ Player.prototype.update = function() {
 			this.beenGhost = true;
 		}
 	}
-	if(this.x < 10 && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades >= 1)) {
-		this.velX = 0;
-		this.x = Math.max(this.x, 10);
-	}
-	if(this.x > 790 && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades >= 1)) {
-		this.velX = 0;
-		this.x = Math.min(this.x, 790);
+	else {
+		if(this.x < 10) {
+			this.velX = 0;
+			this.x = Math.max(this.x, 10);
+		}
+		if(this.x > 790) {
+			this.velX = 0;
+			this.x = Math.min(this.x, 790);
+		}
 	}
 	/* movement cap */
+	const DEFAULT_MAX_VELOCITY = 3;
 	var maxSpeed = 3;
-	if(speedIncreaser.equipped) {
-		if(speedIncreaser.upgrades < 2) {
-			maxSpeed = 4.5;
+	if(shop.speedIncreaser.equipped) {
+		if(shop.speedIncreaser.numUpgrades < 3) {
+			maxSpeed = DEFAULT_MAX_VELOCITY * 1.5;
 		}
 		else {
-			maxSpeed = 6;
+			maxSpeed = DEFAULT_MAX_VELOCITY * 2;
 		}
 	}
 	this.velX = Math.constrain(this.velX, -maxSpeed, maxSpeed);
 	/* high jumping */
-	if(this.canExtendJump && input.keys[38] && this.timeExtended < 40 && doubleJumper.equipped) {
+	if(this.canExtendJump && input.keys[38] && this.timeExtended < 40 && shop.doubleJumper.equipped) {
 		this.velY = -6;
 		this.timeExtended ++;
 	}
@@ -746,15 +765,15 @@ Player.prototype.update = function() {
 		this.velX *= 0.93;
 	}
 	/* double jumping */
-	if(doubleJumper.equipped && doubleJumper.upgrades >= 1) {
+	if(shop.doubleJumper.equipped && shop.doubleJumper.numUpgrades >= 2) {
 		if(this.velY !== 0 && !this.hasDoubleJumped && input.keys[38] && !utilities.pastInputs.keys[38] && !jumpedThisFrame) {
 			this.velY = -6;
 			this.hasDoubleJumped = true;
-			if(doubleJumper.upgrades >= 2) {
+			if(shop.doubleJumper.numUpgrades >= 3) {
 				this.canExtendJump = true;
 				this.timeExtended = 0;
 			}
-			if(this.velX > 3 || this.velX < -3) {
+			if(this.velX > DEFAULT_MAX_VELOCITY || this.velX < -DEFAULT_MAX_VELOCITY) {
 				this.gonePlaces = true;
 			}
 			game.objects.push(new DoubleJumpParticle(this.x, this.y + 46));
@@ -764,11 +783,11 @@ Player.prototype.update = function() {
 Player.prototype.input = function() {
 	if(input.keys[37]) {
 		this.facing = "left";
-		this.velX -= speedIncreaser.equipped ? 0.2 : 0.1;
+		this.velX -= shop.speedIncreaser.equipped ? 0.2 : 0.1;
 	}
 	else if(input.keys[39]) {
 		this.facing = "right";
-		this.velX += speedIncreaser.equipped ? 0.2 : 0.1;
+		this.velX += shop.speedIncreaser.equipped ? 0.2 : 0.1;
 	}
 };
 Player.prototype.updateAnimations = function() {
@@ -820,8 +839,8 @@ Player.prototype.reset = function() {
 	if(!TESTING_MODE) {
 		effects.add();
 	}
-	if(secondLife.equipped) {
-		this.numRevives = (secondLife.upgrades >= 2) ? 2 : 1;
+	if(shop.secondLife.equipped) {
+		this.numRevives = (shop.secondLife.numUpgrades >= 3) ? 2 : 1;
 	}
 	else {
 		this.numRevives = 0;
@@ -851,9 +870,10 @@ Player.prototype.handleCollision = function(dir, platform) {
 
 Player.prototype.die = function(cause) {
 	if(this.invincible < 0) {
-		if(secondLife.equipped && this.numRevives > 0) {
+		if(shop.secondLife.equipped && this.numRevives > 0) {
 			this.numRevives --;
-			this.invincible = (secondLife.upgrades >= 1) ? FPS * 2 : FPS;
+			this.invincible = (shop.secondLife.numUpgrades >= 2) ? FPS * 2 : FPS;
+			console.log("becoming invincible for " + this.invincible + " frames");
 		}
 		else {
 			game.screen = "death";
@@ -880,7 +900,7 @@ Player.prototype.surviveEvent = function(event) {
 	this.eventsSurvived.push(event);
 };
 Player.prototype.isIntangible = function() {
-	return (input.keys[40] && intangibilityTalisman.equipped);
+	return (input.keys[40] && shop.intangibilityTalisman.equipped);
 };
 
 var p = new Player();
@@ -1257,19 +1277,19 @@ DoubleJumpParticle.prototype.update = function() {
 		this.splicing = true;
 	}
 };
-function ShopItem(x, y, name, description, price) {
+function ShopItem(x, y, name, display, upgrades) {
 	this.x = x;
 	this.y = y;
-	this.name = name;
-	this.description = description;
-	this.price = price;
-	this.infoOp = 0;
-	this.mouseOver = false;
-	this.bought = false;
-	this.equipped = false;
 	this.origX = x;
 	this.origY = y;
-	this.upgrades = 0;
+	this.name = name;
+	this.display = display; // a function called to display graphics
+	this.upgrades = upgrades;
+	this.bought = false;
+	this.equipped = false;
+	this.description = upgrades[0].text;
+	this.infoOp = 0;
+	this.numUpgrades = 0;
 	this.showingPopup = false;
 };
 ShopItem.prototype.displayLogo = function(size) {
@@ -1293,542 +1313,615 @@ ShopItem.prototype.displayLogo = function(size) {
 	c.fillStyle = (this.equipped) ? "rgb(100, 100, 100)" : "rgb(200, 200, 200)";
 	c.strokeStyle = "rgb(100, 100, 100)";
 	c.arc(50, -50, 20, 0, 2 * Math.PI);
-	if(this.bought && this.name !== "Box of Storage") {
+	if(this.bought && !this.noUpgrades) {
 		c.fill();
 		c.stroke();
 		c.fillStyle = (this.equipped) ? "rgb(200, 200, 200)" : "rgb(100, 100, 100)";
 		c.textAlign = "center";
 		c.font = "bold 20px monospace";
-		c.fillText(this.upgrades + 1, 50, -45);
+		c.fillText(this.numUpgrades, 50, -45);
 	}
-	if(this.name === "Piggy Bank of Money") {
-		c.save();
-		c.translate(10, 0);
-		/* body */
-		c.fillStyle = (this.bought) ? "rgb(223, 160, 171)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.arc(0, 0, 30, 30, 0, 2 * Math.PI);
-		c.fill();
-		/* legs */
-		c.fillRect(0 - 20, 0, 15, 35);
-		c.fillRect(0 + 5, 0, 15, 35);
-		/* head */
-		c.beginPath();
-		c.arc(0 - 40, 0 - 10, 20, 0, 2 * Math.PI);
-		c.fill();
-		/* chin */
-		c.beginPath();
-		c.moveTo(0 - 40, 0 + 10);
-		c.lineTo(0, 0 + 20);
-		c.lineTo(0, 0);
-		c.fill();
-		/* head - whitespace */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.beginPath();
-		c.arc(0 - 50, 0 - 20, 20, 0, 2 * Math.PI);
-		c.fill();
-		/* coin slot - whitespace */
-		c.strokeStyle = "rgb(200, 200, 200)";
-		c.beginPath();
-		c.arc(0, 0, 20, 1.5 * Math.PI - 0.6, 1.5 * Math.PI + 0.6);
-		c.stroke();
-		c.restore();
-	}
-	else if(this.name === "Boots of Speediness") {
-		/* boots */
-		c.fillStyle = (this.bought) ? "rgb(0, 223, 0)" : "rgb(100, 100, 100)";
-		c.fillRect(0 - 10, 0 + 46, 20, 5);
-		c.fillRect(0 + 30, 0 + 46, 20, 5);
-		/* stickman body + limbs */
-		c.strokeStyle = (this.bought) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(0 - 10, 0 - 10);
-		c.lineTo(0 + 10, 0 + 10);
-		c.lineTo(0 - 10, 0 + 30);
-		c.lineTo(0 + 10, 0 + 50);
-		c.moveTo(0 + 10, 0 + 10);
-		c.lineTo(0 + 50, 0 + 50);
-		c.moveTo(0 + 10, 0 - 30);
-		c.lineTo(0 - 30, 0 + 10);
-		c.lineTo(0 - 50, 0 - 10);
-		c.moveTo(0 + 10, 0 - 30);
-		c.lineTo(0 + 30, 0 - 10);
-		c.stroke();
-		/* stickman head */
-		c.beginPath();
-		c.fillStyle = (this.bought) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
-		c.arc(0 - 17, 0 - 17, 10, 0, 2 * Math.PI);
-		c.fill();
-	}
-	else if(this.name === "Potion of Jumpiness") {
-		/* potion */
-		c.fillStyle = (this.bought) ? "rgb(255, 255, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(0 - 5 - 4, 0 + 4);
-		c.lineTo(0 + 5 + 4, 0 + 4);
-		c.lineTo(0 + 25, 0 + 20);
-		c.lineTo(0 - 25, 0 + 20);
-		c.fill();
-		/* beaker body */
-		c.strokeStyle = (this.bought) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(0 - 5, 0 - 20);
-		c.lineTo(0 - 5, 0);
-		c.lineTo(0 - 5 - 20, 0 + 20);
-		c.lineTo(0 + 25, 0 + 20);
-		c.lineTo(0 + 5, 0);
-		c.lineTo(0 + 5, 0 - 20);
-		c.stroke();
-		/* beaker opening */
-		c.beginPath();
-		c.arc(0, 0 - 27, 10, 0, 2 * Math.PI);
-		c.stroke();
-	}
-	else if(this.name === "Talisman of Intangibility") {
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.beginPath();
-		c.arc(0, 0, 30, 0, 2 * Math.PI);
-		c.fill();
-		/* gemstone */
-		c.fillStyle = (this.bought) ? "#000080" : "rgb(200, 200, 200)";
-		c.beginPath();
-		c.moveTo(0 - 6, 0 - 12);
-		c.lineTo(0 + 6, 0 - 12);
-		c.lineTo(0 + 15, 0);
-		c.lineTo(0 + 6, 0 + 12);
-		c.lineTo(0 - 6, 0 + 12);
-		c.lineTo(0 - 15, 0);
-		c.lineTo(0 - 6, 0 - 12);
-		c.fill();
-		/* necklace threads */
-		c.strokeStyle = (this.bought) ? "rgb(138, 87, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(0 - 5, 0 - 29);
-		c.lineTo(0 - 15, 0 - 75);
-		c.stroke();
-		c.beginPath();
-		c.moveTo(0 + 5, 0 - 29);
-		c.lineTo(0 + 15, 0 - 75);
-		c.stroke();
-	}
-	else if(this.name === "Skull of Reanimation") {
-		c.fillStyle = (this.bought) ? "#FFFFFF" : "rgb(100, 100, 100)";
-		/* skull */
-		c.beginPath();
-		c.arc(0, 0, 30, 0, 2 * Math.PI);
-		c.fill();
-		/* skull chin */
-		c.fillRect(0 - 15, 0 + 20, 30, 20);
-		/* eyes - whitespace */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.beginPath();
-		c.arc(0 - 13, 0 - 10, 7, 0, 2 * Math.PI);
-		c.arc(0 + 13, 0 - 10, 7, 0, 2 * Math.PI);
-		c.fill();
-		/* mouth */
-		c.fillRect(0 - 2, 0 + 20, 4, 20);
-		c.fillRect(0 - 10, 0 + 20, 4, 20);
-		c.fillRect(0 + 6, 0 + 20, 4, 20);
-	}
-	else if(this.name === "Box of Storage") {
-		c.fillStyle = (this.bought) ? "rgb(138, 87, 0)" : "rgb(100, 100, 100)";
-		/* front face */
-		c.beginPath();
-		c.fillRect(0 - 30, 0 - 10, 40, 40);
-		c.fill();
-		/* top face */
-		c.beginPath();
-		c.moveTo(0 - 30, 0 - 12);
-		c.lineTo(0 + 10, 0 - 12);
-		c.lineTo(0 + 40, 0 - 40);
-		c.lineTo(0, 0 - 40);
-		c.fill();
-		/* right face */
-		c.beginPath();
-		c.moveTo(0 + 12, 0 - 10);
-		c.lineTo(0 + 12, 0 + 30);
-		c.lineTo(0 + 42, 0);
-		c.lineTo(0 + 42, 0 - 40);
-		c.fill();
-		/* lines separating lid from box - whitespace */
-		c.strokeStyle = "rgb(200, 200, 200)";
-		c.lineWidth = 2;
-		c.beginPath();
-		c.moveTo(0 - 30, 0 - 5);
-		c.lineTo(0 + 10, 0 - 5);
-		c.stroke();
-		c.beginPath();
-		c.moveTo(0 + 10, 0 - 3);
-		c.lineTo(0 + 42, 0 - 35);
-		c.stroke();
-		c.lineWidth = 5;
-	}
+	this.display(!this.bought);
 	c.restore();
-	this.mouseOver = false;
+	var mouseOver = false;
 	if(Math.dist(input.mouse.x, input.mouse.y, this.x, this.y) <= 75) {
-		this.mouseOver = true;
+		mouseOver = true;
 	}
-	if(this.x >= 500 && this.infoOp > 0 && input.mouse.x > this.x - 335 && input.mouse.x < this.x - 85 && input.mouse.y > this.y - 100 && input.mouse.y < this.y + 100) {
-		this.mouseOver = true;
+	if(this.infoOp > 0) {
+		if(this.x >= 500 && utilities.mouseInRect(this.x - 85 - 250, this.y - 100, 250, 200)) {
+			mouseOver = true;
+		}
+		if(this.x <= 500 && utilities.mouseInRect(this.x + 85, this.y - 100, 250, 200)) {
+			mouseOver = true;
+		}
+		if(this.x <= 500 && utilities.mouseInRect(this.x, this.y - 75, 100, 150)) {
+			mouseOver = true;
+		}
+		if(this.x >= 500 && utilities.mouseInRect(this.x - 100, this.y - 75, 100, 150)) {
+			mouseOver = true;
+		}
 	}
-	if(this.x <= 500 && this.infoOp > 0 && input.mouse.x > this.x + 85 && input.mouse.x < this.x + 335 && input.mouse.y > this.y - 100 && input.mouse.y < this.y + 100) {
-		this.mouseOver = true;
+	/* prevent conflicts between overlapping shop items when mousing over */
+	for(var i = 0; i < shop.items.length; i ++) {
+		if(shop.items[i].infoOp > 0 && shop.items[i] !== this) {
+			mouseOver = false;
+		}
 	}
-	if(this.x <= 500 && this.infoOp > 0 && input.mouse.x > this.x && input.mouse.x < this.x + 100 && input.mouse.y > this.y - 75 && input.mouse.y < this.y + 75) {
-		this.mouseOver = true;
-	}
-	if(this.x >= 500 && this.infoOp > 0 && input.mouse.x < this.x && input.mouse.x > this.x - 100 && input.mouse.y > this.y - 75 && input.mouse.y < this.y + 75) {
-		this.mouseOver = true;
-	}
-	/* prevent conflicts between shop items when mousing over */
-	if(this.name === "Boots of Speediness" && (coinDoubler.infoOp > 0 || doubleJumper.infoOp > 0)) {
-		this.mouseOver = false;
-	}
-	if(this.name === "Potion of Jumpiness" && (speedIncreaser.infoOp > 0 || coinDoubler.infoOp > 0)) {
-		this.mouseOver = false;
-	}
-	if(this.name === "Skull of Reanimation" && (intangibilityTalisman.infoOp > 0 || secondItem.infoOp > 0)) {
-		this.mouseOver = false;
-	}
-	if(this.name === "Piggy Bank of Money" && doubleJumper.infoOp > 0) {
-		this.mouseOver = false;
-	}
-	if(this.name === "Box of Storage" && (secondLife.infoOp > 0 || intangibilityTalisman.infoOp > 0)) {
-		this.mouseOver = false;
-	}
-	if(this.name === "Talisman of Intangibility" && secondItem.infoOp > 0) {
-		this.mouseOver = false;
-	}
-	if(this.mouseOver) {
-		this.infoOp = (this.infoOp < 1) ? this.infoOp + 0.1 : 1;
+	if(mouseOver) {
+		this.infoOp += 0.1;
 	}
 	else {
-		this.infoOp = (this.infoOp > 0) ? this.infoOp - 0.1 : 0;
+		this.infoOp -= 0.1;
 	}
+	this.infoOp = Math.constrain(this.infoOp, 0, 1);
 	c.restore();
 };
-ShopItem.prototype.displayInfo = function() {
-	c.globalAlpha = (this.infoOp > 0) ? this.infoOp : 0;
-	if(this.name !== "Potion of Jumpiness" && this.name !== "Box of Storage") {
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(this.x + 75, this.y);
-		c.lineTo(this.x + 85, this.y + 10);
-		c.lineTo(this.x + 85, this.y - 10);
-		c.fill();
-		c.fillRect(this.x + 85, this.y - 100, 250, 200);
-		/* title */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.font = "20px monospace";
-		c.textAlign = "left";
-		if(this.name === "Talisman of Intangibility") {
-			c.font = "17px monospace";
-		}
-		c.fillText(this.name, this.x + 95, this.y - 80);
-		c.font = "20px monospace";
-		/* line */
-		c.strokeStyle = "rgb(200, 200, 200)";
-		c.beginPath();
-		c.moveTo(this.x + 90, this.y - 70);
-		c.lineTo(this.x + 330, this.y - 70);
-		c.stroke();
-		/* description - manual line break insertion */
-		switch(this.name) {
-			case "Piggy Bank of Money":
-				c.fillText("With this amazing", this.x + 95, this.y - 50);
-				c.fillText("piggy bank, twice as", this.x + 95, this.y - 30);
-				c.fillText("many coins will", this.x + 95, this.y - 10);
-				c.fillText("appear in game.", this.x + 95, this.y + 10);
-				break;
-			case "Boots of Speediness":
-				c.fillText("These speedy boots", this.x + 95, this.y - 50);
-				c.fillText("make you run twice", this.x + 95, this.y - 30);
-				c.fillText("as fast.", this.x + 95, this.y - 10);
-				break;
-			case "Talisman of Intangibility":
-				c.fillText("Walk through", this.x + 95, this.y - 50);
-				c.fillText("everything with this", this.x + 95, this.y - 30);
-				c.fillText("magical talisman.", this.x + 95, this.y - 10);
-				c.fillText("Press [down] to use.", this.x + 95, this.y + 10);
-				break;
-			case "Skull of Reanimation":
-				c.fillText("Come back from the", this.x + 95, this.y - 50);
-				c.fillText("dead! This ancient", this.x + 95, this.y - 30);
-				c.fillText("skull grants you an", this.x + 95, this.y - 10);
-				c.fillText("extra life each game.", this.x + 95, this.y + 10);
-				break;
-		}
-		/* button 1 */
-		if(this.upgrades < 2) {
-			c.strokeRect(this.x + 95, this.y + 60, 230, 30);
-		}
-		c.textAlign = "center";
-		if(!this.bought) {
-			c.fillText("Buy - $" + this.price, this.x + 210, this.y + 80);
-		}
-		else if(this.upgrades < 2) {
-			c.fillText("Upgrade - $" + this.price, this.x + 210, this.y + 80);
-		}
-		else if(this.upgrades >= 2) {
-			c.fillText("Fully upgraded", this.x + 210, this.y + 80);
-		}
-		if(input.mouse.x > this.x + 95 && input.mouse.x < this.x + 325 && input.mouse.y > this.y + 60 && input.mouse.y < this.y + 90 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed && this.infoOp >= 1  && this.x < 500 && this.infoOp > 0) {
-			if(this.upgrades < 2) {
-				if(p.totalCoins > this.price) {
-					if(!this.bought) {
-						this.bought = true;
-						this.price = 10; // all of the items first upgrade costs 10
-					}
-					else {
-						this.showingPopup = true;
-					}
-					p.totalCoins -= this.price;
-				}
-			}
-		}
-		/* button 2 */
-		if(this.bought) {
-			c.strokeRect(this.x + 95, this.y + 20, 230, 30);
-			c.textAlign = "center";
-			c.fillText((this.equipped) ? "Unequip" : "Equip", this.x + 210, this.y + 40);
-			if(input.mouse.x > this.x + 95 && input.mouse.x < this.x + 325 && input.mouse.y > this.y + 20 && input.mouse.y < this.y + 50 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed && this.infoOp > 0) {
-				if(!this.equipped) {
-					if(p.itemsEquipped < 1) {
-						this.equipped = true;
-						p.itemsEquipped ++;
-					}
-				}
-				else {
-					this.equipped = false;
-					p.itemsEquipped --;
-				}
-			}
-		}
+ShopItem.prototype.displayInfo = function(direction) {
+	if(this.infoOp <= 0) {
+		return;
 	}
-	else {
+	if(direction !== "right" && direction !== "left") {
+		this.displayInfo((this.x > canvas.width / 2) ? "left" : "right");
+		return;
+	}
+	const BOX_WIDTH = 250;
+	const BOX_HEIGHT = 200;
+	const MARGIN_WIDTH = 10;
+	c.save(); {
+		c.globalAlpha = Math.max(this.infoOp, 0);
 		c.fillStyle = "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(this.x - 75, this.y);
-		c.lineTo(this.x - 85, this.y + 10);
-		c.lineTo(this.x - 85, this.y - 10);
-		c.fill();
-		c.fillRect(this.x - 335, this.y - 100, 250, 200);
-		/* title */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.font = "20px monospace";
-		c.textAlign = "left";
-		c.fillText(this.name, this.x - 325, this.y - 80);
-		c.font = "20px monospace";
-		/* line */
-		c.strokeStyle = "rgb(200, 200, 200)";
-		c.beginPath();
-		c.moveTo(this.x - 90, this.y - 70);
-		c.lineTo(this.x - 330, this.y - 70);
-		c.stroke();
-		/* description */
-		switch(this.name) {
-			case "Box of Storage":
-				c.fillText("Are your hands full?", this.x - 325, this.y - 50);
-				c.fillText("Carry an extra item", this.x - 325, this.y - 30);
-				c.fillText("from the shop with", this.x - 325, this.y - 10);
-				c.fillText("you each game.", this.x - 325, this.y + 10);
-				break;
-			case "Potion of Jumpiness":
-				c.fillText("Drink this potion to", this.x - 325, this.y - 50);
-				c.fillText("be able to double", this.x - 325, this.y - 30);
-				c.fillText("jump!", this.x - 325, this.y - 10);
-		}
-		/* button 1 */
-		c.textAlign = "center";
-		if(this.bought && this.name !== "Box of Storage") {
-			c.strokeRect(this.x - 325, this.y + 20, 230, 30);
-			c.fillText((this.equipped) ? "Unequip" : "Equip", this.x - 210, this.y + 40);
-		}
-		if(input.mouse.x > this.x - 325 && input.mouse.x < this.x - 95 && input.mouse.y > this.y + 20 && input.mouse.y < this.y + 50 && this.bought && input.mouse.pressed && !utilities.pastInputs.mouse.pressed && this.infoOp > 0 && this.name !== "Box of Storage") {
-			if(!this.equipped) {
-				if(p.itemsEquipped < 1) {
-					this.equipped = true;
-					p.itemsEquipped ++;
+		/* display triangle + box */
+		c.save(); {
+			c.translate(this.x, this.y);
+			if(direction === "left") {
+				c.scale(-1, 1);
+			}
+			c.beginPath();
+			c.moveTo(75, 0);
+			c.lineTo(85, 10);
+			c.lineTo(85, -10);
+			c.fill();
+			c.fillRect(85, -(BOX_HEIGHT / 2), BOX_WIDTH, BOX_HEIGHT);
+		} c.restore();
+		/* display text */
+		c.save(); {
+			/* translate to top-left corner of textbox */
+			c.translate(this.x, this.y);
+			var buttonOffset = { x: this.x, y: this.y };
+			if(direction === "left") {
+				c.translate(-85 - BOX_WIDTH, -(BOX_HEIGHT / 2));
+				buttonOffset.x += (-85 - BOX_WIDTH);
+			}
+			else {
+				c.translate(85, -(BOX_HEIGHT / 2));
+				buttonOffset.x += 85;
+			}
+			buttonOffset.y -= BOX_HEIGHT / 2;
+			/* textbox title */
+			c.fillStyle = "rgb(200, 200, 200)";
+			c.font = (this.name.length > 21) ? "17px monospace" : "20px monospace";
+			c.textAlign = "left";
+			c.fillText(this.name, MARGIN_WIDTH, 20);
+			/* title underline */
+			c.strokeStyle = "rgb(200, 200, 200)";
+			c.beginPath();
+			c.moveTo(MARGIN_WIDTH, 30);
+			c.lineTo(BOX_WIDTH - MARGIN_WIDTH, 30);
+			c.stroke();
+			/* description text */
+			c.font = "20px monospace";
+			utilities.canvas.displayTextOverLines(this.description, MARGIN_WIDTH, 50, BOX_WIDTH - (MARGIN_WIDTH), 20);
+			/* buttons */
+			var self = this;
+			if(this.bought) {
+				if(!this.noEquipping) {
+					this.displayButton(
+						MARGIN_WIDTH, BOX_HEIGHT - 80, BOX_WIDTH - (MARGIN_WIDTH * 2), 30,
+						{
+							text: (this.equipped ? "Unequip" : "Equip"),
+							onclick: function() {
+								self.equipped = !self.equipped;
+							},
+							canBeClicked: (shop.canEquipAnotherItem() || this.equipped),
+							translation: buttonOffset,
+						}
+					);
+				}
+				if(!this.noUpgrades) {
+					this.displayButton(
+						MARGIN_WIDTH, BOX_HEIGHT - 40, BOX_WIDTH - (MARGIN_WIDTH * 2), 30,
+						{
+							text: (this.isFullyUpgraded() ? "Fully Upgraded" : "Upgrade - " + this.calculatePrice() + " coins"),
+							onclick: function() {
+								self.showingPopup = true;
+							},
+							translation: buttonOffset
+						}
+					);
 				}
 			}
 			else {
-				this.equipped = false;
-				p.itemsEquipped --;
-			}
-		}
-		/* button 2 */
-		if(this.name !== "Box of Storage" || !this.bought) {
-			if(this.upgrades < 2) {
-				c.strokeRect(this.x - 325, this.y + 60, 230, 30);
-			}
-			if(!this.bought) {
-				c.fillText("Buy - $" + this.price, this.x - 210, this.y + 80);
-			}
-			else if(this.upgrades < 2) {
-				c.fillText("Upgrade - $" + this.price, this.x - 210, this.y + 80);
-			}
-			else {
-				c.fillText("Fully Upgraded", this.x - 210, this.y + 80);
-			}
-			if(input.mouse.x > this.x - 325 && input.mouse.x < this.x - 95 && input.mouse.y > this.y + 60 && input.mouse.y < this.y + 90 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed && p.totalCoins >= this.price && this.upgrades < 2 && this.infoOp > 0) {
-				p.totalCoins -= this.price;
-				if(!this.bought) {
-					this.bought = true;
-					if(this.name === "Box of Storage") {
-						p.itemsEquipped --;
+				this.displayButton(
+					MARGIN_WIDTH, BOX_HEIGHT - 40, BOX_WIDTH - (MARGIN_WIDTH * 2), 30,
+					{
+						text: "Buy - " + this.calculatePrice() + " coins",
+						onclick: function() {
+							if(!self.bought && p.totalCoins > self.calculatePrice()) {
+								p.totalCoins -= self.calculatePrice();
+								self.bought = true;
+								self.numUpgrades ++;
+							}
+						},
+						translation: buttonOffset
 					}
-				}
-				else {
-					this.showingPopup = true;
-				}
+				);
 			}
-		}
-	}
-	c.globalAlpha = 1;
+		} c.restore();
+	} c.restore();
 };
 ShopItem.prototype.displayPopup = function() {
 	if(this.showingPopup) {
-		coinDoubler.infoOp = -0.5;
-		speedIncreaser.infoOp = -0.5;
-		doubleJumper.infoOp = -0.5;
-		intangibilityTalisman.infoOp = -0.5;
-		secondLife.infoOp = -0.5;
-		secondItem.infoOp = -0.5;
+		for(var i = 0; i < shop.items.length; i ++) {
+			shop.items[i].infoOp = -0.5;
+		}
 		c.fillStyle = "rgb(100, 100, 100)";
 		c.fillRect(250, 250, 300, 300);
 		/* title */
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.textAlign = "left";
-		c.fillText("Upgrade Item", 260, 270);
+		c.fillText((this.isFullyUpgraded() ? "Fully Upgraded Abilities:" : "Upgrade Item"), 260, 270);
 		/* line */
-		c.beginPath();
 		c.strokeStyle = "rgb(200, 200, 200)";
+		c.beginPath();
 		c.moveTo(260, 280);
 		c.lineTo(540, 280);
 		c.stroke();
 		/* upgrade description */
-		switch(this.name) {
-			case "Piggy Bank of Money":
-				if(this.upgrades === 0) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● 2x coin multiplier", 260, 320);
-					c.fillText("Upgraded Level:", 260, 360);
-					c.fillText("● 2x coin multiplier", 260, 380);
-					c.fillText("● Weak coin magnet", 260, 400);
-				}
-				if(this.upgrades === 1) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● 2x coin multiplier", 260, 320);
-					c.fillText("● Weak coin magnet", 260, 340);
-					c.fillText("Upgraded Level:", 260, 380);
-					c.fillText("● 2x coin multiplier", 260, 400);
-					c.fillText("● Strong coin magnet", 260, 420);
-				}
-				break;
-			case "Boots of Speediness":
-				if(this.upgrades === 0) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● 1.5x max speed", 260, 320);
-					c.fillText("Upgraded Level:", 260, 360);
-					c.fillText("● 1.5x max speed", 260, 380);
-					c.fillText("● 2x acceleration", 260, 400);
-				}
-				if(this.upgrades === 1) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● 1.5x max speed", 260, 320);
-					c.fillText("● 2x acceleration", 260, 340);
-					c.fillText("Upgraded Level:", 260, 380);
-					c.fillText("● 2x max speed", 260, 400);
-					c.fillText("● 2x acceleration", 260, 420);
-				}
-				break;
-			case"Potion of Jumpiness":
-				if(this.upgrades === 0) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● High jumping", 260, 320);
-					c.fillText("Upgraded Level:", 260, 360);
-					c.fillText("● High jumping", 260, 380);
-					c.fillText("● Low double jumping", 260, 400);
-				}
-				else if(this.upgrades === 1) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● High jumping", 260, 320);
-					c.fillText("● Low double jumping", 260, 340);
-					c.fillText("Upgraded Level:", 260, 380);
-					c.fillText("● High jumping", 260, 400);
-					c.fillText("● High double jumping", 260, 420);
-				}
-				break;
-			case "Talisman of Intangibility":
-				if(this.upgrades === 0) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● Intangibility", 260, 320);
-					c.fillText("Upgraded Level:", 260, 360);
-					c.fillText("● Intangibility", 260, 380);
-					c.fillText("● Screen edge wrap", 260, 400);
-				}
-				if(this.upgrades === 1) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● Intangibility", 260, 320);
-					c.fillText("● Screen edge wrap", 260, 340);
-					c.fillText("Upgraded Level:", 260, 380);
-					c.fillText("● Intangibility", 260, 400);
-					c.fillText("● Screen edge wrap", 260, 420);
-					c.fillText("● Coin intangibility", 260, 440);
-					c.fillText("exception", 260, 460);
-				}
-				break;
-			case "Skull of Reanimation":
-				if(this.upgrades === 0) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● 1 extra life", 260, 320);
-					c.fillText("● Short invincibility", 260, 340);
-					c.fillText("time after revival", 260, 360);
-					c.fillText("Upgraded Level:", 260, 400);
-					c.fillText("● 1 extra life", 260, 420);
-					c.fillText("● Long invincibility", 260, 440);
-					c.fillText("time after revival", 260, 460);
-				}
-				else if(this.upgrades === 1) {
-					c.fillText("Current Level:", 260, 300);
-					c.fillText("● 1 extra life", 260, 320);
-					c.fillText("● Long invincibility", 260, 340);
-					c.fillText("time after revival", 260, 360);
-					c.fillText("Upgraded Level:", 260, 400);
-					c.fillText("● 2 extra lives", 260, 420);
-					c.fillText("● Long invincibility", 260, 440);
-					c.fillText("time after revival", 260, 460);
-				}
-				break;
-		}
-		/* button 1 */
-		c.strokeRect(260, 470, 280, 30);
-		c.textAlign = "center";
-		c.fillText("Close", 400, 490);
-		if(input.mouse.x > 260 && input.mouse.x < 540 && input.mouse.y > 470 && input.mouse.y < 500 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
-			this.showingPopup = false;
-		}
-		/* button 2 */
-		c.strokeRect(260, 510, 280, 30);
-		c.fillText("Upgrade - $" + this.price, 400, 530);
-		if(input.mouse.x > 260 && input.mouse.x < 540 && input.mouse.y > 510 && input.mouse.y < 540 && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
-			if(p.totalCoins > this.price) {
-				p.totalCoins -= this.price;
-				this.upgrades ++;
-				this.showingPopup = false;
-				if(this.name === "Piggy Bank of Money" || this.name === "Skull of Reanimation" || this.name === "Talisman of Intangibility") {
-					this.price = 15;
+		utilities.canvas.displayTextOverLines(this.calculateUpgradeDescription(), 260, 300, 280, 20);
+		/* button 1 (close dialog box) */
+		var self = this;
+		this.displayButton(
+			260, (this.isFullyUpgraded()) ? 470 + 40 : 470, 280, 30,
+			{
+				text: "Close",
+				onclick: function() {
+					self.showingPopup = false;
 				}
 			}
+		);
+		/* button 2 */
+		if(!this.isFullyUpgraded()) {
+			this.displayButton(
+				260, 510, 280, 30,
+				{
+					text: "Upgrade - " + this.calculatePrice() + " coins",
+					onclick: function() {
+						if(p.totalCoins > self.calculatePrice()) {
+							p.totalCoins -= self.calculatePrice();
+							self.numUpgrades ++;
+							self.showingPopup = false;
+						}
+					}
+				}
+			);
 		}
 	}
 };
-var coinDoubler = new ShopItem(800 / 4, 800 / 3, "Piggy Bank of Money", "With this amazing piggy bank, twice as many coins will appear in game.", 5);
-var speedIncreaser = new ShopItem(800 / 4 * 2, 800 / 3, "Boots of Speediness", "These speedy boots make you run extremely fast.", 10);
-var doubleJumper = new ShopItem(800 / 4 * 3, 800 / 3, "Potion of Jumpiness", "Drink this potion to be able to jump higher and double jump!", 10);
-var intangibilityTalisman = new ShopItem(800 / 4, 800 / 3 * 2, "Talisman of Intangibility", "Walk through walls, floors, and enemies with this magical talisman. Press down to use.", 10);
-var secondLife = new ShopItem(800 / 4 * 2, 800 / 3 * 2, "Skull of Reanimation", "Come back from the dead! This ancient skull grants you extra lives each game.", 15);
-var secondItem = new ShopItem(800 / 4 * 3, 800 / 3 * 2, "Box of Storage", "Are your hands full? Carry an extra shop item with you each run.", 15);
+ShopItem.prototype.displayButton = function(x, y, w, h, settings) {
+	settings = settings || {};
+	settings.text = settings.text || "Text Here";
+	settings.onclick = settings.onclick || function() {
+		console. log("Button was clicked");
+	};
+	settings.translation = settings.translation || { x: 0, y: 0 }; // used for if the canvas is translated so that the mouse positions will be correct
+	if(settings.canBeClicked === undefined || settings.canBeClicked === null) {
+		settings.canBeClicked = true;
+	}
+	c.save(); {
+		c.textAlign = "center";
+		c.strokeRect(x, y, w, h);
+		c.fillText(settings.text, x + (w / 2), y + (h / 2) + 5);
+	} c.restore();
+	if(settings.canBeClicked && utilities.mouseInRect(x + settings.translation.x, y + settings.translation.y, w, h)) {
+		input.mouse.cursor = "pointer";
+		if(input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
+			settings.onclick();
+		}
+	}
+};
+ShopItem.prototype.isFullyUpgraded = function() {
+	return this.numUpgrades >= this.upgrades.length;
+};
+ShopItem.prototype.calculatePrice = function() {
+	if(this.numUpgrades < this.upgrades.length) {
+		return this.upgrades[this.numUpgrades].price;
+	}
+	else {
+		return null;
+	}
+};
+ShopItem.prototype.calculateUpgradeDescription = function() {
+	if(this.isFullyUpgraded()) {
+		var lastUpgradeText = this.upgrades[this.upgrades.length - 1].text;
+		for(var i = 0; i < lastUpgradeText.length; i ++) {
+			if(lastUpgradeText[i] === "Upgraded Level:") {
+				return lastUpgradeText.slice(i + 1);
+			}
+		}
+	}
+	else {
+		return this.upgrades[this.numUpgrades].text;
+	}
+};
+var shop = {
+	items: [],
+	initialize: function() {
+		this.secondItem.noUpgrades = true;
+		this.secondItem.noEquipping = true;
+		this.items = [this.coinDoubler, this.speedIncreaser, this.doubleJumper, this.intangibilityTalisman, this.secondLife, this.secondItem];
+	},
+	coinDoubler: new ShopItem(
+		800 / 4, 800 / 3,
+		"Piggy Bank of Money",
+		function(isGrayscale) {
+			c.save();
+			c.translate(10, 0);
+			/* body */
+			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(223, 160, 171)");
+			c.beginPath();
+			c.arc(0, 0, 30, 30, 0, 2 * Math.PI);
+			c.fill();
+			/* legs */
+			c.fillRect(0 - 20, 0, 15, 35);
+			c.fillRect(0 + 5, 0, 15, 35);
+			/* head */
+			c.beginPath();
+			c.arc(0 - 40, 0 - 10, 20, 0, 2 * Math.PI);
+			c.fill();
+			/* chin */
+			c.beginPath();
+			c.moveTo(0 - 40, 0 + 10);
+			c.lineTo(0, 0 + 20);
+			c.lineTo(0, 0);
+			c.fill();
+			/* head - whitespace */
+			c.fillStyle = "rgb(200, 200, 200)";
+			c.beginPath();
+			c.arc(0 - 50, 0 - 20, 20, 0, 2 * Math.PI);
+			c.fill();
+			/* coin slot - whitespace */
+			c.strokeStyle = "rgb(200, 200, 200)";
+			c.beginPath();
+			c.arc(0, 0, 20, 1.5 * Math.PI - 0.6, 1.5 * Math.PI + 0.6);
+			c.stroke();
+			c.restore();
+		},
+		[
+			{
+				text: "With this amazing piggy bank, you will be able to collect a lot of money.",
+				price: 5
+			},
+			{
+				text: [
+					"Current Level:",
+					"● 2x coin multiplier",
+					"",
+					"Upgraded Level:",
+					"● 2x coin multiplier",
+					"● Coin magnet"
+				],
+				price: 10
+			},
+			{
+				text: [
+					"Current Level:",
+					"● 2x coin multiplier",
+					"● Coin magnet",
+					"",
+					"Upgraded Level:",
+					"● 2x coin multiplier",
+					"● Stronger coin magnet"
+				],
+				price: 15
+			},
+		]
+	),
+	speedIncreaser: new ShopItem(
+		800 / 4 * 2, 800 / 3,
+		"Boots of Speediness",
+		function(isGrayscale) {
+			/* boots */
+			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 223, 0)");
+			c.fillRect(0 - 10, 0 + 46, 20, 5);
+			c.fillRect(0 + 30, 0 + 46, 20, 5);
+			/* stickman body + limbs */
+			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.beginPath();
+			c.moveTo(0 - 10, 0 - 10);
+			c.lineTo(0 + 10, 0 + 10);
+			c.lineTo(0 - 10, 0 + 30);
+			c.lineTo(0 + 10, 0 + 50);
+			c.moveTo(0 + 10, 0 + 10);
+			c.lineTo(0 + 50, 0 + 50);
+			c.moveTo(0 + 10, 0 - 30);
+			c.lineTo(0 - 30, 0 + 10);
+			c.lineTo(0 - 50, 0 - 10);
+			c.moveTo(0 + 10, 0 - 30);
+			c.lineTo(0 + 30, 0 - 10);
+			c.stroke();
+			/* stickman head */
+			c.beginPath();
+			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.arc(0 - 17, 0 - 17, 10, 0, 2 * Math.PI);
+			c.fill();
+		},
+		[
+			{
+				text: "These speedy boots let you run extremely fast.",
+				price: 10
+			},
+			{
+				text: [
+					"Current Level:",
+					"● 1.5x max speed",
+					"",
+					"Upgraded Level:",
+					"● 1.5x max speed",
+					"● 2x acceleration"
+				],
+				price: 10
+			},
+			{
+				text: [
+					"Current Level:",
+					"● 1.5x max speed",
+					"● 2x acceleration",
+					"",
+					"Upgraded Level:",
+					"● 2x max speed",
+					"● 2x acceleration"
+				],
+				price: 10
+			},
+		]
+	),
+	doubleJumper: new ShopItem(
+		800 / 4 * 3, 800 / 3,
+		"Potion of Jumpiness",
+		function(isGrayscale) {
+			/* potion */
+			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)");
+			c.beginPath();
+			c.moveTo(0 - 5 - 4, 0 + 4);
+			c.lineTo(0 + 5 + 4, 0 + 4);
+			c.lineTo(0 + 25, 0 + 20);
+			c.lineTo(0 - 25, 0 + 20);
+			c.fill();
+			/* beaker body */
+			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.beginPath();
+			c.moveTo(0 - 5, 0 - 20);
+			c.lineTo(0 - 5, 0);
+			c.lineTo(0 - 5 - 20, 0 + 20);
+			c.lineTo(0 + 25, 0 + 20);
+			c.lineTo(0 + 5, 0);
+			c.lineTo(0 + 5, 0 - 20);
+			c.stroke();
+			/* beaker opening */
+			c.beginPath();
+			c.arc(0, 0 - 27, 10, 0, 2 * Math.PI);
+			c.stroke();
+		},
+		[
+			{
+				text: "Drink this potion to jump much higher! Hold [up] to increase jump height.",
+				price: 10
+			},
+			{
+				text: [
+					"Current Level:",
+					"● High jumping",
+					"",
+					"Upgraded Level:",
+					"● High jumping",
+					"● Double jumping"
+				],
+				price: 10
+			},
+			{
+				text: [
+					"Current Level:",
+					"● High jumping",
+					"● Double jumping",
+					"",
+					"Upgraded Level:",
+					"● High jumping",
+					"● High double jumping"
+				],
+				price: 10
+			},
+		]
+	),
+	intangibilityTalisman: new ShopItem(
+		800 / 4, 800 / 3 * 2,
+		"Talisman of Intangibility",
+		function(isGrayscale) {
+			c.fillStyle = "rgb(100, 100, 100)";
+			c.beginPath();
+			c.arc(0, 0, 30, 0, 2 * Math.PI);
+			c.fill();
+			/* gemstone */
+			c.fillStyle = (isGrayscale ? "rgb(200, 200, 200)" : "rgb(0, 0, 128)");
+			c.beginPath();
+			c.moveTo(0 - 6, 0 - 12);
+			c.lineTo(0 + 6, 0 - 12);
+			c.lineTo(0 + 15, 0);
+			c.lineTo(0 + 6, 0 + 12);
+			c.lineTo(0 - 6, 0 + 12);
+			c.lineTo(0 - 15, 0);
+			c.lineTo(0 - 6, 0 - 12);
+			c.fill();
+			/* necklace threads */
+			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(138, 87, 0)");
+			c.beginPath();
+			c.moveTo(0 - 5, 0 - 29);
+			c.lineTo(0 - 15, 0 - 75);
+			c.stroke();
+			c.beginPath();
+			c.moveTo(0 + 5, 0 - 29);
+			c.lineTo(0 + 15, 0 - 75);
+			c.stroke();
+		},
+		[
+			{
+				text: "Walk through everything with this magical talisman. Press [down] to use.",
+				price: 10
+			},
+			{
+				text: [
+					"Current Level:",
+					"● Intangibility",
+					"",
+					"Upgraded Level:",
+					"● Intangibility",
+					"● Screen edge wrap"
+				],
+				price: 10
+			},
+			{
+				text: [
+					"Current Level:",
+					"● Intangibility",
+					"● Screen edge wrap",
+					"",
+					"Upgraded Level:",
+					"● Intangibility",
+					"● Screen edge wrap",
+					"● Don't pass through coins while intangible"
+				],
+				price: 15
+			},
+		]
+	),
+	secondLife: new ShopItem(
+		800 / 4 * 2, 800 / 3 * 2,
+		"Skull of Reanimation",
+		function(isGrayscale) {
+			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
+			/* skull */
+			c.beginPath();
+			c.arc(0, 0, 30, 0, 2 * Math.PI);
+			c.fill();
+			/* skull chin */
+			c.fillRect(0 - 15, 0 + 20, 30, 20);
+			/* eyes - whitespace */
+			c.fillStyle = "rgb(200, 200, 200)";
+			c.beginPath();
+			c.arc(0 - 13, 0 - 10, 7, 0, 2 * Math.PI);
+			c.arc(0 + 13, 0 - 10, 7, 0, 2 * Math.PI);
+			c.fill();
+			/* mouth */
+			c.fillRect(0 - 2, 0 + 20, 4, 20);
+			c.fillRect(0 - 10, 0 + 20, 4, 20);
+			c.fillRect(0 + 6, 0 + 20, 4, 20);
+		},
+		[
+			{
+				text: "Come back from the dead! This ancient skull grants you extra lives.",
+				price: 15
+			},
+			{
+				text: [
+					"Current Level:",
+					"● 1 extra life",
+					"● Invincible after revive",
+					"",
+					"Upgraded Level:",
+					"● 1 extra life",
+					"● Long invincibility period after revive"
+				],
+				price: 15
+			},
+			{
+				text: [
+					"Current Level:",
+					"● 1 extra life",
+					"● Long invincibility period after revive",
+					"",
+					"",
+					"Upgraded Level:",
+					"● 2 extra lives",
+					"● Long invincibility period after revive"
+				],
+				price: 15
+			},
+		]
+	),
+	secondItem: new ShopItem(
+		800 / 4 * 3, 800 / 3 * 2,
+		"Box of Storage",
+		function(isGrayscale) {
+			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(138, 87, 0)");
+			/* front face */
+			c.beginPath();
+			c.fillRect(0 - 30, 0 - 10, 40, 40);
+			c.fill();
+			/* top face */
+			c.beginPath();
+			c.moveTo(0 - 30, 0 - 12);
+			c.lineTo(0 + 10, 0 - 12);
+			c.lineTo(0 + 40, 0 - 40);
+			c.lineTo(0, 0 - 40);
+			c.fill();
+			/* right face */
+			c.beginPath();
+			c.moveTo(0 + 12, 0 - 10);
+			c.lineTo(0 + 12, 0 + 30);
+			c.lineTo(0 + 42, 0);
+			c.lineTo(0 + 42, 0 - 40);
+			c.fill();
+			/* lines separating lid from box - whitespace */
+			c.strokeStyle = "rgb(200, 200, 200)";
+			c.lineWidth = 2;
+			c.beginPath();
+			c.moveTo(0 - 30, 0 - 5);
+			c.lineTo(0 + 10, 0 - 5);
+			c.stroke();
+			c.beginPath();
+			c.moveTo(0 + 10, 0 - 3);
+			c.lineTo(0 + 42, 0 - 35);
+			c.stroke();
+			c.lineWidth = 5;
+		},
+		[
+			{
+				text: "Are your hands full? Carry an extra shop item with you each game.",
+				price: 15
+			}
+		]
+	),
+
+	itemsEquipped: function() {
+		var itemsEquipped = [];
+		for(var i = 0; i < this.items.length; i ++) {
+			if(this.items[i].equipped) {
+				itemsEquipped.push(this.items[i]);
+			}
+		}
+		return itemsEquipped;
+	},
+	canEquipAnotherItem: function() {
+		var numEquipped = this.itemsEquipped().length;
+		if(this.secondItem.bought) {
+			return numEquipped < 2;
+		}
+		else {
+			return numEquipped < 1;
+		}
+	}
+};
+shop.initialize();
+p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins; // TEMPORARY
 
 function Achievement(x, y, name) {
 	this.x = x;
@@ -2190,7 +2283,7 @@ Achievement.prototype.checkProgress = function() {
 			this.progress = (p.repeatedEvent) ? 100 : 0;
 			break;
 		case "Moneybags":
-			if(coinDoubler.bought || speedIncreaser.bought || doubleJumper.bought || intangibilityTalisman.bought || secondLife.bought || secondItem.bought) {
+			if(shop.coinDoubler.bought || shop.speedIncreaser.bought || shop.doubleJumper.bought || shop.intangibilityTalisman.bought || shop.secondLife.bought || shop.secondItem.bought) {
 				this.progress = 100;
 			}
 			else {
@@ -2199,22 +2292,22 @@ Achievement.prototype.checkProgress = function() {
 			break;
 		case "Extreme Moneybags":
 			this.progress = 0;
-			if(coinDoubler.bought) {
+			if(shop.coinDoubler.bought) {
 				this.progress += 100 / 6;
 			}
-			if(speedIncreaser.bought) {
+			if(shop.speedIncreaser.bought) {
 				this.progress += 100 / 6;
 			}
-			if(doubleJumper.bought) {
+			if(shop.doubleJumper.bought) {
 				this.progress += 100 / 6;
 			}
-			if(intangibilityTalisman.bought) {
+			if(shop.intangibilityTalisman.bought) {
 				this.progress += 100 / 6;
 			}
-			if(secondLife.bought) {
+			if(shop.secondLife.bought) {
 				this.progress += 100 / 6;
 			}
-			if(secondItem.bought) {
+			if(shop.secondItem.bought) {
 				this.progress += 100 / 6;
 			}
 			break;
@@ -2274,17 +2367,19 @@ Coin.prototype.update = function() {
 		this.spinDir = 0.05;
 	}
 	this.age ++;
-	if(p.x + 5 > this.x - 20 && p.x - 5 < this.x + 20 && p.y + 46 > this.y + p.worldY - 20 && p.y < this.y + 20 + p.worldY && this.age > this.timeToAppear && !(intangibilityTalisman.equipped && input.keys[40] && intangibilityTalisman.upgrades < 2)) {
+	if(p.x + 5 > this.x - 20 && p.x - 5 < this.x + 20 && p.y + 46 > this.y + p.worldY - 20 && p.y < this.y + 20 + p.worldY && this.age > this.timeToAppear && !(p.isIntangible() && shop.intangibilityTalisman.numUpgrades < 3)) {
 		this.splicing = true;
-		p.coins += (coinDoubler.equipped) ? 2 : 1;
+		p.coins += (shop.coinDoubler.equipped) ? 2 : 1;
 	}
-	if(coinDoubler.equipped && coinDoubler.upgrades === 1 && Math.dist(this.x, this.y, p.x, p.y) < 200 && this.age > this.timeToAppear) {
-		this.x += (p.x - this.x) / 10;
-		this.y += (p.y - this.y) / 10;
-	}
-	if(coinDoubler.equipped && coinDoubler.upgrades === 2 && this.age > this.timeToAppear) {
-		this.x += (p.x - this.x) / 10;
-		this.y += (p.y - this.y) / 10;
+	if(this.age > this.timeToAppear && shop.coinDoubler.equipped) {
+		if(shop.coinDoubler.numUpgrades === 2 && Math.dist(this.x, this.y, p.x, p.y) < 200 && this.age > this.timeToAppear) {
+			this.x += (p.x - this.x) / 10;
+			this.y += (p.y - this.y) / 10;
+		}
+		if(shop.coinDoubler.numUpgrades === 3) {
+			this.x += (p.x - this.x) / 10;
+			this.y += (p.y - this.y) / 10;
+		}
 	}
 };
 function ChatMessage(msg, col) {
@@ -4348,7 +4443,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["laserbots"] : game.events;
+game.events = TESTING_MODE ? ["rocket"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
@@ -4396,36 +4491,14 @@ function doByTime() {
 			p.die("fall");
 		}
 		/* shop status effect indicators */
-		var hasOne = false;
-		if(coinDoubler.equipped) {
-			coinDoubler.x = 100 * (hasOne ? 2 : 1);
-			coinDoubler.y = 75;
-			coinDoubler.displayLogo(0.5);
-			hasOne = true;
-		}
-		if(speedIncreaser.equipped) {
-			speedIncreaser.x = 100 * (hasOne ? 2 : 1);
-			speedIncreaser.y = 75;
-			speedIncreaser.displayLogo(0.5);
-			hasOne = true;
-		}
-		if(doubleJumper.equipped) {
-			doubleJumper.x = 100 * (hasOne ? 2 : 1);
-			doubleJumper.y = 75;
-			doubleJumper.displayLogo(0.5);
-			hasOne = true;
-		}
-		if(intangibilityTalisman.equipped) {
-			intangibilityTalisman.x = 100 * (hasOne ? 2 : 1);
-			intangibilityTalisman.y = 75;
-			intangibilityTalisman.displayLogo(0.5);
-			hasOne = true;
-		}
-		if(secondLife.equipped) {
-			secondLife.x = 100 * (hasOne ? 2 : 1);
-			secondLife.y = 75;
-			secondLife.displayLogo(0.5);
-			hasOne = true;
+		var numItemsEquipped = 0;
+		for(var i = 0; i < shop.items.length; i ++) {
+			if(shop.items[i].equipped) {
+				shop.items[i].x = 50 + 100 * numItemsEquipped;
+				shop.items[i].y = 50;
+				shop.items[i].displayLogo(0.5);
+				numItemsEquipped ++;
+			}
 		}
 		/* offscreen enemy collisions */
 		if(game.numObjects(Enemy) !== 0) {
@@ -4524,25 +4597,15 @@ function doByTime() {
 		c.fillStyle = "rgb(255, 255, 0)";
 		c.fillText("coins: " + p.totalCoins, 400, 150);
 		/* items */
-		coinDoubler.displayLogo(1);
-		speedIncreaser.displayLogo(1);
-		doubleJumper.displayLogo(1);
-		intangibilityTalisman.displayLogo(1);
-		secondLife.displayLogo(1);
-		secondItem.displayLogo(1);
-
-		coinDoubler.displayInfo();
-		speedIncreaser.displayInfo();
-		doubleJumper.displayInfo();
-		intangibilityTalisman.displayInfo();
-		secondLife.displayInfo();
-		secondItem.displayInfo();
-
-		coinDoubler.displayPopup();
-		speedIncreaser.displayPopup();
-		doubleJumper.displayPopup();
-		intangibilityTalisman.displayPopup();
-		secondLife.displayPopup();
+		for(var i = 0; i < shop.items.length; i ++) {
+			shop.items[i].displayLogo(1);
+		}
+		for(var i = 0; i < shop.items.length; i ++) {
+			shop.items[i].displayInfo();
+		}
+		for(var i = 0; i < shop.items.length; i ++) {
+			shop.items[i].displayPopup();
+		}
 		/* home button */
 		homeFromShop.display();
 		homeFromShop.mouseOver = homeFromShop.hasMouseOver();
@@ -4604,5 +4667,8 @@ function doByTime() {
 	else if(SHOW_HITBOXES) {
 		c.fillText("hitboxes are on", 10, 20);
 	}
+
+	document.body.style.cursor = input.mouse.cursor;
+	input.mouse.cursor = "default";
 };
 window.setInterval(doByTime, 1000 / FPS);
