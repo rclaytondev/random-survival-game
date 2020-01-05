@@ -1,5 +1,5 @@
 const FPS = 60;
-const TESTING_MODE = false;
+const TESTING_MODE = true;
 const SHOW_HITBOXES = false;
 
 var canvas = document.getElementById("canvas");
@@ -2728,7 +2728,7 @@ SpinnyBlade.prototype.update = function() {
 	for(var i = 0; i < bladeArray.length; i ++) {
 		var point = bladeArray[i];
 		if(!p.isIntangible()) {
-			utilities.killCollisionPoint(point.x, point.y);
+			utilities.killCollisionPoint(point.x, point.y, "spinnyblades");
 		}
 	}
 	if(this.opacity <= 0 && this.numRevolutions >= 2) {
@@ -4443,7 +4443,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["rocket"] : game.events;
+game.events = TESTING_MODE ? ["spikeballs"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
@@ -4552,7 +4552,7 @@ function doByTime() {
 			case "rocket":
 				c.fillText("You were hit with a rocket", 200, 300);
 				break;
-			case "spikeball":
+			case "spikeballs":
 				c.fillText("You were taken out by a spikeball", 200, 300);
 				break;
 			case "spikewall":
