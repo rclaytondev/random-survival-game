@@ -1837,18 +1837,17 @@ var shop = {
 				0 + 6, 0 + 12,
 				0 - 6, 0 + 12,
 				0 - 15, 0,
-				0 - 6
 			);
 			/* necklace threads */
 			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(138, 87, 0)");
-			c.beginPath();
-			c.moveTo(0 - 5, 0 - 29);
-			c.lineTo(0 - 15, 0 - 75);
-			c.stroke();
-			c.beginPath();
-			c.moveTo(0 + 5, 0 - 29);
-			c.lineTo(0 + 15, 0 - 75);
-			c.stroke();
+			c.strokeLine(
+				0 - 5, 0 - 29,
+				0 - 15, 0 - 75
+			);
+			c.strokeLine(
+				0 + 5, 0 - 29,
+				0 + 15, 0 - 75
+			);
 		},
 		[
 			{
@@ -1887,17 +1886,13 @@ var shop = {
 		function(isGrayscale) {
 			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
 			/* skull */
-			c.beginPath();
-			c.arc(0, 0, 30, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(0, 0, 30);
 			/* skull chin */
 			c.fillRect(0 - 15, 0 + 20, 30, 20);
 			/* eyes - whitespace */
 			c.fillStyle = "rgb(200, 200, 200)";
-			c.beginPath();
-			c.arc(0 - 13, 0 - 10, 7, 0, 2 * Math.PI);
-			c.arc(0 + 13, 0 - 10, 7, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(0 - 13, 0 - 10, 7);
+			c.fillCircle(0 + 13, 0 - 10, 7);
 			/* mouth */
 			c.fillRect(0 - 2, 0 + 20, 4, 20);
 			c.fillRect(0 - 10, 0 + 20, 4, 20);
@@ -1945,30 +1940,30 @@ var shop = {
 			c.fillRect(0 - 30, 0 - 10, 40, 40);
 			c.fill();
 			/* top face */
-			c.beginPath();
-			c.moveTo(0 - 30, 0 - 12);
-			c.lineTo(0 + 10, 0 - 12);
-			c.lineTo(0 + 40, 0 - 40);
-			c.lineTo(0, 0 - 40);
-			c.fill();
+			c.fillPoly(
+				0 - 30, 0 - 12,
+				0 + 10, 0 - 12,
+				0 + 40, 0 - 40,
+				0     , 0 - 40
+			);
 			/* right face */
-			c.beginPath();
-			c.moveTo(0 + 12, 0 - 10);
-			c.lineTo(0 + 12, 0 + 30);
-			c.lineTo(0 + 42, 0);
-			c.lineTo(0 + 42, 0 - 40);
-			c.fill();
+			c.fillPoly(
+				0 + 12, 0 - 10,
+				0 + 12, 0 + 30,
+				0 + 42, 0,
+				0 + 42, 0 - 40
+			);
 			/* lines separating lid from box - whitespace */
 			c.strokeStyle = "rgb(200, 200, 200)";
 			c.lineWidth = 2;
-			c.beginPath();
-			c.moveTo(0 - 30, 0 - 5);
-			c.lineTo(0 + 10, 0 - 5);
-			c.stroke();
-			c.beginPath();
-			c.moveTo(0 + 10, 0 - 3);
-			c.lineTo(0 + 42, 0 - 35);
-			c.stroke();
+			c.strokeLine(
+				0 - 30, 0 - 5,
+				0 + 10, 0 - 5
+			);
+			c.strokeLine(
+				0 + 10, 0 - 3,
+				0 + 42, 0 - 35
+			);
 			c.lineWidth = 5;
 		},
 		[
@@ -2012,9 +2007,8 @@ Achievement.prototype.displayLogo = function() {
 	/* background circle */
 	c.fillStyle = "rgb(200, 200, 200)";
 	c.strokeStyle = "rgb(100, 100, 100)";
-	c.beginPath();
-	c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
-	c.fill();
+	c.fillCircle(this.x, this.y, 50);
+	c.strokeCircle(this.x, this.y, 50);
 	c.stroke();
 	if(this.name === "I Survived") {
 		/* rays of light */
@@ -2023,133 +2017,111 @@ Achievement.prototype.displayLogo = function() {
 			c.save();
 			c.translate(this.x, this.y);
 			c.rotate(r);
-			c.beginPath();
-			c.arc(0, 0, 47, -0.2, 0.2);
-			c.lineTo(0, 0);
-			c.fill();
+			c.fillArc(0, 0, 47, -11, 11);
 			c.restore();
 		}
 		/* stickman */
 		c.beginPath();
 		c.strokeStyle = (this.progress === 100) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
-		c.moveTo(this.x - 20, this.y + 25);
-		c.lineTo(this.x - 20, this.y + 10);
-		c.lineTo(this.x + 20, this.y + 10);
-		c.lineTo(this.x + 20, this.y + 25);
-		c.moveTo(this.x, this.y + 10);
-		c.lineTo(this.x, this.y - 10);
-		c.moveTo(this.x - 20, this.y - 30);
-		c.lineTo(this.x - 20, this.y - 10);
-		c.lineTo(this.x + 20, this.y - 10);
-		c.lineTo(this.x + 20, this.y - 30);
-		c.stroke();
+		// c.moveTo(this.x - 20, this.y + 25);
+		// c.lineTo(this.x - 20, this.y + 10);
+		// c.lineTo(this.x + 20, this.y + 10);
+		// c.lineTo(this.x + 20, this.y + 25);
+		// c.moveTo(this.x, this.y + 10);
+		// c.lineTo(this.x, this.y - 10);
+		// c.moveTo(this.x - 20, this.y - 30);
+		// c.lineTo(this.x - 20, this.y - 10);
+		// c.lineTo(this.x + 20, this.y - 10);
+		// c.lineTo(this.x + 20, this.y - 30);
+		// c.stroke();
+		c.strokeLine(
+			this.x - 20, this.y + 25,
+			this.x - 20, this.y + 10,
+			this.x + 20, this.y + 10,
+			this.x + 20, this.y + 25
+		);
+		c.strokeLine(
+			this.x, this.y + 10,
+			this.x, this.y - 10
+		);
+		c.strokeLine(
+			this.x - 20, this.y - 30,
+			this.x - 20, this.y - 10,
+			this.x + 20, this.y - 10,
+			this.x + 20, this.y - 30
+		);
 		c.fillStyle = (this.progress === 100) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.arc(this.x, this.y - 17, 10, 0, 2 * Math.PI);
-		c.fill();
+		c.fillCircle(this.x, this.y - 17, 10);
 	}
 	else if(this.name === "Survivalist") {
 		c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(this.x - 30, this.y);
-		c.lineTo(this.x + 30, this.y);
-		c.lineTo(this.x, this.y + 30);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x - 15, this.y, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x + 15, this.y, 15, Math.PI, 2 * Math.PI);
-		c.fill();
+		c.fillPoly(
+			this.x - 30, this.y,
+			this.x + 30, this.y,
+			this.x, this.y + 30
+		);
+		c.fillArc(this.x - 15, this.y, 15, Math.toRadians(180), Math.toRadians(360));
+		c.fillArc(this.x + 15, this.y, 15, Math.toRadians(180), Math.toRadians(360));
 	}
 	else if(this.name === "Extreme Survivalist") {
-		/* left heart */
-		c.save();
-		c.translate(this.x - 20, this.y);
-		c.scale(0.5, 0.5);
-		c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(-30, 0);
-		c.lineTo(30, 0);
-		c.lineTo(0, 30);
-		c.fill();
-		c.beginPath();
-		c.arc(-15, 0, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(15, 0, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.restore();
-		/* right heart */
-		c.save();
-		c.translate(this.x + 20, this.y);
-		c.scale(0.5, 0.5);
-		c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(-30, 0);
-		c.lineTo(30, 0);
-		c.lineTo(0, 30);
-		c.fill();
-		c.beginPath();
-		c.arc(-15, 0, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(15, 0, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.restore();
+		function displayHeartGraphic(x, y) {
+			c.save(); {
+				c.save();
+				c.translate(x, y);
+				c.scale(0.5, 0.5);
+				c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
+				c.fillPoly(
+					-30, 0,
+					30, 0,
+					0, 30
+				);
+				c.fillArc(-15, 0, 15, Math.toRadians(180), Math.toRadians(360));
+				c.fillArc(15, 0, 15, Math.toRadians(180), Math.toRadians(360));
+			} c.restore();
+		};
+		displayHeartGraphic(this.x - 20, this.y);
+		displayHeartGraphic(this.x + 20, this.y);
 	}
 	else if(this.name === "What are the Odds") {
 		/* front face */
 		c.fillStyle = (this.progress === 100) ? "" : "rgb(100, 100, 100)";
 		c.fillRect(this.x - 20 - 6, this.y - 10 + 6, 30, 30);
 		/* top face */
-		c.beginPath();
-		c.moveTo(this.x - 20 - 6, this.y - 12 + 6);
-		c.lineTo(this.x + 10 - 6, this.y - 12 + 6);
-		c.lineTo(this.x + 30 - 6, this.y - 32 + 6);
-		c.lineTo(this.x + 0 - 6, this.y - 32 + 6);
-		c.fill();
+		c.fillPoly(
+			this.x - 20 - 6, this.y - 12 + 6,
+			this.x + 10 - 6, this.y - 12 + 6,
+			this.x + 30 - 6, this.y - 32 + 6,
+			this.x + 0 - 6 , this.y - 32 + 6
+		);
 		/* right face */
-		c.beginPath();
-		c.moveTo(this.x + 12 - 6, this.y - 10 + 6);
-		c.lineTo(this.x + 12 - 6, this.y + 20 + 6);
-		c.lineTo(this.x + 32 - 6, this.y + 6);
-		c.lineTo(this.x + 32 - 6, this.y - 30 + 6);
-		c.fill();
+		c.fillPoly(
+			this.x + 12 - 6, this.y - 10 + 6,
+			this.x + 12 - 6, this.y + 20 + 6,
+			this.x + 32 - 6, this.y + 6,
+			this.x + 32 - 6, this.y - 30 + 6
+		);
 		/* die 1 - whitespace */
 		c.fillStyle = "rgb(200, 200, 200)";
-		c.save();
-		c.translate(this.x  - 1, this.y - 15);
-		c.scale(1, 0.75);
-		c.beginPath();
-		c.arc(0, 0, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.restore();
+		c.save(); {
+			c.translate(this.x  - 1, this.y - 15);
+			c.scale(1, 0.75);
+			c.fillCircle(0, 0, 5);
+		} c.restore();
 		/* die 2 - whitespace */
-		c.save();
-		c.translate(this.x + 12, this.y - 3);
-		c.scale(0.75, 1);
-		c.beginPath();
-		c.arc(0, 0, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.restore();
-		c.save();
-		c.translate(this.x + 21, this.y + 3);
-		c.scale(0.75, 1);
-		c.beginPath();
-		c.arc(0, 0, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.restore();
+		c.save(); {
+			c.translate(this.x + 12, this.y - 3);
+			c.scale(0.75, 1);
+			c.fillCircle(0, 0, 5);
+		} c.restore();
+		c.save(); {
+			c.translate(this.x + 21, this.y + 3);
+			c.scale(0.75, 1);
+			c.fillCircle(0, 0, 5);
+		} c.restore();
 		/* die 3 - whitespace */
-		c.beginPath();
-		c.arc(this.x - 21, this.y + 4, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x - 1, this.y + 18, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.arc(this.x - 10, this.y + 11, 5, 0, 2 * Math.PI);
-		c.fill();
-
+		c.fillCircle(this.x - 21, this.y + 4, 5);
+		c.fillCircle(this.x - 1, this.y + 18, 5);
+		c.fillCircle(this.x - 10, this.y + 11, 5);
 	}
 	else if(this.name === "Moneybags") {
 		c.fillStyle = (this.progress === 100) ? "rgb(255, 255, 0)" : "rgb(100, 100, 100)";
@@ -2172,17 +2144,34 @@ Achievement.prototype.displayLogo = function() {
 	else if(this.name === "Places to Be") {
 		c.lineWidth = 2;
 		c.setLineDash([2, 2]);
-		c.beginPath();
-		c.moveTo(this.x, this.y - 10);
-		c.lineTo(this.x, this.y + 10);
-		c.lineTo(this.x + 10, this.y + 20);
-		c.moveTo(this.x, this.y + 10);
-		c.lineTo(this.x - 10, this.y + 20);
-		c.moveTo(this.x, this.y - 10);
-		c.lineTo(this.x + 10, this.y);
-		c.moveTo(this.x, this.y - 10);
-		c.lineTo(this.x - 10, this.y);
-		c.stroke();
+		// c.beginPath();
+		// c.moveTo(this.x, this.y - 10);
+		// c.lineTo(this.x, this.y + 10);
+		// c.lineTo(this.x + 10, this.y + 20);
+		// c.moveTo(this.x, this.y + 10);
+		// c.lineTo(this.x - 10, this.y + 20);
+		// c.moveTo(this.x, this.y - 10);
+		// c.lineTo(this.x + 10, this.y);
+		// c.moveTo(this.x, this.y - 10);
+		// c.lineTo(this.x - 10, this.y);
+		// c.stroke();
+		c.strokeLine(
+			this.x, this.y - 10,
+			this.x, this.y + 10,
+			this.x + 10, this.y + 20
+		);
+		c.strokeLine(
+			this.x, this.y + 10,
+			this.x - 10, this.y + 20,
+		);
+		c.strokeLine(
+			this.x, this.y - 10,
+			this.x + 10, this.y
+		);
+		c.strokeLine(
+			this.x, this.y - 10,
+			this.x - 10, this.y
+		);
 		c.beginPath();
 		c.arc(this.x, this.y - 15, 5, 0, 2 * Math.PI);
 		c.stroke();
