@@ -902,6 +902,17 @@ Player.prototype.surviveEvent = function(event) {
 Player.prototype.isIntangible = function() {
 	return (input.keys[40] && shop.intangibilityTalisman.equipped);
 };
+Player.prototype.isInPath = function() {
+	/*
+	Used for collisions. Checks if the player (approximated by the corners of the player's hitbox) overlaps with the current canvas path.
+	*/
+	return (
+		c.isPointInPath(this.x + this.hitbox.left, this.y + this.hitbox.top) ||
+		c.isPointInPath(this.x + this.hitbox.right, this.y + this.hitbox.top) ||
+		c.isPointInPath(this.x + this.hitbox.left, this.y + this.hitbox.bottom) ||
+		c.isPointInPath(this.x + this.hitbox.right, this.y + this.hitbox.bottom)
+	)
+};
 
 var p = new Player();
 
@@ -2820,24 +2831,18 @@ function Pacman(x, y, velX) {
 	this.x = x;
 	this.y = y;
 	this.velX = velX;
-	this.mouth = 1;
-	this.mouthVel = -0.01;
+	this.mouth = 0;
+	this.mouthVel = -1;
 };
 Pacman.prototype.display = function() {
 	c.fillStyle = "rgb(255, 255, 0)";
-	c.save();
-	c.translate(this.x, this.y);
-	c.rotate(this.r);
-	c.beginPath();
-	c.arc(0, 0, 200, 0, Math.PI);
-	c.fill();
-	c.beginPath();
-	c.arc(0, 0, 200, -0.5 * Math.PI + this.mouth, 0.5 * Math.PI + this.mouth);
-	c.fill();
-	c.beginPath();
-	c.arc(0, 0, 200, 0.5 * Math.PI - this.mouth, -0.5 * Math.PI - this.mouth);
-	c.fill();
-	c.restore();
+	c.save(); {
+		c.translate(this.x, this.y);
+		if(this.velX < 0) {
+			c.scale(-1, 1); // reflect for pacmans going left
+		}
+		c.fillArc(0, 0, 200, Math.toRadians(this.mouth), Math.toRadians(-this.mouth));
+	} c.restore();
 };
 Pacman.prototype.update = function() {
 	if(this.velX > 0) {
@@ -2848,14 +2853,27 @@ Pacman.prototype.update = function() {
 	}
 	this.x += this.velX;
 	this.mouth += this.mouthVel;
-	if(this.mouth <= 0) {
-		this.mouthVel = 0.01;
+	const MOUTH_ANIMATION_SPEED = 0.5;
+	if(this.mouth >= 45) {
+		this.mouthVel = -MOUTH_ANIMATION_SPEED;
 	}
-	else if(this.mouth >= 1) {
-		this.mouthVel = -0.01;
+	else if(this.mouth <= 0) {
+		this.mouthVel = MOUTH_ANIMATION_SPEED;
 	}
+	/* player collisions */
 	if(!p.isIntangible()) {
-		utilities.killCollisionCircle(this.x, this.y, 200, "pacmans");
+		c.save(); {
+			c.translate(this.x, this.y);
+			if(this.velX < 0) {
+				c.scale(-1, 1); // reflect for pacmans going left
+			}
+			c.moveTo(0, 0);
+			c.arc(0, 0, 200, Math.toRadians(this.mouth), Math.toRadians(-this.mouth));
+			c.lineTo(0, 0);
+			if(p.isInPath()) {
+				p.die("pacmans");
+			}
+		} c.restore();
 	}
 	/* remove dots when eaten */
 	for(var i = 0; i < game.objects.length; i ++) {
@@ -2864,7 +2882,7 @@ Pacman.prototype.update = function() {
 		}
 	}
 	/* remove self when off screen */
-	if((this.x > 1200 && this.velX > 0) || (this.x < -200 && this.velX < 0)) {
+	if((this.x > 1000 && this.velX > 0) || (this.x < -200 && this.velX < 0)) {
 		this.splicing = true;
 		if(game.numObjects(Pacman) === 0) {
 			game.addEvent();
@@ -3624,7 +3642,7 @@ LaserBotProjectile.prototype.update = function() {
 			this.x += this.shooter.velX;
 		}
 	}
-	if(!p.isIntangible()) {
+	else if(!p.isIntangible()) {
 		if(this.velX < 0) {
 			utilities.killCollisionRect(this.x, this.y, this.length, 1, "laserbots");
 		}
@@ -4443,7 +4461,7 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["spikeballs"] : game.events;
+game.events = TESTING_MODE ? ["laserbots"] : game.events;
 
 function doByTime() {
 	utilities.canvas.resize();
