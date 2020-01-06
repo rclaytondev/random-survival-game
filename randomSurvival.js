@@ -3399,6 +3399,7 @@ LaserBot.prototype.update = function() {
 				this.x = this.destX;
 				this.velX = 0;
 				this.destX = null;
+				this.standingOnPlatform = this.destination;
 				this.destination = null;
 				this.goingToDestination = false;
 				this.initialized = true;
