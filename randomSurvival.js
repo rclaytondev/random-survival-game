@@ -1,6 +1,6 @@
 const FPS = 60;
 const TESTING_MODE = true;
-const SHOW_HITBOXES = true;
+const SHOW_HITBOXES = false;
 
 var canvas = document.getElementById("canvas");
 var c = canvas.getContext("2d");
@@ -350,6 +350,17 @@ console. logOnce = function(parameter) {
 		console. log(parameter);
 	}
 };
+console. errorOnce = function(parameter) {
+	/*
+	It's like console.logOnce() but it's for errors. See console.logOnce()
+	*/
+	var trace = new Error().stack;
+	console.traces = console.traces || [];
+	if(!console.traces.contains(trace)) {
+		console.traces.push(trace);
+		console. error(parameter);
+	}
+};
 CanvasRenderingContext2D.prototype.fillArc = function(x, y, radius, startAngle, endAngle) {
 	this.beginPath();
 	this.moveTo(x, y);
@@ -442,6 +453,16 @@ CanvasRenderingContext2D.prototype.invertPath = function() {
 	this.lineTo(8000, 8000);
 	this.lineTo(-8000, 8000);
 	this.lineTo(-8000, -8000);
+};
+CanvasRenderingContext2D.prototype.loadTextStyle = function(textStyle) {
+	if(typeof textStyle.fillStyle === "string") {
+		this.fillStyle = textStyle.fillStyle;
+	}
+	else if(typeof textStyle.color === "string") {
+		this.fillStyle = textStyle.color;
+	}
+	this.textAlign = textStyle.textAlign || "left";
+	this.font = textStyle.font || "20px monospace";
 };
 Object.prototype.clone = function() {
 	var clone = new this.constructor();
@@ -1103,8 +1124,11 @@ function DollarIcon() {
 	this.y = 450;
 };
 DollarIcon.prototype.display = function() {
-	c.fillStyle = "rgb(100, 100, 100)";
-	c.font = "20px cursive";
+	c.loadTextStyle({
+		color: "rgb(100, 100, 100)",
+		font: "20px cursive",
+		textAlign: "center"
+	});
 	c.fillText("$", this.x, this.y);
 	this.y += 5;
 };
@@ -1193,8 +1217,11 @@ Button.prototype.display = function() {
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 50);
 		/* dollar sign */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.font = "50px cursive";
+		c.loadTextStyle({
+			color: "rgb(100, 100, 100)",
+			font: "50px cursive",
+			textAlign: "center"
+		});
 		c.fillText("$", this.x, this.y + 15);
 		/* dollar sign animation */
 		if(this.mouseOver && utilities.frameCount % 10 === 0) {
@@ -1379,9 +1406,11 @@ ShopItem.prototype.displayLogo = function(size) {
 			c.strokeStyle = "rgb(100, 100, 100)";
 			c.fillCircle  (50, -50, 20);
 			c.strokeCircle(50, -50, 20);
-			c.fillStyle = (this.equipped) ? "rgb(200, 200, 200)" : "rgb(100, 100, 100)";
-			c.textAlign = "center";
-			c.font = "bold 20px monospace";
+			c.loadTextStyle({
+				color: (this.equipped ? "rgb(200, 200, 200)" : "rgb(100, 100, 100)"),
+				textAlign: "center",
+				font: "bold 20px monospace"
+			});
 			c.fillText(this.numUpgrades, 50, -45);
 		}
 		this.display(!this.bought);
@@ -1461,9 +1490,10 @@ ShopItem.prototype.displayInfo = function(direction) {
 			}
 			buttonOffset.y -= BOX_HEIGHT / 2;
 			/* textbox title */
-			c.fillStyle = "rgb(200, 200, 200)";
-			c.font = (this.name.length > 21) ? "17px monospace" : "20px monospace";
-			c.textAlign = "left";
+			c.loadTextStyle({
+				color: "rgb(200, 200, 200)",
+				font: (this.name.length > 21) ? "17px monospace" : "20px monospace",
+			});
 			c.fillText(this.name, MARGIN_WIDTH, 20);
 			/* title underline */
 			c.strokeStyle = "rgb(200, 200, 200)";
@@ -1472,7 +1502,7 @@ ShopItem.prototype.displayInfo = function(direction) {
 				BOX_WIDTH - MARGIN_WIDTH, 30
 			);
 			/* description text */
-			c.font = "20px monospace";
+			c.loadTextStyle({ font: "20px monospace" });
 			utilities.canvas.displayTextOverLines(this.description, MARGIN_WIDTH, 50, BOX_WIDTH - (MARGIN_WIDTH), 20);
 			/* buttons */
 			var self = this;
@@ -2094,9 +2124,10 @@ Achievement.prototype.displayInfo = function(direction) {
 		c.fillStyle = "rgb(100, 100, 100)";
 		c.fillRect(0, 0, BOX_WIDTH, BOX_HEIGHT);
 		/* title */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.font = "20px monospace";
-		c.textAlign = "left";
+		c.loadTextStyle({
+			color: "rgb(200, 200, 200)",
+			font: "20px monospace"
+		});
 		c.fillText(this.name, MARGIN_WIDTH, 20);
 		/* title underline */
 		c.strokeStyle = "rgb(200, 200, 200)";
@@ -2274,9 +2305,11 @@ var achievements = [
 		"Moneybags",
 		"Buy something from the shop.",
 		function(self, isGrayscale) {
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)");
-			c.font = "bold 40px monospace";
-			c.textAlign = "center";
+			c.loadTextStyle({
+				color: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)"),
+				font: "bold 40px monospace",
+				textAlign: "center"
+			});
 			c.fillText("$", self.x, self.y + 12);
 		},
 		function() {
@@ -2288,9 +2321,11 @@ var achievements = [
 		"Extreme Moneybags",
 		"Buy everything in the shop.",
 		function(self, isGrayscale) {
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)");
-			c.font = "bold 40px monospace";
-			c.textAlign = "center";
+			c.loadTextStyle({
+				color: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)"),
+				font: "bold 40px monospace",
+				textAlign: "center"
+			});
 			c.fillText("$$", self.x, self.y + 12);
 		},
 		function() {
@@ -2302,9 +2337,11 @@ var achievements = [
 		"Improvement",
 		"Beat your record five times.",
 		function(self, isGrayscale) {
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 128, 0)");
-			c.font = "bold 50px monospace";
-			c.textAlign = "center";
+			c.loadTextStyle({
+				fillStyle: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 128, 0)"),
+				font: "bold 50px monospace",
+				textAlign: "center"
+			});
 			c.fillText("+", self.x, self.y + 12);
 		},
 		function() {
@@ -2425,9 +2462,11 @@ function ChatMessage(msg, col) {
 	this.time = 120;
 };
 ChatMessage.prototype.display = function(y) {
-	c.fillStyle = this.col;
-	c.textAlign = "right";
-	c.font = "20px monospace";
+	c.loadTextStyle({
+		color: this.col,
+		textAlign: "right",
+		font: "20px monospace"
+	});
 	c.fillText(this.msg, 790, y);
 	this.time --;
 };
@@ -2956,69 +2995,42 @@ Rocket.prototype.display = function() {
 		if(this.velX < 0) {
 			c.scale(-1, 1);
 		}
+		c.fillRect(0, -10, 50, 20);
+		/* tip */
+		c.fillPoly(
+			50, -10,
+			100, 0,
+			50, 10
+		);
+		/* spikes on back */
+		for(var scale = -1; scale <= 1; scale += 2) {
+			c.save(); {
+				c.scale(1, scale);
+				c.fillPoly(
+					0, 10,
+					-50, 15,
+					0, 0
+				);
+			} c.restore();
+		}
 	} c.restore();
-	return;
-	c.fillStyle = "rgb(100, 100, 100)";
-	if(this.velX > 0) {
-		c.fillRect(this.x, this.y, 50, 20);
-		/* tip */
-		c.beginPath();
-		c.moveTo(this.x + 50, this.y);
-		c.lineTo(this.x + 100, this.y + 10);
-		c.lineTo(this.x + 50, this.y + 20);
-		c.fill();
-		/* top back spike */
-		c.beginPath();
-		c.moveTo(this.x, this.y);
-		c.lineTo(this.x - 50, this.y - 5);
-		c.lineTo(this.x, this.y + 10);
-		c.fill();
-		/* bottom back spike */
-		c.beginPath();
-		c.moveTo(this.x, this.y + 20);
-		c.lineTo(this.x - 50, this.y + 25);
-		c.lineTo(this.x, this.y + 10);
-		c.fill();
-	}
-	else {
-		c.fillRect(this.x - 50, this.y, 50, 20);
-		/* tip */
-		c.beginPath();
-		c.moveTo(this.x - 50, this.y);
-		c.lineTo(this.x - 100, this.y + 10);
-		c.lineTo(this.x - 50, this.y + 20);
-		c.fill();
-		/* top backspike */
-		c.beginPath();
-		c.moveTo(this.x, this.y);
-		c.lineTo(this.x + 50, this.y - 5);
-		c.lineTo(this.x, this.y + 10);
-		c.fill();
-		/* bottom backspike */
-		c.beginPath();
-		c.moveTo(this.x, this.y + 20);
-		c.lineTo(this.x + 50, this.y + 25);
-		c.lineTo(this.x, this.y + 10);
-		c.fill();
-	}
 };
 Rocket.prototype.update = function() {
 	this.x += this.velX;
 	if(utilities.frameCount % 1 === 0) {
 		game.objects.push(new FireParticle(this.x, this.y + 10));
 	}
-	if(this.velX > 0) {
-		if(!p.isIntangible()) {
+	if(!p.isIntangible()) {
+		if(this.velX > 0) {
 			utilities.killCollisionRect(this.x - 50, this.y, 150, 10, "rocket");
 		}
-	}
-	else {
-		if(!p.isIntangible()) {
+		else {
 			utilities.killCollisionRect(this.x - 100, this.y, 150, 10, "rocket");
 		}
 	}
 	/* remove self if off-screen */
-	if(this.x < -100 || this.x > 900) {
+	const OFFSCREEN_BUFFER = 100;
+	if(this.x < -OFFSCREEN_BUFFER || this.x > canvas.width + OFFSCREEN_BUFFER) {
 		this.splicing = true;
 		game.addEvent();
 		p.surviveEvent("rocket");
@@ -3040,36 +3052,31 @@ function Spikeball(velX, velY) {
 	this.fadedIn = false;
 	this.hitbox = { left: -30, right: 30, top: -30, bottom: 30 };
 	this.collideWithBorders = true;
+
+	this.ROTATION_SPEED = 5;
 };
 Spikeball.prototype.display = function() {
-	c.fillStyle = "rgb(150, 150, 155)";
-	c.globalAlpha = this.opacity;
-	var movedTo = false;
-	c.save(); {
-		c.translate(this.x, this.y + p.worldY);
-		c.rotate(this.r);
-		c.beginPath();
-		for(var degrees = 0; degrees < 360; degrees += 18) {
-			if(degrees % 36 === 0) {
-				var point = Math.rotateDegrees(0, -30, degrees);
-			}
-			else {
-				var point = Math.rotateDegrees(0, -20, degrees);
-			}
-			if(!movedTo) {
-				c.moveTo(point.x, point.y);
-				movedTo = true;
-			}
-			else {
-				c.lineTo(point.x, point.y);
-			}
+	const NUM_SPIKES = 10;
+	const DEGREES_BETWEEN_SPIKES = 360 / NUM_SPIKES;
+	var points = [];
+	for(var degrees = 0; degrees < 360; degrees += DEGREES_BETWEEN_SPIKES / 2) {
+		if(degrees % DEGREES_BETWEEN_SPIKES) {
+			points.push(Math.rotateDegrees(0, -30, degrees));
 		}
-		c.fill();
+		else {
+			points.push(Math.rotateDegrees(0, -20, degrees));
+		}
+	}
+	c.save(); {
+		c.fillStyle = "rgb(150, 150, 155)";
+		c.globalAlpha = this.opacity;
+		c.translate(this.x, this.y);
+		c.rotate(Math.toRadians(this.r));
+		c.fillPoly(points);
 	} c.restore();
-	c.globalAlpha = 1;
 };
 Spikeball.prototype.update = function() {
-	this.r += 0.1;
+	this.r += this.ROTATION_SPEED;
 	/* fading in */
 	if(!this.fadedIn) {
 		this.opacity += 0.05;
@@ -3112,24 +3119,25 @@ Spikeball.prototype.handleCollision = function(direction, platform) {
 };
 /* spike wall event */
 function Spikewall(x) {
-	this.fastSpeed = 10;
-	this.slowSpeed = 2;
+	this.FAST_SPEED = 10;
+	this.SLOW_SPEED = 2;
 	this.x = x;
-	this.velX = (x < 400) ? this.fastSpeed : -this.fastSpeed;
+	this.velX = (x < 400) ? this.FAST_SPEED : -this.FAST_SPEED;
+	this.direction = (x < 400) ? "right" : "left";
 };
 Spikewall.prototype.display = function() {
 	c.strokeStyle = "rgb(215, 215, 215)";
 	c.fillStyle = "rgb(100, 100, 100)";
-	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed) {
+	if(this.direction === "right") {
 		c.fillRect(this.x - 800, 0, 800, 800);
 		c.strokeRect(this.x - 800, 0, 800, 800);
 		for(var y = 0; y < 800; y += 40) {
 			c.fillStyle = "rgb(215, 215, 215)";
-			c.beginPath();
-			c.moveTo(this.x, y);
-			c.lineTo(this.x, y + 40);
-			c.lineTo(this.x + 20, y + 20);
-			c.fill();
+			c.fillPoly(
+				this.x, y,
+				this.x, y + 40,
+				this.x + 20, y + 20
+			);
 		}
 	}
 	else {
@@ -3146,24 +3154,15 @@ Spikewall.prototype.display = function() {
 };
 Spikewall.prototype.update = function() {
 	this.x += this.velX;
-	if(this.velX === this.fastSpeed && this.x > 250) {
-		this.velX = -this.slowSpeed;
+	if(this.direction === "right" && this.x > 250) {
+		this.velX = -this.SLOW_SPEED;
 		game.objects.push(new Coin(80, (Math.random() < 0.5) ? 175 : 525));
 	}
-	if(this.velX === -this.fastSpeed && this.x < 550) {
-		this.velX = this.slowSpeed;
+	if(this.direction === "left" && this.x < canvas.width - 250) {
+		this.velX = this.SLOW_SPEED;
 		game.objects.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
 	}
-	if(this.velX === -this.fastSpeed || this.velX === this.slowSpeed) {
-		if(p.x + 5 > this.x && !p.isIntangible()) {
-			p.die("spikewall");
-		}
-	}
-	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed && !p.isIntangible()) {
-		if(p.x - 5 < this.x) {
-			p.die("spikewall");
-		}
-	}
+	utilities.killCollisionRect(this.x - 5, 0, 10, canvas.height, "spikewall");
 	if((this.velX < 0 && this.x < -50) || (this.velX > 0 && this.x > 850)) {
 		this.splicing = true;
 		game.addEvent();
@@ -3195,7 +3194,7 @@ AfterImage.prototype.display = function() {
 	opacity = Math.constrain(opacity, 0, 1);
 	c.save(); {
 		if(this.image instanceof Player) {
-			c.translate(0, 1 * p.worldY);
+			c.translate(0, p.worldY);
 		}
 		c.globalAlpha = opacity;
 		this.image.display();
@@ -3380,6 +3379,10 @@ LaserBot.prototype.display = function() {
 		c.moveTo(this.x + 10, bodyY + 3);
 		c.lineTo(this.x + 20, bodyY + 3);
 		c.stroke();
+		c.strokeLine(
+			this.x + 10, bodyY + 3,
+			this.x + 20, bodyY + 3
+		);
 	}
 	else {
 		c.beginPath();
@@ -3645,21 +3648,22 @@ function LaserBotProjectile(x, y, velX, shooter) {
 LaserBotProjectile.prototype.display = function() {
 	c.strokeStyle = "rgb(255, 0, 0)";
 	c.lineWidth = 5;
-	c.beginPath();
-	c.moveTo(this.x, this.y);
 	if(this.velX > 0) {
-		c.lineTo(this.x - this.length, this.y);
+		c.strokeLine(
+			this.x, this.y, this.x - this.length, this.y
+		);
 	}
 	else {
-		c.lineTo(this.x + this.length, this.y);
+		c.strokeLine(
+			this.x, this.y, this.x + this.length, this.y
+		);
 	}
-	c.stroke();
 };
 LaserBotProjectile.prototype.update = function() {
 	this.x += this.velX;
 	if(this.length < 50) {
 		this.length += Math.abs(this.velX);
-		if(this.shooter !== undefined && this.shooter !== null) {
+		if(this.shooter instanceof LaserBot) {
 			this.y = this.shooter.y - 20 - (30 * this.shooter.springY) + 3;
 			this.x += this.shooter.velX;
 		}
@@ -3701,10 +3705,10 @@ BadGuy.prototype.display = function() {
 	c.fillStyle = "rgb(255, 0, 0)";
 	c.beginPath();
 	if(this.x > p.x) {
-		c.arc(this.player.x - 4, this.player.y + 10, 3, 0, 2 * Math.PI);
+		c.fillCircle(this.player.x - 4, this.player.y + 10, 3);
 	}
 	else {
-		c.arc(this.player.x + 4, this.player.y + 10, 3, 0, 2 * Math.PI);
+		c.fillCircle(this.player.x + 4, this.player.y + 10, 3);
 	}
 	c.fill();
 };
@@ -3812,40 +3816,36 @@ Alien.prototype.display = function() {
 		c.rotate(Math.toRadians(this.rotation));
 		/* tractor beam */
 		c.save(); {
-			c.globalAlpha = this.tractorBeamOpacity;
 			var gradient = c.createLinearGradient(0, 0, 0, this.TRACTOR_BEAM_HEIGHT);
 			gradient.addColorStop(1, "rgb(255, 255, 0, 0)");
 			gradient.addColorStop(0, "rgb(255, 255, 0, 1)");
 			c.fillStyle = gradient;
-			c.beginPath();
-			c.moveTo(-15, 0);
-			c.lineTo(15, 0);
-			c.lineTo(30, this.TRACTOR_BEAM_HEIGHT);
-			c.lineTo(-30, this.TRACTOR_BEAM_HEIGHT);
-			c.fill();
+			c.globalAlpha = this.tractorBeamOpacity;
+			c.fillPoly(
+				-15, 0,
+				15, 0,
+				30, this.TRACTOR_BEAM_HEIGHT,
+				-30, this.TRACTOR_BEAM_HEIGHT
+			);
 		} c.restore();
 		/* spaceship body */
 		c.save(); {
 			c.fillStyle = "rgb(150, 150, 155)";
 			c.scale(1, 0.5);
-			c.beginPath();
-			c.arc(0, 0, 40, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(0, 0, 40);
 		} c.restore();
 		/* moving lines (to make spaceship look like it is spinning) */
 		c.save(); {
 			c.scale(1, 0.5);
-			c.beginPath();
-			c.arc(0, 0, 40, 0, 2 * Math.PI);
-			c.clip();
+			c.clipCircle(0, 0, 40);
 			c.strokeStyle = "rgb(120, 120, 125)";
 			for(var r = 0; r <= 360; r += 360 / 8) {
 				var rotation = r + (utilities.frameCount * 4); // for animation
 				var point = Math.rotateDegrees(-50, 0, rotation);
-				c.beginPath();
-				c.moveTo(0, -20);
-				c.lineTo(point.x, point.y - 20);
-				c.stroke();
+				c.strokeLine(
+					0, -20,
+					point.x, point.y - 20
+				);
 			}
 		} c.restore();
 		/* spaceship cockpit - bottom arc */
@@ -3867,7 +3867,6 @@ Alien.prototype.display = function() {
 			c.fillRect(left, top, right - left, bottom - top);
 			c.fillArc(0, top, right, Math.toRadians(180), Math.toRadians(360));
 		} c.restore();
-		/* debug */
 	} c.restore();
 };
 Alien.prototype.update = function() {
@@ -3999,6 +3998,50 @@ var game = {
 	chatMessages: [],
 	hitboxes: [], // debugging only. for showing hitboxes if SHOW_HITBOXES is true
 	screen: "home",
+
+	exist: function() {
+		game.hitboxes = [];
+
+		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillRect(0, 0, 800, 800);
+		/* player */
+		p.update();
+		p.display();
+		/* random events */
+		game.runEvent();
+		if(p.y + 46 >= 800 && (game.numObjects(Acid) === 0 || game.getObjectsByType(Acid)[0].y + p.worldY > 820)) {
+			p.die("fall");
+		}
+		/* shop status effect indicators */
+		var numItemsEquipped = 0;
+		for(var i = 0; i < shop.items.length; i ++) {
+			if(shop.items[i].equipped) {
+				shop.items[i].x = 50 + 100 * numItemsEquipped;
+				shop.items[i].y = 50;
+				shop.items[i].displayLogo(0.5);
+				numItemsEquipped ++;
+			}
+		}
+		/* offscreen enemy collisions */
+		if(game.numObjects(Enemy) !== 0) {
+			utilities.collisionRect(-100,         225 - 10, 100, 20);
+			utilities.collisionRect(-100,         575 - 10, 100, 20);
+			utilities.collisionRect(canvas.width, 225 - 10, 100, 20);
+			utilities.collisionRect(canvas.width, 575 - 10, 100, 20);
+		}
+		/* score + coins */
+		c.loadTextStyle({
+			color: "rgb(100, 100, 100)",
+			textAlign: "left"
+		});
+		c.fillText("Score: " + p.score, 10, 790);
+		c.textAlign = "right";
+		c.fillText("Coins: " + p.coins, 790, 790);
+		/* debug */
+		if(SHOW_HITBOXES) {
+			game.displayHitboxes();
+		}
+	},
 
 	numObjects: function(constructor) {
 		return game.getObjectsByType(constructor).length;
@@ -4483,12 +4526,13 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["pirhanas"] : game.events;
+game.events = TESTING_MODE ? ["laser"] : game.events;
 var debugging = {
 	displayTestingModeWarning: function() {
-		c.fillStyle = "rgb(255, 255, 255)";
-		c.textAlign = "left";
-		c.font = "15px monospace";
+		c.loadTextStyle({
+			color: "rgb(255, 255, 255)",
+			font: "15px monospace"
+		});
 		if(TESTING_MODE && SHOW_HITBOXES) {
 			c.fillText("testing mode and hitboxes are on", 10, 20);
 		}
@@ -4500,18 +4544,20 @@ var debugging = {
 		}
 	}
 };
+var ui = {
+	titleTextStyle: {
+		fillStyle: "rgb(100, 100, 100)",
+		font: "50px cursive",
+		textAlign: "center"
+	},
 
-function doByTime() {
-	utilities.canvas.resize();
-	if(game.screen === "home") {
+	homeScreen: function() {
 		/* background + erase previous frame */
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.font = "50px cursive";
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.textAlign = "center";
 		if(!TESTING_MODE) {
+			c.loadTextStyle(ui.titleTextStyle);
 			c.fillText("Randomonicity", 400, 150);
 			c.fillText("Survival", 400, 200);
 		}
@@ -4532,100 +4578,39 @@ function doByTime() {
 		playButton.display();
 		playButton.mouseOver = playButton.hasMouseOver();
 		playButton.checkForClick();
-	}
-	else if(game.screen === "play") {
-		game.hitboxes = [];
-
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.fillRect(0, 0, 800, 800);
-		/* player */
-		p.update();
-		p.display();
-		/* random events */
-		game.runEvent();
-		if(p.y + 46 >= 800 && (game.numObjects(Acid) === 0 || game.getObjectsByType(Acid)[0].y + p.worldY > 820)) {
-			p.die("fall");
-		}
-		/* shop status effect indicators */
-		var numItemsEquipped = 0;
-		for(var i = 0; i < shop.items.length; i ++) {
-			if(shop.items[i].equipped) {
-				shop.items[i].x = 50 + 100 * numItemsEquipped;
-				shop.items[i].y = 50;
-				shop.items[i].displayLogo(0.5);
-				numItemsEquipped ++;
-			}
-		}
-		/* offscreen enemy collisions */
-		if(game.numObjects(Enemy) !== 0) {
-			utilities.collisionRect(-100,         225 - 10, 100, 20);
-			utilities.collisionRect(-100,         575 - 10, 100, 20);
-			utilities.collisionRect(canvas.width, 225 - 10, 100, 20);
-			utilities.collisionRect(canvas.width, 575 - 10, 100, 20);
-		}
-		/* score + coins */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.font = "20px monospace";
-		c.textAlign = "left";
-		c.fillText("Score: " + p.score, 10, 790);
-		c.textAlign = "right";
-		c.fillText("Coins: " + p.coins, 790, 790);
-		/* debug */
-		if(SHOW_HITBOXES) {
-			game.displayHitboxes();
-		}
-	}
-	else if(game.screen === "death") {
+	},
+	deathScreen: function() {
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.font = "50px cursive";
-		c.textAlign = "center";
+		c.loadTextStyle(ui.titleTextStyle);
 		c.fillText("You Died", 400, 200);
 		/* body text */
-		c.font = "30px monospace";
-		c.textAlign = "left";
-		switch(p.deathCause) {
-			case "laser":
-			c.fillText("You were shot by a laser", 200, 300);
-			break;
-			case "acid":
-			c.fillText("You fell into a pool of acid", 200, 300);
-			break;
-			case "boulder":
-			c.fillText("You were crushed by a boulder", 200, 300);
-			break;
-			case "spinnyblades":
-			c.fillText("You were sliced in half", 200, 300);
-			break;
-			case "pirhanas":
-			c.fillText("You were bitten by a pirhana", 200, 300);
-			break;
-			case "pacmans":
-			c.fillText("You were killed by a pacman", 200, 300);
-			break;
-			case "rocket":
-			c.fillText("You were hit with a rocket", 200, 300);
-			break;
-			case "spikeballs":
-			c.fillText("You were taken out by a spikeball", 200, 300);
-			break;
-			case "spikewall":
-			c.fillText("You were impaled on a wall of spikes", 200, 300);
-			break;
-			case "laserbots":
-			c.fillText("You were zapped by a laserbot", 200, 300);
-			break;
-			case "bad guys":
-			c.fillText("The bad guys got you", 200, 300);
-			break;
-			case "aliens":
-			c.fillText("You were abducted by a UFO", 200, 300);
-			break;
-			case "fall":
-			c.fillText("You fell way too far", 200, 300);
-			break;
+		c.loadTextStyle({
+			font: "30px monospace",
+			textAlign: "left"
+		});
+		var deathMessages = {
+			"laser": "You were shot by a laser.",
+			"acid": "You fell into a pool of acid.",
+			"boulder": "You were crushed by a boulder.",
+			"spinnyblades": "You were sliced in half.",
+			"pirhanas": "You were bitten by a pirhana.",
+			"pacmans": "You were killed by a pacman.",
+			"rocket": "You were hit with a rocket.",
+			"spikeballs": "You were sliced by a spikeball.",
+			"spikewall": "You were impaled on a wall of spikes.",
+			"laserbots": "You were zapped by a laserbot.",
+			"bad guys": "The bad guys got you.",
+			"aliens": "You were abducted by a UFO.",
+			"fall": "You fell way too far."
+		};
+		if(typeof deathMessages[p.deathCause] !== "string") {
+			c.fillText("You died.", 200, 300);
+			console.errorOnce("Invalid player death cause of '" + p.deathCause + "'");
+		}
+		else {
+			c.fillText(deathMessages[p.deathCause], 200, 300);
 		}
 		p.highScore = Math.max(p.score, p.highScore);
 		c.fillText("You got a score of " + p.score + " points", 200, 350);
@@ -4639,18 +4624,19 @@ function doByTime() {
 		retryButton.display();
 		retryButton.mouseOver = retryButton.hasMouseOver();
 		retryButton.checkForClick();
-	}
-	else if(game.screen === "shop") {
+	},
+	shop: function() {
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.font = "50px cursive";
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.textAlign = "center";
+		c.loadTextStyle(ui.titleTextStyle);
 		c.fillText("Shop", 400, 100);
 		/* coin counter */
-		c.font = "20px cursive";
-		c.fillStyle = "rgb(255, 255, 0)";
+		c.loadTextStyle({
+			color: "rgb(255, 255, 0)",
+			font: "20px cursive",
+			textAlign: "center"
+		});
 		c.fillText("coins: " + p.totalCoins, 400, 150);
 		/* items */
 		for(var i = 0; i < shop.items.length; i ++) {
@@ -4666,14 +4652,12 @@ function doByTime() {
 		homeFromShop.display();
 		homeFromShop.mouseOver = homeFromShop.hasMouseOver();
 		homeFromShop.checkForClick();
-	}
-	else if(game.screen === "achievements") {
+	},
+	achievements: function() {
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.font = "50px cursive";
-		c.textAlign = "center";
+		c.loadTextStyle(ui.titleTextStyle);
 		c.fillText("Achievements", 400, 100);
 		/* achievements */
 		for(var i = 0; i < achievements.length; i ++) {
@@ -4686,6 +4670,25 @@ function doByTime() {
 		homeFromAchievements.display();
 		homeFromAchievements.mouseOver = homeFromAchievements.hasMouseOver();
 		homeFromAchievements.checkForClick();
+	}
+};
+
+function doByTime() {
+	utilities.canvas.resize();
+	if(game.screen === "home") {
+		ui.homeScreen();
+	}
+	else if(game.screen === "play") {
+		game.exist();
+	}
+	else if(game.screen === "death") {
+		ui.deathScreen();
+	}
+	else if(game.screen === "shop") {
+		ui.shop();
+	}
+	else if(game.screen === "achievements") {
+		ui.achievements();
 	}
 
 	for(var i = 0; i < achievements.length; i ++) {
