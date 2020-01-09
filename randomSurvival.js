@@ -9,7 +9,7 @@ var utilities = {
 	frameCount: 0,
 	canvas: {
 		/*
-		Utilities related to drawing on the canvas.
+		Utilities related to drawing on the canvas. (Most of these have actually been moved to the CanvasRenderingContext2D prototype.)
 		*/
 		resize: function() {
 			if(window.innerWidth < window.innerHeight) {
@@ -27,43 +27,6 @@ var utilities = {
 			else {
 				canvas.style.left = (window.innerWidth / 2) - (window.innerHeight / 2) + "px";
 				canvas.style.top = "0px";
-			}
-		},
-		displayTextOverLines: function(text, x, y, width, lineHeight) {
-			if(Array.isArray(text)) {
-				/* array of strings -> put a line break between each array item + any other line breaks needed to make space */
-				var lines = text.clone();
-			}
-			else {
-				var lines = [text];
-			}
-			/* Split text into multiple lines */
-			for(var i = 0; i < lines.length; i ++) {
-				var currentLine = lines[i];
-				while(c.measureText(currentLine).width > width) {
-					forLoop: for(var j = currentLine.length; j > 0; j --) {
-						if(currentLine.substring(j, j + 1) == " ") {
-							var nextLine = lines[i + 1];
-							if(nextLine === undefined) {
-								nextLine = "";
-							}
-							movedWord = currentLine.substring(j + 1, Infinity);
-							movedWord = movedWord.trim();
-							currentLine = currentLine.substring(0, j);
-							nextLine = movedWord + " " + nextLine;
-							lines[i] = currentLine;
-							lines[i + 1] = nextLine;
-							break forLoop;
-						}
-					}
-					currentLine = lines[i];
-				}
-			}
-			/* Display the split text */
-			var lineY = y;
-			for(var i = 0; i < lines.length; i ++) {
-				c.fillText(lines[i], x, lineY);
-				lineY += lineHeight;
 			}
 		}
 	},
@@ -337,6 +300,11 @@ var input = {
 		return true;
 	} ()
 };
+const COLORS = {
+	UI_DARK_GRAY: "rgb(59, 67, 70)",
+	STONE_DARK_GRAY: "rgb(100, 100, 100)",
+	BACKGROUND_LIGHT_GRAY: "rgb(200, 200, 200)"
+};
 
 console. logOnce = function(parameter) {
 	/*
@@ -374,7 +342,7 @@ CanvasRenderingContext2D.prototype.strokeArc = function(x, y, r, start, end, ant
 	this.stroke();
 };
 CanvasRenderingContext2D.prototype.circle = function(x, y, r) {
-	this.arc(x, y, r, 0, 2 * Math.PI);
+	this.arc(x, y, r, 0, Math.toRadians(360));
 };
 CanvasRenderingContext2D.prototype.fillCircle = function(x, y, r) {
 	this.beginPath();
@@ -464,6 +432,43 @@ CanvasRenderingContext2D.prototype.loadTextStyle = function(textStyle) {
 	this.textAlign = textStyle.textAlign || "left";
 	this.font = textStyle.font || "20px monospace";
 };
+CanvasRenderingContext2D.prototype.displayTextOverLines = function(text, x, y, width, lineHeight) {
+	if(Array.isArray(text)) {
+		/* array of strings -> put a line break between each array item + any other line breaks needed to make space */
+		var lines = text.clone();
+	}
+	else {
+		var lines = [text];
+	}
+	/* Split text into multiple lines */
+	for(var i = 0; i < lines.length; i ++) {
+		var currentLine = lines[i];
+		while(this.measureText(currentLine).width > width) {
+			forLoop: for(var j = currentLine.length; j > 0; j --) {
+				if(currentLine.substring(j, j + 1) == " ") {
+					var nextLine = lines[i + 1];
+					if(nextLine === undefined) {
+						nextLine = "";
+					}
+					movedWord = currentLine.substring(j + 1, Infinity);
+					movedWord = movedWord.trim();
+					currentLine = currentLine.substring(0, j);
+					nextLine = movedWord + " " + nextLine;
+					lines[i] = currentLine;
+					lines[i + 1] = nextLine;
+					break forLoop;
+				}
+			}
+			currentLine = lines[i];
+		}
+	}
+	/* Display the split text */
+	var lineY = y;
+	for(var i = 0; i < lines.length; i ++) {
+		this.fillText(lines[i], x, lineY);
+		lineY += lineHeight;
+	}
+}
 Object.prototype.clone = function() {
 	var clone = new this.constructor();
 	for(var i in this) {
@@ -517,6 +522,55 @@ Array.prototype.swap = function(index1, index2) {
 Array.prototype.randomItem = function() {
 	var index = Math.floor(Math.random() * this.length);
 	return this[index];
+};
+Array.prototype.getItemsWithProperty = function(propertyName, propertyValue) {
+	if(propertyValue === undefined) {
+		/* return the items that have the property, regardless of value */
+		var itemsFound = [];
+		for(var i = 0; i < this.length; i ++) {
+			if(this[i].hasOwnProperty(propertyName) && this[i][propertyName] !== undefined) {
+				itemsFound.push(this[i]);
+			}
+		}
+		return itemsFound;
+	}
+	else {
+		/* return the items whose properties match the value */
+		var itemsFound = [];
+		for(var i = 0; i < this.length; i ++) {
+			if(this[i].hasOwnProperty(propertyName) && this[i][propertyName] === propertyValue) {
+				itemsFound.push(this[i]);
+			}
+		}
+		return itemsFound;
+	}
+};
+Array.prototype.removeItemsWithProperty = function(propertyName, propertyValue) {
+	if(propertyValue === undefined) {
+		/* return the items that have the property, regardless of value */
+		var itemsFound = [];
+		for(var i = 0; i < this.length; i ++) {
+			if(this[i].hasOwnProperty(propertyName) && this[i][propertyName] !== undefined) {
+				this.splice(i, 1);
+				i --;
+			}
+		}
+		return itemsFound;
+	}
+	else {
+		/* return the items whose properties match the value */
+		var itemsFound = [];
+		for(var i = 0; i < this.length; i ++) {
+			if(this[i].hasOwnProperty(propertyName) && this[i][propertyName] === propertyValue) {
+				this.splice(i, 1);
+				i --;
+			}
+		}
+		return itemsFound;
+	}
+};
+Array.prototype.includesItemsWithProperty = function(propertyName, propertyValue) {
+	return (this.getItemsWithProperty(propertyName, propertyValue).length !== 0);
 };
 Math.average = function(values) {
 	if(Array.isArray(arguments[0])) {
@@ -762,11 +816,11 @@ Player.prototype.display = function() {
 		} c.restore();
 		/* eyes */
 		if(this.facing === "left" || this.facing === "forward") {
-			c.fillStyle = "rgb(200, 200, 200)";
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.fillCircle(this.x - 4, this.y + 10, 3);
 		}
 		if(this.facing === "right" || this.facing === "forward") {
-			c.fillStyle = "rgb(200, 200, 200)";
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.fillCircle(this.x + 4, this.y + 10, 3);
 		}
 		/* body */
@@ -1075,7 +1129,7 @@ Platform.prototype.collide = function() {
 Platform.prototype.display = function() {
 	c.globalAlpha = this.opacity;
 	this.y += p.worldY;
-	c.fillStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.STONE_DARK_GRAY;
 	c.fillRect(this.x, this.y, this.w, this.h);
 	this.y -= p.worldY;
 	c.globalAlpha = 1;
@@ -1116,23 +1170,6 @@ Platform.prototype.locationToString = function() {
 	}
 };
 
-function DollarIcon() {
-	/*
-	This is for the dollar icons that fall from the sky when you hover over the shop button.
-	*/
-	this.x = Math.random() * 100 + 225;
-	this.y = 450;
-};
-DollarIcon.prototype.display = function() {
-	c.loadTextStyle({
-		color: "rgb(100, 100, 100)",
-		font: "20px cursive",
-		textAlign: "center"
-	});
-	c.fillText("$", this.x, this.y);
-	this.y += 5;
-};
-var dollarIcons = [];
 function Button(x, y, whereTo, icon) {
 	this.x = x;
 	this.y = y;
@@ -1148,37 +1185,49 @@ Button.prototype.display = function() {
 	c.globalAlpha = 1;
 	c.lineWidth = 5;
 	if(this.icon === "play") {
+		this.iconScale = this.iconScale || 1;
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 75);
 		/* small triangle (mouse is not over) */
-		if(!this.mouseOver) {
-			c.fillStyle = "rgb(100, 100, 100)";
+		c.save(); {
+			c.translate(this.x, this.y);
+			c.scale(this.iconScale, this.iconScale);
+			c.fillStyle = COLORS.STONE_DARK_GRAY;
 			c.fillPoly(
-				this.x - 15, this.y - 22.5,
-				this.x - 15, this.y + 22.5,
-				this.x + 30, this.y
+				-15, -22.5,
+				-15, 22.5,
+				30, 0
 			);
+		} c.restore();
+		if(this.mouseOver) {
+			this.iconScale += 0.1;
 		}
-		/* big triangle (mouse is over) */
 		else {
-			c.fillStyle = "rgb(100, 100, 100)";
-			c.fillPoly(
-				this.x - 20, this.y - 30,
-				this.x - 20, this.y + 30,
-				this.x + 40, this.y
-			);
+			this.iconScale -= 0.1;
 		}
+		this.iconScale = Math.constrain(this.iconScale, 1, 1.5);
+		/* big triangle (mouse is over) */
+		// else {
+		// 	c.fillStyle = COLORS.STONE_DARK_GRAY;
+		// 	c.fillPoly(
+		// 		this.x - 20, this.y - 30,
+		// 		this.x - 20, this.y + 30,
+		// 		this.x + 40, this.y
+		// 	);
+		// }
 	}
 	else if(this.icon === "question") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.fillCircle(this.x, this.y, 50);
 		/* question mark */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.textAlign = "center";
+		c.loadTextStyle({
+			color: COLORS.STONE_DARK_GRAY,
+			textAlign: "center"
+		});
 		c.save(); {
 			c.translate(this.x, this.y);
 			c.rotate(this.r);
@@ -1193,11 +1242,11 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "gear") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 50);
 		/* gear body */
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.STONE_DARK_GRAY;
 		c.fillCircle(this.x, this.y, 20);
 		/* gear prongs */
 		for(var r = 0; r < 2 * Math.PI; r += (2 * Math.PI) / 9) {
@@ -1213,64 +1262,74 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "dollar") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 50);
 		/* dollar sign */
 		c.loadTextStyle({
-			color: "rgb(100, 100, 100)",
+			color: COLORS.STONE_DARK_GRAY,
 			font: "50px cursive",
 			textAlign: "center"
 		});
 		c.fillText("$", this.x, this.y + 15);
 		/* dollar sign animation */
-		if(this.mouseOver && utilities.frameCount % 10 === 0) {
-			dollarIcons.push(new DollarIcon());
+		this.dollarIcons = this.dollarIcons || [];
+		if(this.mouseOver && utilities.frameCount % 20 === 0) {
+			this.dollarIcons.push({ x: Math.randomInRange(225, 325), y: 450 });
 		}
-		if(dollarIcons.length > 0) {
-			for(var x = this.x - 70; x < this.x + 70; x ++) {
-				for(var y = this.y - 70; y < this.y + 70; y ++) {
-					if(Math.dist(x, y, this.x, this.y) > 52.5) {
-						c.fillStyle = "rgb(200, 200, 200)";
-						c.fillRect(x, y, 1, 1);
+		if(this.dollarIcons.length > 0) {
+			c.save(); {
+				c.clipCircle(this.x, this.y, 50 - 1.5);
+				c.loadTextStyle({
+					color: COLORS.STONE_DARK_GRAY,
+					font: "20px cursive",
+					textAlign: "center"
+				});
+				for(var i = 0; i < this.dollarIcons.length; i ++) {
+					c.fillText("$", this.dollarIcons[i].x, this.dollarIcons[i].y);
+					this.dollarIcons[i].y += 3;
+					if(this.dollarIcons[i].y > this.y + 75) {
+						this.dollarIcons.splice(i, 1);
+						i --;
 					}
 				}
-			}
-			var g = c.createRadialGradient(this.x, this.y, 52, this.x, this.y, 53);
-			g.addColorStop(0, "rgba(200, 200, 200, 0)");
-			g.addColorStop(1, "rgba(200, 200, 200, 255)");
-			c.fillStyle = g;
-			c.fillRect(this.x - 70, this.y - 70, 140, 140);
+			} c.restore();
 		}
 	}
 	else if(this.icon === "trophy") {
 		/* rays of light */
 		if(this.mouseOver) {
-			this.r += 1;
+			this.r += 2;
 			if(this.r > 50) {
 				this.r = 0;
 			}
 			c.strokeStyle = "rgb(170, 170, 170)";
-			c.strokeCircle(this.x, this.y, this.r);
-			for(var r = 0; r < 2 * Math.PI; r += (2 * Math.PI) / 8) {
+			// c.strokeCircle(this.x, this.y, this.r);
+			// for(var r = 0; r < 360; r += 360 / 8) {
+			// 	c.save(); {
+			// 		c.translate(this.x, this.y);
+			// 		c.rotate(Math.toRadians(r));
+			// 		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
+			// 		c.fillPoly(
+			// 			0, 0,
+			// 			-10, -50,
+			// 			10, -50
+			// 		);
+			// 	} c.restore();
+			// }
+			for(var r = 0; r < 360; r += 360 / 8) {
 				c.save(); {
 					c.translate(this.x, this.y);
-					c.rotate(r);
-					c.fillStyle = "rgb(200, 200, 200)";
-					c.fillPoly(
-						0, 0,
-						-10, -50,
-						10, -50
-					);
+					c.strokeArc(0, 0, this.r)
 				} c.restore();
 			}
 		}
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 50);
 		/* trophy base */
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.STONE_DARK_GRAY;
 		c.fillArc(this.x, this.y + 23, 13, Math.toRadians(-180), 0);
 		/* trophy support */
 		c.fillRect(this.x - 5, this.y - 2, 10, 20);
@@ -1283,10 +1342,10 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "house") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.strokeCircle(this.x, this.y, 50);
 		/* house icon */
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.STONE_DARK_GRAY;
 		c.fillRect(this.x - 20, this.y - 15, 15, 35);
 		c.fillRect(this.x - 20, this.y - 15, 40, 15);
 		c.fillRect(this.x + 5, this.y - 15, 15, 35);
@@ -1309,15 +1368,15 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "retry") {
+		this.iconRotation = this.iconRotation || 0;
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.strokeCircle(this.x, this.y, 50);
 		/* retry icon */
 		c.save(); {
 			c.translate(this.x, this.y);
-			if(this.mouseOver) {
-				c.rotate(0.5 * Math.PI);
-			}
+			c.rotate(Math.toRadians(this.iconRotation));
+			c.strokeStyle = COLORS.STONE_DARK_GRAY;
 			c.strokeArc(0, 0, 30, Math.toRadians(90), Math.toRadians(360));
 			c.fillPoly(
 				15, 0,
@@ -1325,6 +1384,13 @@ Button.prototype.display = function() {
 				30, 20
 			);
 		} c.restore();
+		if(this.mouseOver) {
+			this.iconRotation += 12;
+		}
+		else {
+			this.iconRotation -= 12;
+		}
+		this.iconRotation = Math.constrain(this.iconRotation, 0, 90);
 	}
 	this.mousedOverBefore = this.mouseOver;
 };
@@ -1394,20 +1460,20 @@ ShopItem.prototype.displayLogo = function(size) {
 	c.save(); {
 		c.translate(this.x, this.y);
 		c.scale(size, size);
-		c.strokeStyle = "rgb(100, 100, 100)";
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(0, 0, 75);
 		if(size !== 1) {
 			c.fill();
 		}
 		if(this.bought && !this.noUpgrades) {
-			c.fillStyle = (this.equipped) ? "rgb(100, 100, 100)" : "rgb(200, 200, 200)";
-			c.strokeStyle = "rgb(100, 100, 100)";
+			c.fillStyle = (this.equipped) ? COLORS.UI_DARK_GRAY : COLORS.BACKGROUND_LIGHT_GRAY;
+			c.strokeStyle = COLORS.UI_DARK_GRAY;
 			c.fillCircle  (50, -50, 20);
 			c.strokeCircle(50, -50, 20);
 			c.loadTextStyle({
-				color: (this.equipped ? "rgb(200, 200, 200)" : "rgb(100, 100, 100)"),
+				color: (this.equipped ? COLORS.BACKGROUND_LIGHT_GRAY : COLORS.UI_DARK_GRAY),
 				textAlign: "center",
 				font: "bold 20px monospace"
 			});
@@ -1461,7 +1527,7 @@ ShopItem.prototype.displayInfo = function(direction) {
 	const MARGIN_WIDTH = 10;
 	c.save(); {
 		c.globalAlpha = Math.max(this.infoOp, 0);
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		/* display triangle + box */
 		c.save(); {
 			c.translate(this.x, this.y);
@@ -1491,19 +1557,19 @@ ShopItem.prototype.displayInfo = function(direction) {
 			buttonOffset.y -= BOX_HEIGHT / 2;
 			/* textbox title */
 			c.loadTextStyle({
-				color: "rgb(200, 200, 200)",
+				color: COLORS.BACKGROUND_LIGHT_GRAY,
 				font: (this.name.length > 21) ? "17px monospace" : "20px monospace",
 			});
 			c.fillText(this.name, MARGIN_WIDTH, 20);
 			/* title underline */
-			c.strokeStyle = "rgb(200, 200, 200)";
+			c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.strokeLine(
 				MARGIN_WIDTH            , 30,
 				BOX_WIDTH - MARGIN_WIDTH, 30
 			);
 			/* description text */
 			c.loadTextStyle({ font: "20px monospace" });
-			utilities.canvas.displayTextOverLines(this.description, MARGIN_WIDTH, 50, BOX_WIDTH - (MARGIN_WIDTH), 20);
+			c.displayTextOverLines(this.description, MARGIN_WIDTH, 50, BOX_WIDTH - (MARGIN_WIDTH), 20);
 			/* buttons */
 			var self = this;
 			if(this.bought) {
@@ -1557,20 +1623,21 @@ ShopItem.prototype.displayPopup = function() {
 		for(var i = 0; i < shop.items.length; i ++) {
 			shop.items[i].infoOp = -0.5;
 		}
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		c.fillRect(250, 250, 300, 300);
 		/* title */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.textAlign = "left";
+		c.loadTextStyle({
+			color: COLORS.BACKGROUND_LIGHT_GRAY,
+		});
 		c.fillText((this.isFullyUpgraded() ? "Fully Upgraded Abilities:" : "Upgrade Item"), 260, 270);
 		/* line */
-		c.strokeStyle = "rgb(200, 200, 200)";
+		c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.strokeLine(
 			260, 280,
 			540, 280
 		);
 		/* upgrade description */
-		utilities.canvas.displayTextOverLines(this.calculateUpgradeDescription(), 260, 300, 280, 20);
+		c.displayTextOverLines(this.calculateUpgradeDescription(), 260, 300, 280, 20);
 		/* button 1 (close dialog box) */
 		var self = this;
 		this.displayButton(
@@ -1611,7 +1678,9 @@ ShopItem.prototype.displayButton = function(x, y, w, h, settings) {
 		settings.canBeClicked = true;
 	}
 	c.save(); {
-		c.textAlign = "center";
+		c.loadTextStyle({
+			textAlign: "center"
+		});
 		c.strokeRect(x, y, w, h);
 		c.fillText(settings.text, x + (w / 2), y + (h / 2) + 5);
 	} c.restore();
@@ -1660,7 +1729,7 @@ var shop = {
 			c.save(); {
 				c.translate(10, 0);
 				/* body */
-				c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(223, 160, 171)");
+				c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(223, 160, 171)");
 				c.fillCircle(0, 0, 30);
 				/* legs */
 				c.fillRect(0 - 20, 0, 15, 35);
@@ -1681,7 +1750,7 @@ var shop = {
 					0     , 0
 				);
 				/* coin slot - whitespace */
-				c.strokeStyle = "rgb(200, 200, 200)";
+				c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 				c.strokeArc(0, 0, 20, Math.toRadians(270 - 35), Math.toRadians(270 + 35));
 				c.restore();
 			},
@@ -1719,66 +1788,34 @@ var shop = {
 		800 / 4 * 2, 800 / 3,
 		"Boots of Speediness",
 		function(isGrayscale) {
-			c.save(); {
-				c.translate(-5, -5);
-				c.scale(2, 2);
-				const ARM_SIZE = 10;
-				const LEG_SIZE = 10;
-				const HEAD_SIZE = 7;
-				const BODY_SIZE = 10;
-				const SHOE_WIDTH = 10;
-				const SHOE_HEIGHT = 5;
-				/* boots */
-				c.lineWidth = 3;
-				c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 223, 0)");
-				c.strokeLine(
-					BODY_SIZE + LEG_SIZE, BODY_SIZE + LEG_SIZE,
-					BODY_SIZE + LEG_SIZE - SHOE_WIDTH, BODY_SIZE + LEG_SIZE
-				);
-				c.strokeLine(
-					BODY_SIZE - LEG_SIZE + 2, BODY_SIZE + LEG_SIZE,
-					BODY_SIZE - LEG_SIZE - SHOE_WIDTH + 2, BODY_SIZE + LEG_SIZE
-				);
-				/* stickman body + limbs */
-				c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
-				c.fillStyle   = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
-
-				/* right arm */
-				c.strokeLine(
-					0, 0,
-					0 + ARM_SIZE, 0 - ARM_SIZE,
-					0 + 2 * ARM_SIZE, 0
-				);
-				/* left arm */
-				c.strokeLine(
-					0, 0,
-					0 - ARM_SIZE, ARM_SIZE,
-					0 - 2 * ARM_SIZE, 0
-				);
-				/* body */
-				c.strokeLine(
-					0, 0,
-					BODY_SIZE, BODY_SIZE
-				);
-				c.save(); {
-					c.translate(BODY_SIZE, BODY_SIZE);
-					c.strokeLine(
-						0, 0,
-						LEG_SIZE, LEG_SIZE
-					);
-					c.strokeLine(
-						0, 0,
-						-LEG_SIZE, LEG_SIZE
-					);
-				} c.restore();
-
-				/* stickman head */
-				c.save(); {
-					c.rotate(Math.toRadians(-45));
-					c.fillCircle(0, -HEAD_SIZE, HEAD_SIZE);
-				} c.restore();
-				c.beginPath();
-			} c.restore();
+			/* boots */
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 223, 0)");
+			c.fillRect(0 - 10, 0 + 46, 20, 5);
+			c.fillRect(0 + 30, 0 + 46, 20, 5);
+			/* stickman body + limbs */
+			c.strokeStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
+			c.strokeLine(
+				0 - 10, 0 - 10,
+				0 + 10, 0 + 10,
+				0 - 10, 0 + 30,
+				0 + 10, 0 + 50
+			);
+			c.strokeLine(
+				0 + 10, 0 + 10,
+				0 + 50, 0 + 50
+			);
+			c.strokeLine(
+				0 + 10, 0 - 30,
+				0 - 30, 0 + 10,
+				0 - 50, 0 - 10
+			);
+			c.strokeLine(
+				0 + 10, 0 - 30,
+				0 + 30, 0 - 10
+			);
+			/* stickman head */
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
+			c.fillCircle(-17, -17, 10);
 		},
 		[
 			{
@@ -1815,7 +1852,7 @@ var shop = {
 		"Potion of Jumpiness",
 		function(isGrayscale) {
 			/* potion */
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 0)");
 			c.fillPoly(
 				0 - 5 - 4, 0 + 4,
 				0 + 5 + 4, 0 + 4,
@@ -1823,7 +1860,7 @@ var shop = {
 				0 - 25, 0 + 20
 			);
 			/* beaker body */
-			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.strokeStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
 			c.strokeLine(
 				0 - 5, 0 - 20,
 				0 - 5, 0,
@@ -1869,28 +1906,31 @@ var shop = {
 		800 / 4, 800 / 3 * 2,
 		"Talisman of Intangibility",
 		function(isGrayscale) {
-			c.fillStyle = "rgb(100, 100, 100)";
-			c.fillCircle(0, 0, 30);
-			/* gemstone */
-			c.fillStyle = (isGrayscale ? "rgb(200, 200, 200)" : "rgb(0, 0, 128)");
-			c.fillPoly(
-				0 - 6, 0 - 12,
-				0 + 6, 0 -12,
-				0 + 15, 0,
-				0 + 6, 0 + 12,
-				0 - 6, 0 + 12,
-				0 - 15, 0,
-			);
-			/* necklace threads */
-			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(138, 87, 0)");
-			c.strokeLine(
-				0 - 5, 0 - 29,
-				0 - 15, 0 - 75
-			);
-			c.strokeLine(
-				0 + 5, 0 - 29,
-				0 + 15, 0 - 75
-			);
+			c.save(); {
+				c.clipCircle(0, 0, 75 - 1.5);
+				c.fillStyle = COLORS.STONE_DARK_GRAY;
+				c.fillCircle(0, 0, 30);
+				/* gemstone */
+				c.fillStyle = (isGrayscale ? COLORS.BACKGROUND_LIGHT_GRAY : "rgb(0, 0, 128)");
+				c.fillPoly(
+					0 - 6, 0 - 12,
+					0 + 6, 0 -12,
+					0 + 15, 0,
+					0 + 6, 0 + 12,
+					0 - 6, 0 + 12,
+					0 - 15, 0,
+				);
+				/* necklace threads */
+				c.strokeStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(138, 87, 0)");
+				c.strokeLine(
+					0 - 5, 0 - 29,
+					0 - 15, 0 - 75
+				);
+				c.strokeLine(
+					0 + 5, 0 - 29,
+					0 + 15, 0 - 75
+				);
+			} c.restore();
 		},
 		[
 			{
@@ -1927,13 +1967,13 @@ var shop = {
 		800 / 4 * 2, 800 / 3 * 2,
 		"Skull of Reanimation",
 		function(isGrayscale) {
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 255)");
 			/* skull */
 			c.fillCircle(0, 0, 30);
 			/* skull chin */
 			c.fillRect(0 - 15, 0 + 20, 30, 20);
 			/* eyes - whitespace */
-			c.fillStyle = "rgb(200, 200, 200)";
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.fillCircle(0 - 13, 0 - 10, 7);
 			c.fillCircle(0 + 13, 0 - 10, 7);
 			/* mouth */
@@ -1977,7 +2017,7 @@ var shop = {
 		800 / 4 * 3, 800 / 3 * 2,
 		"Box of Storage",
 		function(isGrayscale) {
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(138, 87, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(138, 87, 0)");
 			/* front face */
 			c.beginPath();
 			c.fillRect(0 - 30, 0 - 10, 40, 40);
@@ -1997,7 +2037,7 @@ var shop = {
 				0 + 42, 0 - 40
 			);
 			/* lines separating lid from box - whitespace */
-			c.strokeStyle = "rgb(200, 200, 200)";
+			c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.lineWidth = 2;
 			c.strokeLine(
 				0 - 30, 0 - 5,
@@ -2046,7 +2086,6 @@ var shop = {
 	}
 };
 shop.initialize();
-p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins; // TEMPORARY
 
 function Achievement(x, y, name, description, display, calculateProgress) {
 	this.x = x;
@@ -2054,11 +2093,10 @@ function Achievement(x, y, name, description, display, calculateProgress) {
 	this.name = name;
 	this.description = description;
 	this.display = display; // a function to display the graphics
-	this.calculateProgress = calculateProgress; // a function to give a value between 0 and 1 indicating how much of the achievement the user has completed.
 	this.calculateProgress = function() {
 		var progress = calculateProgress();
 		return Math.constrain(progress, 0, 1);
-	};
+	}; // a function to give a value between 0 and 1 indicating how much of the achievement the user has completed.
 	this.calculateProgressAsString = function() {
 		var progress = calculateProgress();
 		progress *= 100;
@@ -2070,8 +2108,8 @@ function Achievement(x, y, name, description, display, calculateProgress) {
 };
 Achievement.prototype.displayLogo = function() {
 	/* background circle */
-	c.fillStyle = "rgb(200, 200, 200)";
-	c.strokeStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
+	c.strokeStyle = COLORS.UI_DARK_GRAY;
 	c.fillCircle(this.x, this.y, 50);
 	c.strokeCircle(this.x, this.y, 50);
 	/* graphic */
@@ -2091,7 +2129,7 @@ Achievement.prototype.displayInfo = function(direction) {
 	const MARGIN_WIDTH = 10;
 	if(direction === "left") {
 		c.globalAlpha = this.infoOp;
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		c.fillPoly(
 			this.x - 50, this.y,
 			this.x - 60, this.y - 10,
@@ -2105,7 +2143,7 @@ Achievement.prototype.displayInfo = function(direction) {
 	}
 	else if(direction === "right") {
 		c.globalAlpha = this.infoOp;
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		c.fillPoly(
 			this.x + 50, this.y,
 			this.x + 60, this.y - 10,
@@ -2121,26 +2159,26 @@ Achievement.prototype.displayInfo = function(direction) {
 		/*
 		direction === "no-direction": assume that the canvas has already been translated right or left and draw the infobox at the origin.
 		*/
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		c.fillRect(0, 0, BOX_WIDTH, BOX_HEIGHT);
 		/* title */
 		c.loadTextStyle({
-			color: "rgb(200, 200, 200)",
+			color: COLORS.BACKGROUND_LIGHT_GRAY,
 			font: "20px monospace"
 		});
 		c.fillText(this.name, MARGIN_WIDTH, 20);
 		/* title underline */
-		c.strokeStyle = "rgb(200, 200, 200)";
+		c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.strokeLine(
 			MARGIN_WIDTH, 30,
 			BOX_WIDTH - MARGIN_WIDTH, 30
 		);
 		/* description text */
-		utilities.canvas.displayTextOverLines(this.description, 10, 50, BOX_WIDTH - (2 * MARGIN_WIDTH), 20);
+		c.displayTextOverLines(this.description, 10, 50, BOX_WIDTH - (2 * MARGIN_WIDTH), 20);
 		/* progress */
 		c.strokeRect(MARGIN_WIDTH, BOX_HEIGHT - 30 - MARGIN_WIDTH, BOX_WIDTH - (MARGIN_WIDTH * 2), 30);
 		c.textAlign = "center";
-		if(this.hasBeenAchieved === 100) {
+		if(this.hasBeenAchieved) {
 			c.fillText("Achieved", BOX_WIDTH / 2, BOX_HEIGHT - 30 - MARGIN_WIDTH + 15 + 5);
 			c.textAlign = "left";
 		}
@@ -2159,7 +2197,7 @@ Achievement.prototype.displayInfo = function(direction) {
 	}
 };
 Achievement.prototype.checkProgress = function() {
-	if(this.calculateProgress() >= 100 && !this.hasBeenAchieved) {
+	if(this.calculateProgress() >= 1 && !this.hasBeenAchieved) {
 		game.chatMessages.push(new ChatMessage("Achievement Earned: " + this.name, "rgb(255, 255, 0)"));
 		this.hasBeenAchieved = true;
 	}
@@ -2171,17 +2209,17 @@ var achievements = [
 		"Survive all of the events.",
 		function(self, isGrayscale) {
 			/* rays of light */
-			for(var r = 0; r < 2 * Math.PI; r += 2 * Math.PI / 6) {
-				c.fillStyle = (isGrayscale ? "rgb(200, 200, 200)" : "rgb(255, 128, 0)");
+			for(var r = 0; r < 360; r += 360 / 6) {
+				c.fillStyle = (isGrayscale ? COLORS.BACKGROUND_LIGHT_GRAY : "rgb(255, 128, 0)");
 				c.save(); {
 					c.translate(self.x, self.y);
-					c.rotate(r);
-					c.fillArc(0, 0, 47, -11, 11);
+					c.rotate(Math.toRadians(r));
+					c.fillArc(0, 0, 47, Math.toRadians(-11), Math.toRadians(11));
 				} c.restore();
 			}
 			/* stickman */
 			c.beginPath();
-			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.strokeStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
 			c.strokeLine(
 				self.x - 20, self.y + 25,
 				self.x - 20, self.y + 10,
@@ -2198,7 +2236,7 @@ var achievements = [
 				self.x + 20, self.y - 10,
 				self.x + 20, self.y - 30
 			);
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
 			c.fillCircle(self.x, self.y - 17, 10);
 		},
 		function() {
@@ -2210,7 +2248,7 @@ var achievements = [
 		"Survivalist",
 		"Achieve a score of 10 points or higher.",
 		function(self, isGrayscale) {
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 0, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 0, 0)");
 			c.fillPoly(
 				self.x - 30, self.y,
 				self.x + 30, self.y,
@@ -2233,7 +2271,7 @@ var achievements = [
 				c.save(); {
 					c.translate(x, y);
 					c.scale(0.5, 0.5);
-					c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 0, 0)");
+					c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 0, 0)");
 					c.fillPoly(
 						-30, 0,
 						30, 0,
@@ -2257,7 +2295,7 @@ var achievements = [
 		"Experience the same event twice in a row.",
 		function(self, isGrayscale) {
 			/* front face */
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 255, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 128, 255)");
 			c.fillRect(self.x - 20 - 6, self.y - 10 + 6, 30, 30);
 			/* top face */
 			c.fillPoly(
@@ -2274,7 +2312,7 @@ var achievements = [
 				self.x + 32 - 6, self.y - 30 + 6
 			);
 			/* die 1 - whitespace */
-			c.fillStyle = "rgb(200, 200, 200)";
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.save(); {
 				c.translate(self.x  - 1, self.y - 15);
 				c.scale(1, 0.75);
@@ -2306,7 +2344,7 @@ var achievements = [
 		"Buy something from the shop.",
 		function(self, isGrayscale) {
 			c.loadTextStyle({
-				color: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)"),
+				color: (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 0)"),
 				font: "bold 40px monospace",
 				textAlign: "center"
 			});
@@ -2322,7 +2360,7 @@ var achievements = [
 		"Buy everything in the shop.",
 		function(self, isGrayscale) {
 			c.loadTextStyle({
-				color: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)"),
+				color: (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 0)"),
 				font: "bold 40px monospace",
 				textAlign: "center"
 			});
@@ -2338,7 +2376,7 @@ var achievements = [
 		"Beat your record five times.",
 		function(self, isGrayscale) {
 			c.loadTextStyle({
-				fillStyle: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 128, 0)"),
+				fillStyle: (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 128, 0)"),
 				font: "bold 50px monospace",
 				textAlign: "center"
 			});
@@ -2387,7 +2425,7 @@ var achievements = [
 		function(self, isGrayscale) {
 			c.save(); {
 				c.translate(0, 5);
-				c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
+				c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 255)");
 				c.fillRect(self.x - 15, self.y - 15, 30, 30);
 				c.beginPath();
 				c.arc(self.x, self.y - 15, 15, Math.PI, 2 * Math.PI);
@@ -2395,15 +2433,15 @@ var achievements = [
 				/* wavy bits on bottom of ghost */
 				for(var x = -12; x <= 12; x += 6) {
 					if(x % 12 === 0) {
-						c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
+						c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 255)");
 					}
 					else {
-						c.fillStyle = "rgb(200, 200, 200)"; // whitespace
+						c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY; // whitespace
 					}
 					c.fillCircle(self.x + x, self.y + 15, 3);
 				}
 				/* eyes - whitespace */
-				c.fillStyle = "rgb(200, 200, 200)";
+				c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 				c.fillCircle(self.x - 7, self.y - 10, 5);
 				c.fillCircle(self.x + 7, self.y - 10, 5);
 			} c.restore();
@@ -2471,7 +2509,7 @@ ChatMessage.prototype.display = function(y) {
 	this.time --;
 };
 /* laser event */
-function Laser() {
+function Crosshair() {
 	this.x = Math.random() * 800;
 	this.y = Math.random() * 800;
 	this.numMoves = 0;
@@ -2480,7 +2518,7 @@ function Laser() {
 	this.timeSinceBlink = 0;
 	this.blinking = false;
 };
-Laser.prototype.display = function() {
+Crosshair.prototype.display = function() {
 	if(!this.blinking) {
 		c.strokeStyle = "rgb(255, 0, 0)";
 		c.strokeCircle(this.x, this.y, 50);
@@ -2493,7 +2531,7 @@ Laser.prototype.display = function() {
 		}
 	}
 };
-Laser.prototype.update = function() {
+Crosshair.prototype.update = function() {
 	this.timeInLocation ++;
 	if(this.timeInLocation > 60 && this.numMoves < 4) {
 		this.x = Math.random() * 800;
@@ -2520,7 +2558,7 @@ Laser.prototype.update = function() {
 		}
 	}
 };
-Laser.prototype.explode = function(nonLethal) {
+Crosshair.prototype.explode = function(nonLethal) {
 	nonLethal = nonLethal || false;
 	const MIN_PARTICLE_VELOCITY = 1;
 	const MAX_PARTICLE_VELOCITY = 5;
@@ -2654,7 +2692,7 @@ function Boulder(x, y, velX) {
 	this.hitbox = { top: -50, bottom: 50, left: -50, right: 50 };
 };
 Boulder.prototype.display = function() {
-	c.fillStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.STONE_DARK_GRAY;
 	c.save(); {
 		c.translate(this.x, this.y);
 		c.rotate(Math.toRadians(this.rotation));
@@ -2724,7 +2762,7 @@ function RockParticle(x, y, vertices, velX, velY) {
 	this.rotation = 0;
 };
 RockParticle.prototype.display = function() {
-	c.fillStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.STONE_DARK_GRAY;
 	c.save(); {
 		c.translate(this.x, this.y);
 		c.rotate(Math.toRadians(this.rotation));
@@ -3127,7 +3165,7 @@ function Spikewall(x) {
 };
 Spikewall.prototype.display = function() {
 	c.strokeStyle = "rgb(215, 215, 215)";
-	c.fillStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.STONE_DARK_GRAY;
 	if(this.direction === "right") {
 		c.fillRect(this.x - 800, 0, 800, 800);
 		c.strokeRect(this.x - 800, 0, 800, 800);
@@ -3208,19 +3246,19 @@ AfterImage.prototype.update = function() {
 };
 var effects = {
 	remove: function() {
-		game.events.removeAll("blindness");
-		game.events.removeAll("confusion");
-		game.events.removeAll("nausea");
+		game.removeEventByID("blindness");
+		game.removeEventByID("nausea");
+		game.removeEventByID("confusion");
 	},
 	add: function() {
-		if(!game.events.includes("blindness")) {
-			game.events.push("blindness");
+		if(!game.events.includesItemsWithProperty("id", "blindness")) {
+			game.events.push(game.originalEvents.getItemsWithProperty("id", "blindness")[0]);
 		}
-		if(!game.events.includes("confusion")) {
-			game.events.push("confusion");
+		if(!game.events.includesItemsWithProperty("id", "nausea")) {
+			game.events.push(game.originalEvents.getItemsWithProperty("id", "nausea")[0]);
 		}
-		if(!game.events.includes("nausea")) {
-			game.events.push("nausea");
+		if(!game.events.includesItemsWithProperty("id", "confusion")) {
+			game.events.push(game.originalEvents.getItemsWithProperty("id", "confusion")[0]);
 		}
 	},
 	displayNauseaEffect: function(obj) {
@@ -3620,10 +3658,10 @@ LaserBot.prototype.shoot = function() {
 	var bodyY = this.y - 20 - (30 * this.springY);
 	this.timeSinceShot = 0;
 	if(this.facing === "right") {
-		game.objects.push(new LaserBotProjectile(this.x, bodyY + 3, 4, this));
+		game.objects.push(new Laser(this.x, bodyY + 3, 4, this));
 	}
 	else {
-		game.objects.push(new LaserBotProjectile(this.x, bodyY + 3, -4, this));
+		game.objects.push(new Laser(this.x, bodyY + 3, -4, this));
 	}
 };
 LaserBot.isPlatformOccupied = function(platform) {
@@ -3638,14 +3676,14 @@ LaserBot.isPlatformOccupied = function(platform) {
 	}
 	return false;
 };
-function LaserBotProjectile(x, y, velX, shooter) {
+function Laser(x, y, velX, shooter) {
 	this.x = x;
 	this.y = y;
 	this.velX = velX;
 	this.length = 0;
 	this.shooter = shooter; // which laserbot shot this laser
 };
-LaserBotProjectile.prototype.display = function() {
+Laser.prototype.display = function() {
 	c.strokeStyle = "rgb(255, 0, 0)";
 	c.lineWidth = 5;
 	if(this.velX > 0) {
@@ -3659,7 +3697,7 @@ LaserBotProjectile.prototype.display = function() {
 		);
 	}
 };
-LaserBotProjectile.prototype.update = function() {
+Laser.prototype.update = function() {
 	this.x += this.velX;
 	if(this.length < 50) {
 		this.length += Math.abs(this.velX);
@@ -3948,7 +3986,7 @@ Alien.prototype.update = function() {
 				game.addEvent();
 			}
 			/* create explosion */
-			var laser = new Laser();
+			var laser = new Crosshair();
 			laser.x = Math.average(this.x, aliens[i].x);
 			laser.y = Math.average(this.y, aliens[i].y);
 			laser.explode(true);
@@ -3988,9 +4026,242 @@ Alien.prototype.handleCollision = function(direction, platform) {
 /* generic event selection + running */
 var game = {
 	events: [
-		"laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rocket", "spikeballs", "block shuffle", "spikewall",
-		"confusion", "blindness", "nausea",
-		"laserbots", "bad guys", "aliens"
+		{
+			id: "laser",
+			begin: function() {
+				game.objects.push(new Crosshair());
+				game.chatMessages.push(new ChatMessage("Laser incoming!", "rgb(255, 128, 0)"));
+			}
+		},
+		{
+			id: "acid",
+			begin: function() {
+				game.objects.push(new Acid());
+				game.objects[game.objects.length - 1].beginRising();
+			}
+		},
+		{
+			id: "boulder",
+			begin: function() {
+				var chooser = Math.random();
+				game.chatMessages.push(new ChatMessage("Boulder incoming!", "rgb(255, 128, 0)"));
+				if(chooser < 0.5) {
+					game.objects.push(new Boulder(850, 100, -3));
+				}
+				else {
+					game.objects.push(new Boulder(-50, 100, 3));
+				}
+			}
+		},
+		{
+			id: "spinnyblades",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Spinning blades are appearing", "rgb(255, 128, 0)"));
+				var platforms = game.getObjectsByType(Platform);
+				for(var i = 0; i < platforms.length; i ++) {
+					game.objects.push(new SpinnyBlade(platforms[i].x + 80, platforms[i].y + 10));
+				}
+			}
+		},
+		{
+			id: "pirhanas",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Jumping pirhanas incoming!", "rgb(255, 128, 0)"));
+				/* fancy algorithm to make sure none of the pirhanas are touching */
+				var pirhanasSeparated = false;
+				while(!pirhanasSeparated) {
+					for(var i = 0; i < game.objects.length; i ++) {
+						if(game.objects[i] instanceof Pirhana) {
+							game.objects.splice(i, 1);
+							i --;
+							continue;
+						}
+					}
+					game.objects.push(new Pirhana(Math.random() * 700 + 50));
+					game.objects.push(new Pirhana(Math.random() * 700 + 50));
+					game.objects.push(new Pirhana(Math.random() * 700 + 50));
+					pirhanasSeparated = true;
+					for(var i = 0; i < game.objects.length; i ++) {
+						/* check if they collide */
+						for(var j = 0; j < game.objects.length; j ++) {
+							if(i !== j && game.objects[i] instanceof Pirhana && game.objects[j] instanceof Pirhana && Math.dist(game.objects[i].x, game.objects[j].x) < 75) {
+								pirhanasSeparated = false;
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			id: "pacmans",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Pacmans incoming!", "rgb(255, 128, 0)"));
+				var coinNum = Math.round(Math.random() * 11 + 1) * 60;
+				for(var x = 0; x < 800; x += 60) {
+					if(x === coinNum) {
+						game.objects.push(new Coin(x, 200, x * 0.25));
+					} else {
+						game.objects.push(new Dot(x, 200, x * 0.25));
+					}
+					game.objects.push(new Dot(800 - x, 600, x * 0.25));
+				}
+				game.objects.push(new Pacman(-200, 200, 1.5));
+				game.objects.push(new Pacman(1000, 600, -1.5));
+			}
+		},
+		{
+			id: "rocket",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Rocket incoming!", "rgb(255, 128, 0)"));
+				if(p.x > 400) {
+					game.objects.push(new Rocket(-50, p.y, 6));
+				}
+				else {
+					game.objects.push(new Rocket(850, p.y, -6));
+				}
+			}
+		},
+		{
+			id: "spikeballs",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
+				var angles = [];
+				var buffer = 30;
+				for(var i = 0; i < 360; i ++) {
+					if((i > 90 - buffer && i < 90 + buffer) || (i > 270 - buffer && i < 270 + buffer)) {
+						continue;
+					}
+					angles.push(i);
+				}
+				for(var i = 0; i < 3; i ++) {
+					var index = Math.floor(Math.random() * (angles.length - 1));
+					var angle = angles[index];
+					for(var j = 0; j < angles.length; j ++) {
+						var distanceBetweenAngles = Math.min(Math.abs(angle - angles[j]), Math.abs((angle + 360) - angles[j]), Math.abs((angle - 360) - angles[j]));
+						if(distanceBetweenAngles < buffer) {
+							angles.splice(j, 1);
+							j --;
+							continue;
+						}
+					}
+					var angleRadians = angle / 180 * Math.PI;
+					var velocity = Math.rotateDegrees(0, -5, angle);
+					game.objects.push(new Spikeball(velocity.x, velocity.y));
+				}
+			}
+		},
+		{
+			id: "block shuffle",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
+				var platforms = game.getObjectsByType(Platform);
+				for(var i = 0; i < platforms.length; i ++) {
+					if(platforms[i].y < 300) {
+						if(platforms[i].x < 400) {
+							platforms[i].destX = 0;
+							platforms[i].destY = 565;
+						}
+						else {
+							platforms[i].destX = 0;
+							platforms[i].destY = 215;
+						}
+					}
+					if(platforms[i].y > 400) {
+						if(platforms[i].x < 400) {
+							platforms[i].destX = 320;
+							platforms[i].destY = 390;
+						}
+						else {
+							platforms[i].destX = 640;
+							platforms[i].destY = 215;
+						}
+					}
+					if(platforms[i].y > 300 && platforms[i].y < 400) {
+						platforms[i].destX = 640;
+						platforms[i].destY = 565;
+					}
+					platforms[i].calculateVelocity();
+				}
+			}
+		},
+		{
+			id: "spikewall",
+			begin: function() {
+				var spikeWallDistance = 1500;
+				if(Math.random() < 0.5) {
+					game.objects.push(new Spikewall(-spikeWallDistance));
+					game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "rgb(255, 128, 0)"));
+				}
+				else {
+					game.objects.push(new Spikewall(800 + spikeWallDistance));
+					game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "rgb(255, 128, 0)"));
+				}
+			}
+		},
+		{
+			id: "confusion",
+			begin: function() {
+				game.timeToEvent = FPS * 3;
+				p.timeConfused = FPS * 15;
+				game.chatMessages.push(new ChatMessage("You have been confused", "rgb(0, 255, 0)"));
+				effects.remove();
+				game.currentEvent = null;
+			}
+		},
+		{
+			id: "blindness",
+			begin: function() {
+				game.timeToEvent = FPS * 3;
+				p.timeBlinded = FPS * 15;
+				game.chatMessages.push(new ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
+				effects.remove();
+				game.currentEvent = null;
+			}
+		},
+		{
+			id: "nausea",
+			begin: function() {
+				game.timeToEvent = FPS * 3;
+				p.timeNauseated = FPS * 15;
+				game.chatMessages.push(new ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
+				effects.remove();
+				game.currentEvent = null;
+			}
+		},
+		{
+			id: "laserbots",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
+				var numEnemies = 2;
+				game.addEnemiesAtPosition(LaserBot, numEnemies, null, 50);
+			}
+		},
+		{
+			id: "bad guys",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
+				var numEnemies = 2;
+				game.addEnemiesAtPosition(BadGuy, numEnemies, null, 25);
+			}
+		},
+		{
+			id: "aliens",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("UFOs are invading!", "rgb(255, 0, 0)"));
+				var numEnemies = 2;
+				if(numEnemies === 2) {
+					var xPosition = (Math.random() < 0.5) ? (0 - 50) : (canvas.width + 50);
+					game.addEnemiesAtPosition(
+						Alien, 2,
+						[
+							{ x: xPosition, y: 225 - 75 },
+							{ x: xPosition, y: 575 - 75 }
+						],
+						0
+					);
+				}
+			}
+		}
 	],
 	currentEvent: null,
 	timeToEvent: -5,
@@ -4002,7 +4273,7 @@ var game = {
 	exist: function() {
 		game.hitboxes = [];
 
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* player */
 		p.update();
@@ -4031,7 +4302,7 @@ var game = {
 		}
 		/* score + coins */
 		c.loadTextStyle({
-			color: "rgb(100, 100, 100)",
+			color: COLORS.UI_DARK_GRAY,
 			textAlign: "left"
 		});
 		c.fillText("Score: " + p.score, 10, 790);
@@ -4057,6 +4328,12 @@ var game = {
 			}
 		}
 		return arr;
+	},
+	getEventByID: function(id) {
+		return this.events.getItemsWithProperty("id", id)[0];
+	},
+	removeEventByID: function(id) {
+		this.events.removeItemsWithProperty("id", id)[0];
 	},
 	initializePlatforms: function() {
 		for(var y = 225; y <= 575; y += 175) {
@@ -4210,7 +4487,7 @@ var game = {
 			if(a instanceof FireParticle && b instanceof Rocket) {
 				return A_FIRST;
 			}
-			if(a instanceof LaserBot && b instanceof LaserBotProjectile) {
+			if(a instanceof LaserBot && b instanceof Laser) {
 				return B_FIRST;
 			}
 			if(a instanceof Platform && b instanceof SpinnyBlade) {
@@ -4222,13 +4499,13 @@ var game = {
 			if(a instanceof Platform && b instanceof Spikeball) {
 				return A_FIRST;
 			}
-			if(a instanceof Platform && b instanceof Laser) {
+			if(a instanceof Platform && b instanceof Crosshair) {
 				return A_FIRST;
 			}
 			if(a instanceof Platform && b instanceof Enemy) {
 				return B_FIRST;
 			}
-			if(a instanceof Platform && b instanceof LaserBotProjectile) {
+			if(a instanceof Platform && b instanceof Laser) {
 				return A_FIRST;
 			}
 			/* inverse cases */
@@ -4271,7 +4548,9 @@ var game = {
 	},
 	addEvent: function() {
 		p.score ++;
-		game.currentEvent = game.events.randomItem();
+		var theEvent = game.events.randomItem();
+		game.currentEvent = theEvent.id;
+		theEvent.begin();
 		if(game.currentEvent === p.previousEvent) {
 			p.repeatedEvent = true;
 		}
@@ -4279,197 +4558,6 @@ var game = {
 		if(p.score === p.highScore + 1) {
 			p.numRecords ++;
 			game.chatMessages.push(new ChatMessage("New Record!", "rgb(0, 0, 255)"));
-		}
-
-		if(game.currentEvent === "laser") {
-			game.objects.push(new Laser());
-			game.chatMessages.push(new ChatMessage("Laser incoming!", "rgb(255, 128, 0)"));
-		}
-		else if(game.currentEvent === "acid") {
-			game.objects.push(new Acid());
-			game.objects[game.objects.length - 1].beginRising();
-		}
-		else if(game.currentEvent === "boulder") {
-			var chooser = Math.random();
-			game.chatMessages.push(new ChatMessage("Boulder incoming!", "rgb(255, 128, 0)"));
-			if(chooser < 0.5) {
-				game.objects.push(new Boulder(850, 100, -3));
-			}
-			else {
-				game.objects.push(new Boulder(-50, 100, 3));
-			}
-		}
-		else if(game.currentEvent === "spinnyblades") {
-			game.chatMessages.push(new ChatMessage("Spinning blades are appearing", "rgb(255, 128, 0)"));
-			for(var i = 0; i < game.objects.length; i ++) {
-				if(game.objects[i] instanceof Platform) {
-					game.objects.push(new SpinnyBlade(game.objects[i].x + 80, game.objects[i].y + 10));
-				}
-			}
-		}
-		else if(game.currentEvent === "pirhanas") {
-			game.chatMessages.push(new ChatMessage("Jumping pirhanas incoming!", "rgb(255, 128, 0)"));
-			/* fancy algorithm to make sure none of the pirhanas are touching */
-			var pirhanasSeparated = false;
-			while(!pirhanasSeparated) {
-				for(var i = 0; i < game.objects.length; i ++) {
-					if(game.objects[i] instanceof Pirhana) {
-						game.objects.splice(i, 1);
-						i --;
-						continue;
-					}
-				}
-				game.objects.push(new Pirhana(Math.random() * 700 + 50));
-				game.objects.push(new Pirhana(Math.random() * 700 + 50));
-				game.objects.push(new Pirhana(Math.random() * 700 + 50));
-				pirhanasSeparated = true;
-				for(var i = 0; i < game.objects.length; i ++) {
-					/* check if they collide */
-					for(var j = 0; j < game.objects.length; j ++) {
-						if(i !== j && game.objects[i] instanceof Pirhana && game.objects[j] instanceof Pirhana && Math.abs(game.objects[i].x - game.objects[j].x) < 75) {
-							pirhanasSeparated = false;
-						}
-					}
-				}
-			}
-		}
-		else if(game.currentEvent === "pacmans") {
-			game.chatMessages.push(new ChatMessage("Pacmans incoming!", "rgb(255, 128, 0)"));
-			var coinNum = Math.round(Math.random() * 11 + 1) * 60;
-			coinNum = 7 * 60;
-			for(var x = 0; x < 800; x += 60) {
-				if(x === coinNum) {
-					game.objects.push(new Coin(x, 200, x * 0.25));
-				} else {
-					game.objects.push(new Dot(x, 200, x * 0.25));
-				}
-				game.objects.push(new Dot(800 - x, 600, x * 0.25));
-			}
-			game.objects.push(new Pacman(-200, 200, 1.5));
-			game.objects.push(new Pacman(1000, 600, -1.5));
-		}
-		else if(game.currentEvent === "rocket") {
-			game.chatMessages.push(new ChatMessage("Rocket incoming!", "rgb(255, 128, 0)"));
-			if(p.x > 400) {
-				game.objects.push(new Rocket(-50, p.y, 6));
-			}
-			else {
-				game.objects.push(new Rocket(850, p.y, -6));
-			}
-		}
-		else if(game.currentEvent === "spikeballs") {
-			game.chatMessages.push(new ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
-			var angles = [];
-			var buffer = 30;
-			for(var i = 0; i < 360; i ++) {
-				if((i > 90 - buffer && i < 90 + buffer) || (i > 270 - buffer && i < 270 + buffer)) {
-					continue;
-				}
-				angles.push(i);
-			}
-			for(var i = 0; i < 3; i ++) {
-				var index = Math.floor(Math.random() * (angles.length - 1));
-				var angle = angles[index];
-				for(var j = 0; j < angles.length; j ++) {
-					var distanceBetweenAngles = Math.min(Math.abs(angle - angles[j]), Math.abs((angle + 360) - angles[j]), Math.abs((angle - 360) - angles[j]));
-					if(distanceBetweenAngles < buffer) {
-						angles.splice(j, 1);
-						j --;
-						continue;
-					}
-				}
-				var angleRadians = angle / 180 * Math.PI;
-				var velocity = Math.rotateDegrees(0, -5, angle);
-				game.objects.push(new Spikeball(velocity.x, velocity.y));
-			}
-		}
-		else if(game.currentEvent === "block shuffle") {
-			game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
-			var platforms = game.getObjectsByType(Platform);
-			for(var i = 0; i < platforms.length; i ++) {
-				if(platforms[i].y < 300) {
-					if(platforms[i].x < 400) {
-						platforms[i].destX = 0;
-						platforms[i].destY = 565;
-					}
-					else {
-						platforms[i].destX = 0;
-						platforms[i].destY = 215;
-					}
-				}
-				if(platforms[i].y > 400) {
-					if(platforms[i].x < 400) {
-						platforms[i].destX = 320;
-						platforms[i].destY = 390;
-					}
-					else {
-						platforms[i].destX = 640;
-						platforms[i].destY = 215;
-					}
-				}
-				if(platforms[i].y > 300 && platforms[i].y < 400) {
-					platforms[i].destX = 640;
-					platforms[i].destY = 565;
-				}
-				platforms[i].calculateVelocity();
-			}
-		}
-		else if(game.currentEvent === "spikewall") {
-			var spikeWallDistance = 1500;
-			if(Math.random() < 0.5) {
-				game.objects.push(new Spikewall(-spikeWallDistance));
-				game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "rgb(255, 128, 0)"));
-			}
-			else {
-				game.objects.push(new Spikewall(800 + spikeWallDistance));
-				game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "rgb(255, 128, 0)"));
-			}
-		}
-		else if(game.currentEvent === "confusion") {
-			game.timeToEvent = FPS * 3;
-			p.timeConfused = FPS * 15;
-			game.chatMessages.push(new ChatMessage("You have been confused", "rgb(0, 255, 0)"));
-			effects.remove();
-			game.currentEvent = null;
-		}
-		else if(game.currentEvent === "blindness") {
-			game.timeToEvent = FPS * 3;
-			p.timeBlinded = FPS * 15;
-			game.chatMessages.push(new ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
-			effects.remove();
-			game.currentEvent = null;
-		}
-		else if(game.currentEvent === "nausea") {
-			game.timeToEvent = FPS * 3;
-			p.timeNauseated = FPS * 15;
-			game.chatMessages.push(new ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
-			effects.remove();
-			game.currentEvent = null;
-		}
-		else if(game.currentEvent === "laserbots") {
-			game.chatMessages.push(new ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
-			var numEnemies = 2;
-			game.addEnemiesAtPosition(LaserBot, numEnemies, null, 50);
-		}
-		else if(game.currentEvent === "bad guys") {
-			game.chatMessages.push(new ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
-			var numEnemies = 2;
-			game.addEnemiesAtPosition(BadGuy, numEnemies, null, 25);
-		}
-		else if(game.currentEvent === "aliens") {
-			game.chatMessages.push(new ChatMessage("UFOs are invading!", "rgb(255, 0, 0)"));
-			var numEnemies = 2;
-			if(numEnemies === 2) {
-				var xPosition = (Math.random() < 0.5) ? (0 - 50) : (canvas.width + 50);
-				game.addEnemiesAtPosition(
-					Alien, 2,
-					[
-						{ x: xPosition, y: 225 - 75 },
-						{ x: xPosition, y: 575 - 75 }
-					],
-					0
-				);
-			}
 		}
 	},
 	runEvent: function() {
@@ -4526,7 +4614,9 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["laser"] : game.events;
+game.originalEvents = game.events.clone();
+game.events = TESTING_MODE ? [game.getEventByID("blindness"), game.getEventByID("nausea"), game.getEventByID("confusion")] : game.events;
+p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
 		c.loadTextStyle({
@@ -4545,15 +4635,9 @@ var debugging = {
 	}
 };
 var ui = {
-	titleTextStyle: {
-		fillStyle: "rgb(100, 100, 100)",
-		font: "50px cursive",
-		textAlign: "center"
-	},
-
 	homeScreen: function() {
 		/* background + erase previous frame */
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		if(!TESTING_MODE) {
@@ -4562,13 +4646,6 @@ var ui = {
 			c.fillText("Survival", 400, 200);
 		}
 		/* buttons */
-		for(var i = 0; i < dollarIcons.length; i ++) {
-			dollarIcons[i].display();
-			if(dollarIcons[i].y >= 545) {
-				dollarIcons.splice(i, 1);
-				i --;
-			}
-		}
 		shopButton.display();
 		shopButton.mouseOver = shopButton.hasMouseOver();
 		shopButton.checkForClick();
@@ -4580,7 +4657,7 @@ var ui = {
 		playButton.checkForClick();
 	},
 	deathScreen: function() {
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		c.loadTextStyle(ui.titleTextStyle);
@@ -4626,7 +4703,7 @@ var ui = {
 		retryButton.checkForClick();
 	},
 	shop: function() {
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		c.loadTextStyle(ui.titleTextStyle);
@@ -4654,7 +4731,7 @@ var ui = {
 		homeFromShop.checkForClick();
 	},
 	achievements: function() {
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		c.loadTextStyle(ui.titleTextStyle);
@@ -4670,6 +4747,12 @@ var ui = {
 		homeFromAchievements.display();
 		homeFromAchievements.mouseOver = homeFromAchievements.hasMouseOver();
 		homeFromAchievements.checkForClick();
+	},
+
+	titleTextStyle: {
+		fillStyle: COLORS.UI_DARK_GRAY,
+		font: "50px cursive",
+		textAlign: "center"
 	}
 };
 
