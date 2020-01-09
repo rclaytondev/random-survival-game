@@ -9,7 +9,7 @@ var utilities = {
 	frameCount: 0,
 	canvas: {
 		/*
-		Utilities related to drawing on the canvas.
+		Utilities related to drawing on the canvas. (Most of these have actually been moved to the CanvasRenderingContext2D prototype.)
 		*/
 		resize: function() {
 			if(window.innerWidth < window.innerHeight) {
@@ -27,43 +27,6 @@ var utilities = {
 			else {
 				canvas.style.left = (window.innerWidth / 2) - (window.innerHeight / 2) + "px";
 				canvas.style.top = "0px";
-			}
-		},
-		displayTextOverLines: function(text, x, y, width, lineHeight) {
-			if(Array.isArray(text)) {
-				/* array of strings -> put a line break between each array item + any other line breaks needed to make space */
-				var lines = text.clone();
-			}
-			else {
-				var lines = [text];
-			}
-			/* Split text into multiple lines */
-			for(var i = 0; i < lines.length; i ++) {
-				var currentLine = lines[i];
-				while(c.measureText(currentLine).width > width) {
-					forLoop: for(var j = currentLine.length; j > 0; j --) {
-						if(currentLine.substring(j, j + 1) == " ") {
-							var nextLine = lines[i + 1];
-							if(nextLine === undefined) {
-								nextLine = "";
-							}
-							movedWord = currentLine.substring(j + 1, Infinity);
-							movedWord = movedWord.trim();
-							currentLine = currentLine.substring(0, j);
-							nextLine = movedWord + " " + nextLine;
-							lines[i] = currentLine;
-							lines[i + 1] = nextLine;
-							break forLoop;
-						}
-					}
-					currentLine = lines[i];
-				}
-			}
-			/* Display the split text */
-			var lineY = y;
-			for(var i = 0; i < lines.length; i ++) {
-				c.fillText(lines[i], x, lineY);
-				lineY += lineHeight;
 			}
 		}
 	},
@@ -166,6 +129,12 @@ var utilities = {
 			x: x - 1, y: y - 1, w: 2, h: 2,
 			sides: ["top", "bottom", "left", "right"]
 		});
+	},
+	killCollisionLine: function(x1, y1, x2, y2, deathCause) {
+		var points = Math.findPointsLinear(x1, y1, x2, y2);
+		for(var i = 0; i < points.length; i ++) {
+			this.killCollisionPoint(points[i].x, points[i].y, deathCause);
+		}
 	},
 
 	collisionRect: function(x, y, w, h, settings) {
@@ -276,6 +245,9 @@ var utilities = {
 		});
 	},
 
+	isPointInPlayer: function(x, y) {
+		return (x > p.x + p.hitbox.left && x < p.x + p.hitbox.right && y > p.y + p.hitbox.top && y < p.y + p.hitbox.bottom);
+	},
 	isPlayerInRect: function(x, y, w, h) {
 		return (
 			p.x + p.hitbox.right > x &&
@@ -341,6 +313,17 @@ console. logOnce = function(parameter) {
 		console. log(parameter);
 	}
 };
+console. errorOnce = function(parameter) {
+	/*
+	It's like console.logOnce() but it's for errors. See console.logOnce()
+	*/
+	var trace = new Error().stack;
+	console.traces = console.traces || [];
+	if(!console.traces.contains(trace)) {
+		console.traces.push(trace);
+		console. error(parameter);
+	}
+};
 CanvasRenderingContext2D.prototype.fillArc = function(x, y, radius, startAngle, endAngle) {
 	this.beginPath();
 	this.moveTo(x, y);
@@ -348,6 +331,139 @@ CanvasRenderingContext2D.prototype.fillArc = function(x, y, radius, startAngle, 
 	this.lineTo(x, y);
 	this.fill();
 };
+CanvasRenderingContext2D.prototype.strokeArc = function(x, y, r, start, end, antiClockwise) {
+	this.beginPath();
+	this.arc(x, y, r, start, end, antiClockwise);
+	this.stroke();
+};
+CanvasRenderingContext2D.prototype.circle = function(x, y, r) {
+	this.arc(x, y, r, 0, Math.toRadians(360));
+};
+CanvasRenderingContext2D.prototype.fillCircle = function(x, y, r) {
+	this.beginPath();
+	this.arc(x, y, r, Math.toRadians(0), Math.toRadians(360));
+	this.fill();
+};
+CanvasRenderingContext2D.prototype.strokeCircle = function(x, y, r) {
+	this.beginPath();
+	this.arc(x, y, r, Math.toRadians(0), Math.toRadians(360));
+	this.stroke();
+};
+CanvasRenderingContext2D.prototype.clipCircle = function(x, y, r) {
+	this.beginPath();
+	this.arc(x, y, r, Math.toRadians(0), Math.toRadians(360));
+	this.clip();
+};
+CanvasRenderingContext2D.prototype.line = function() {
+	/*
+	Can be used to draw a line or a series of lines.
+
+	Possible parameters:
+	- Numbers (alternating x and y values)
+	- Objects with x and y properties for each point
+	- Array of objects with x and y properties
+	*/
+	if(Array.isArray(arguments[0])) {
+		/* assume the input is an array of objects */
+		this.polygon.apply(this, arguments[0]);
+	}
+	else if(typeof arguments[0] === "object") {
+		/* assume each of the arguments is an object */
+		this.moveTo(arguments[0].x, arguments[0].y);
+		for(var i = 0; i < arguments.length; i ++) {
+			this.lineTo(arguments[i].x, arguments[i].y);
+		}
+	}
+	else if(typeof arguments[0] === "number") {
+		/* assume all inputs are numbers */
+		this.moveTo(arguments[0], arguments[1]);
+		for(var i = 2; i < arguments.length; i += 2) {
+			this.lineTo(arguments[i], arguments[i + 1]);
+		}
+	}
+};
+CanvasRenderingContext2D.prototype.strokeLine = function() {
+	/*
+	Can be used to stroke a line or a series of lines. Similar to polygon() but it doesn't automatically close the path (and it outlines the path).
+	*/
+	this.beginPath();
+	this.line.apply(this, arguments);
+	this.stroke();
+};
+CanvasRenderingContext2D.prototype.polygon = function() {
+	/* draw lines connecting all vertices + close path to form polygon */
+	this.line.apply(this, arguments);
+	this.closePath();
+};
+CanvasRenderingContext2D.prototype.fillPoly = function() {
+	/*
+	Arguments can be objects with 'x' and 'y' properties or numbers with each argument being either the x or the y, starting with x.
+	*/
+	this.beginPath();
+	this.polygon.apply(this, arguments);
+	this.fill();
+};
+CanvasRenderingContext2D.prototype.invertPath = function() {
+	/*
+	Inverts the canvas path. Drawing a line on each of the canvas boundaries will, for any point on the canvas, increase the number of lines crossed by 1. When using the "evenodd" fill rule, this will toggle whether the point is in the path or not.
+
+	Calling this multiple times on the same path does not work for some reason.
+
+	The evenodd fillrule MUST be used in order for this function to work as intended.
+	*/
+	this.moveTo(-8000, -8000);
+	this.lineTo(8000, 0);
+	this.lineTo(8000, 8000);
+	this.lineTo(-8000, 8000);
+	this.lineTo(-8000, -8000);
+};
+CanvasRenderingContext2D.prototype.loadTextStyle = function(textStyle) {
+	if(typeof textStyle.fillStyle === "string") {
+		this.fillStyle = textStyle.fillStyle;
+	}
+	else if(typeof textStyle.color === "string") {
+		this.fillStyle = textStyle.color;
+	}
+	this.textAlign = textStyle.textAlign || "left";
+	this.font = textStyle.font || "20px monospace";
+};
+CanvasRenderingContext2D.prototype.displayTextOverLines = function(text, x, y, width, lineHeight) {
+	if(Array.isArray(text)) {
+		/* array of strings -> put a line break between each array item + any other line breaks needed to make space */
+		var lines = text.clone();
+	}
+	else {
+		var lines = [text];
+	}
+	/* Split text into multiple lines */
+	for(var i = 0; i < lines.length; i ++) {
+		var currentLine = lines[i];
+		while(this.measureText(currentLine).width > width) {
+			forLoop: for(var j = currentLine.length; j > 0; j --) {
+				if(currentLine.substring(j, j + 1) == " ") {
+					var nextLine = lines[i + 1];
+					if(nextLine === undefined) {
+						nextLine = "";
+					}
+					movedWord = currentLine.substring(j + 1, Infinity);
+					movedWord = movedWord.trim();
+					currentLine = currentLine.substring(0, j);
+					nextLine = movedWord + " " + nextLine;
+					lines[i] = currentLine;
+					lines[i + 1] = nextLine;
+					break forLoop;
+				}
+			}
+			currentLine = lines[i];
+		}
+	}
+	/* Display the split text */
+	var lineY = y;
+	for(var i = 0; i < lines.length; i ++) {
+		this.fillText(lines[i], x, lineY);
+		lineY += lineHeight;
+	}
+}
 Object.prototype.clone = function() {
 	var clone = new this.constructor();
 	for(var i in this) {
@@ -401,6 +517,56 @@ Array.prototype.swap = function(index1, index2) {
 Array.prototype.randomItem = function() {
 	var index = Math.floor(Math.random() * this.length);
 	return this[index];
+};
+Array.prototype.getItemsWithProperty = function(propertyName, propertyValue) {
+	if(propertyValue === undefined) {
+		/* return the items that have the property, regardless of value */
+		var itemsFound = [];
+		for(var i = 0; i < this.length; i ++) {
+			if(this[i].hasOwnProperty(propertyName) && this[i][propertyName] !== undefined) {
+				itemsFound.push(this[i]);
+			}
+		}
+		return itemsFound;
+	}
+	else {
+		/* return the items whose properties match the value */
+		var itemsFound = [];
+		for(var i = 0; i < this.length; i ++) {
+			if(this[i].hasOwnProperty(propertyName) && this[i][propertyName] === propertyValue) {
+				itemsFound.push(this[i]);
+			}
+		}
+		return itemsFound;
+	}
+};
+Array.prototype.removeItemsWithProperty = function(propertyName, propertyValue) {
+	if(propertyValue === undefined) {
+		/* return the items that have the property, regardless of value */
+		var itemsFound = [];
+		for(var i = 0; i < this.length; i ++) {
+			if(this[i].hasOwnProperty(propertyName) && this[i][propertyName] !== undefined) {
+				this.splice(i, 1);
+				i --;
+			}
+		}
+		return itemsFound;
+	}
+	else {
+		console.log("not undefined");
+		/* return the items whose properties match the value */
+		var itemsFound = [];
+		for(var i = 0; i < this.length; i ++) {
+			if(this[i].hasOwnProperty(propertyName) && this[i][propertyName] === propertyValue) {
+				this.splice(i, 1);
+				i --;
+			}
+		}
+		return itemsFound;
+	}
+};
+Array.prototype.includesItemsWithProperty = function(propertyName, propertyValue) {
+	return (this.getItemsWithProperty(propertyName, propertyValue).length !== 0);
 };
 Math.average = function(values) {
 	if(Array.isArray(arguments[0])) {
@@ -582,6 +748,10 @@ Math.normalize = function(x, y) {
 		y: y / dist
 	};
 };
+Math.roundToAccuracy = function(value, numDecimalPlaces) {
+	var power = Math.pow(10, numDecimalPlaces);
+	return Math.round(value * power) / power;
+};
 
 function Player() {
 	/* Location + velocity */
@@ -635,46 +805,29 @@ Player.prototype.display = function() {
 		c.lineCap = "round";
 		/* head */
 		c.fillStyle = "rgb(0, 0, 0)";
-		c.save();
-		c.translate(this.x, this.y);
-		c.scale(1, 1.2);
-		c.beginPath();
-		c.arc(0, 12, 10, 0, 2 * Math.PI);
-		c.fill();
-		c.restore();
+		c.save(); {
+			c.translate(this.x, this.y);
+			c.scale(1, 1.2);
+			c.fillCircle(0, 12, 10);
+		} c.restore();
 		/* eyes */
 		if(this.facing === "left" || this.facing === "forward") {
 			c.fillStyle = "rgb(200, 200, 200)";
-			c.beginPath();
-			c.arc(this.x - 4, this.y + 10, 3, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(this.x - 4, this.y + 10, 3);
 		}
 		if(this.facing === "right" || this.facing === "forward") {
 			c.fillStyle = "rgb(200, 200, 200)";
-			c.beginPath();
-			c.arc(this.x + 4, this.y + 10, 3, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(this.x + 4, this.y + 10, 3);
 		}
 		/* body */
 		c.strokeStyle = "rgb(0, 0, 0)";
-		c.beginPath();
-		c.moveTo(this.x, this.y + 15);
-		c.lineTo(this.x, this.y + 36);
-		c.stroke();
+		c.strokeLine(this.x, this.y + 15, this.x, this.y + 36);
 		/* legs */
-		c.beginPath();
-		c.moveTo(this.x, this.y + 36);
-		c.lineTo(this.x - this.legs, this.y + 46);
-		c.moveTo(this.x, this.y + 36);
-		c.lineTo(this.x + this.legs, this.y + 46);
-		c.stroke();
+		c.strokeLine(this.x, this.y + 36, this.x - this.legs, this.y + 46);
+		c.strokeLine(this.x, this.y + 36, this.x + this.legs, this.y + 46);
 		/* arms */
-		c.beginPath();
-		c.moveTo(this.x, this.y + 26);
-		c.lineTo(this.x + 10, this.y + 26 + this.armHeight);
-		c.moveTo(this.x, this.y + 26);
-		c.lineTo(this.x - 10, this.y + 26 + this.armHeight);
-		c.stroke();
+		c.strokeLine(this.x, this.y + 26, this.x + 10, this.y + 26 + this.armHeight);
+		c.strokeLine(this.x, this.y + 26, this.x - 10, this.y + 26 + this.armHeight);
 		c.lineCap = "butt";
 	}
 };
@@ -1021,8 +1174,11 @@ function DollarIcon() {
 	this.y = 450;
 };
 DollarIcon.prototype.display = function() {
-	c.fillStyle = "rgb(100, 100, 100)";
-	c.font = "20px cursive";
+	c.loadTextStyle({
+		color: "rgb(100, 100, 100)",
+		font: "20px cursive",
+		textAlign: "center"
+	});
 	c.fillText("$", this.x, this.y);
 	this.y += 5;
 };
@@ -1045,43 +1201,41 @@ Button.prototype.display = function() {
 		/* button outline */
 		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
-		c.beginPath();
-		c.arc(this.x, this.y, 75, 0, 2 * Math.PI);
-		c.stroke();
+		c.strokeCircle(this.x, this.y, 75);
 		/* small triangle (mouse is not over) */
 		if(!this.mouseOver) {
 			c.fillStyle = "rgb(100, 100, 100)";
-			c.beginPath();
-			c.moveTo(this.x - 15, this.y - 22.5);
-			c.lineTo(this.x - 15, this.y + 22.5);
-			c.lineTo(this.x + 30, this.y);
-			c.fill();
+			c.fillPoly(
+				this.x - 15, this.y - 22.5,
+				this.x - 15, this.y + 22.5,
+				this.x + 30, this.y
+			);
 		}
 		/* big triangle (mouse is over) */
 		else {
 			c.fillStyle = "rgb(100, 100, 100)";
-			c.beginPath();
-			c.moveTo(this.x - 20, this.y - 30);
-			c.lineTo(this.x - 20, this.y + 30);
-			c.lineTo(this.x + 40, this.y);
-			c.fill();
+			c.fillPoly(
+				this.x - 20, this.y - 30,
+				this.x - 20, this.y + 30,
+				this.x + 40, this.y
+			);
 		}
 	}
 	else if(this.icon === "question") {
 		/* button outline */
 		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
-		c.beginPath();
-		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
-		c.stroke();
+		c.fillCircle(this.x, this.y, 50);
 		/* question mark */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.textAlign = "center";
-		c.save();
-		c.translate(this.x, this.y);
-		c.rotate(this.r);
-		c.fillText("?", 0, 15);
-		c.restore();
+		c.loadTextStyle({
+			color: "rgb(100, 100, 100)",
+			textAlign: "center"
+		});
+		c.save(); {
+			c.translate(this.x, this.y);
+			c.rotate(this.r);
+			c.fillText("?", 0, 15);
+		} c.restore();
 		if(this.mouseOver && this.r < 0.5) {
 			this.r += 0.05;
 		}
@@ -1093,21 +1247,17 @@ Button.prototype.display = function() {
 		/* button outline */
 		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
-		c.beginPath();
-		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
-		c.stroke();
+		c.strokeCircle(this.x, this.y, 50);
 		/* gear body */
 		c.fillStyle = "rgb(100, 100, 100)";
-		c.beginPath();
-		c.arc(this.x, this.y, 20, 0, 2 * Math.PI);
-		c.fill();
+		c.fillCircle(this.x, this.y, 20);
 		/* gear prongs */
 		for(var r = 0; r < 2 * Math.PI; r += (2 * Math.PI) / 9) {
-			c.save();
-			c.translate(this.x, this.y);
-			c.rotate(r + this.r);
-			c.fillRect(-5, -28, 10, 28);
-			c.restore();
+			c.save(); {
+				c.translate(this.x, this.y);
+				c.rotate(r + this.r);
+				c.fillRect(-5, -28, 10, 28);
+			} c.restore();
 		}
 		if(this.mouseOver) {
 			this.r += 0.05;
@@ -1117,12 +1267,13 @@ Button.prototype.display = function() {
 		/* button outline */
 		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
-		c.beginPath();
-		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
-		c.stroke();
+		c.strokeCircle(this.x, this.y, 50);
 		/* dollar sign */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.font = "50px cursive";
+		c.loadTextStyle({
+			color: "rgb(100, 100, 100)",
+			font: "50px cursive",
+			textAlign: "center"
+		});
 		c.fillText("$", this.x, this.y + 15);
 		/* dollar sign animation */
 		if(this.mouseOver && utilities.frameCount % 10 === 0) {
@@ -1152,60 +1303,50 @@ Button.prototype.display = function() {
 				this.r = 0;
 			}
 			c.strokeStyle = "rgb(170, 170, 170)";
-			c.beginPath();
-			c.arc(this.x, this.y, this.r, 0, 2 * Math.PI);
-			c.stroke();
+			c.strokeCircle(this.x, this.y, this.r);
 			for(var r = 0; r < 2 * Math.PI; r += (2 * Math.PI) / 8) {
-				c.save();
-				c.translate(this.x, this.y);
-				c.rotate(r);
-				c.fillStyle = "rgb(200, 200, 200)";
-				c.beginPath();
-				c.moveTo(0, 0);
-				c.lineTo(-10, -50);
-				c.lineTo(10, -50);
-				c.fill();
-				c.restore();
+				c.save(); {
+					c.translate(this.x, this.y);
+					c.rotate(r);
+					c.fillStyle = "rgb(200, 200, 200)";
+					c.fillPoly(
+						0, 0,
+						-10, -50,
+						10, -50
+					);
+				} c.restore();
 			}
 		}
 		/* button outline */
 		c.strokeStyle = "rgb(100, 100, 100)";
 		c.lineWidth = 5;
-		c.beginPath();
-		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
-		c.stroke();
+		c.strokeCircle(this.x, this.y, 50);
 		/* trophy base */
 		c.fillStyle = "rgb(100, 100, 100)";
-		c.beginPath();
-		c.arc(this.x, this.y + 23, 13, -3.14159, 0);
-		c.fill();
+		c.fillArc(this.x, this.y + 23, 13, Math.toRadians(-180), 0);
 		/* trophy support */
 		c.fillRect(this.x - 5, this.y - 2, 10, 20);
 		/* trophy cup */
-		c.beginPath();
-		c.save();
-		c.translate(this.x, this.y - 22);
-		c.scale(1, 1.5);
-		c.arc(0, 0, 20, 0, 3.14159);
-		c.restore();
-		c.fill();
+		c.save(); {
+			c.translate(this.x, this.y - 22);
+			c.scale(1, 1.5);
+			c.fillArc(0, 0, 20, 0, Math.toRadians(180));
+		} c.restore();
 	}
 	else if(this.icon === "house") {
 		/* button outline */
 		c.strokeStyle = "rgb(100, 100, 100)";
-		c.beginPath();
-		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
-		c.stroke();
+		c.strokeCircle(this.x, this.y, 50);
 		/* house icon */
 		c.fillStyle = "rgb(100, 100, 100)";
 		c.fillRect(this.x - 20, this.y - 15, 15, 35);
 		c.fillRect(this.x - 20, this.y - 15, 40, 15);
 		c.fillRect(this.x + 5, this.y - 15, 15, 35);
-		c.beginPath();
-		c.moveTo(this.x - 30, this.y - 10);
-		c.lineTo(this.x + 30, this.y - 10);
-		c.lineTo(this.x, this.y - 30);
-		c.fill();
+		c.fillPoly(
+			this.x - 30, this.y - 10,
+			this.x + 30, this.y - 10,
+			this.x     , this.y - 30
+		);
 		/* animated door */
 		c.fillRect(this.x + this.doorX - 6, this.y - 1, 12, 21);
 		if(this.mouseOver) {
@@ -1222,24 +1363,20 @@ Button.prototype.display = function() {
 	else if(this.icon === "retry") {
 		/* button outline */
 		c.strokeStyle = "rgb(100, 100, 100)";
-		c.beginPath();
-		c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
-		c.stroke();
+		c.strokeCircle(this.x, this.y, 50);
 		/* retry icon */
-		c.save();
-		c.translate(this.x, this.y);
-		if(this.mouseOver) {
-			c.rotate(0.5 * Math.PI);
-		}
-		c.beginPath();
-		c.arc(0, 0, 30, 0.5 * Math.PI, 2 * Math.PI);
-		c.stroke();
-		c.beginPath();
-		c.moveTo(15, 0);
-		c.lineTo(45, 0);
-		c.lineTo(30, 20);
-		c.fill();
-		c.restore();
+		c.save(); {
+			c.translate(this.x, this.y);
+			if(this.mouseOver) {
+				c.rotate(0.5 * Math.PI);
+			}
+			c.strokeArc(0, 0, 30, Math.toRadians(90), Math.toRadians(360));
+			c.fillPoly(
+				15, 0,
+				45, 0,
+				30, 20
+			);
+		} c.restore();
 	}
 	this.mousedOverBefore = this.mouseOver;
 };
@@ -1272,13 +1409,11 @@ DoubleJumpParticle.prototype.display = function() {
 	c.globalAlpha = this.op;
 	c.strokeStyle = "rgb(255, 255, 0)";
 	c.lineWidth = 5;
-	c.beginPath();
-	c.save();
-	c.translate(this.x, this.y + p.worldY);
-	c.scale(this.size, 1);
-	c.arc(0, 0, 5, 0, 2 * Math.PI);
-	c.stroke();
-	c.restore();
+	c.save(); {
+		c.translate(this.x, this.y + p.worldY);
+		c.scale(this.size, 1);
+		c.strokeCircle(0, 0, 5);
+	} c.restore();
 	this.size += 0.1;
 	this.op -= 0.02;
 	c.globalAlpha = 1;
@@ -1308,32 +1443,30 @@ ShopItem.prototype.displayLogo = function(size) {
 		this.x = this.origX;
 		this.y = this.origY;
 	}
-	c.save();
-	c.translate(this.x, this.y);
-	c.scale(size, size);
-	c.strokeStyle = "rgb(100, 100, 100)";
-	c.fillStyle = "rgb(200, 200, 200)";
-	c.lineWidth = 5;
-	c.beginPath();
-	c.arc(0, 0, 75, 0, 2 * Math.PI);
-	c.stroke();
-	if(size !== 1) {
-		c.fill();
-	}
-	c.beginPath();
-	c.fillStyle = (this.equipped) ? "rgb(100, 100, 100)" : "rgb(200, 200, 200)";
-	c.strokeStyle = "rgb(100, 100, 100)";
-	c.arc(50, -50, 20, 0, 2 * Math.PI);
-	if(this.bought && !this.noUpgrades) {
-		c.fill();
-		c.stroke();
-		c.fillStyle = (this.equipped) ? "rgb(200, 200, 200)" : "rgb(100, 100, 100)";
-		c.textAlign = "center";
-		c.font = "bold 20px monospace";
-		c.fillText(this.numUpgrades, 50, -45);
-	}
-	this.display(!this.bought);
-	c.restore();
+	c.save(); {
+		c.translate(this.x, this.y);
+		c.scale(size, size);
+		c.strokeStyle = "rgb(100, 100, 100)";
+		c.fillStyle = "rgb(200, 200, 200)";
+		c.lineWidth = 5;
+		c.strokeCircle(0, 0, 75);
+		if(size !== 1) {
+			c.fill();
+		}
+		if(this.bought && !this.noUpgrades) {
+			c.fillStyle = (this.equipped) ? "rgb(100, 100, 100)" : "rgb(200, 200, 200)";
+			c.strokeStyle = "rgb(100, 100, 100)";
+			c.fillCircle  (50, -50, 20);
+			c.strokeCircle(50, -50, 20);
+			c.loadTextStyle({
+				color: (this.equipped ? "rgb(200, 200, 200)" : "rgb(100, 100, 100)"),
+				textAlign: "center",
+				font: "bold 20px monospace"
+			});
+			c.fillText(this.numUpgrades, 50, -45);
+		}
+		this.display(!this.bought);
+	} c.restore();
 	var mouseOver = false;
 	if(Math.dist(input.mouse.x, input.mouse.y, this.x, this.y) <= 75) {
 		mouseOver = true;
@@ -1387,11 +1520,11 @@ ShopItem.prototype.displayInfo = function(direction) {
 			if(direction === "left") {
 				c.scale(-1, 1);
 			}
-			c.beginPath();
-			c.moveTo(75, 0);
-			c.lineTo(85, 10);
-			c.lineTo(85, -10);
-			c.fill();
+			c.fillPoly(
+				75, 0,
+				85, 10,
+				85, -10
+			);
 			c.fillRect(85, -(BOX_HEIGHT / 2), BOX_WIDTH, BOX_HEIGHT);
 		} c.restore();
 		/* display text */
@@ -1409,19 +1542,20 @@ ShopItem.prototype.displayInfo = function(direction) {
 			}
 			buttonOffset.y -= BOX_HEIGHT / 2;
 			/* textbox title */
-			c.fillStyle = "rgb(200, 200, 200)";
-			c.font = (this.name.length > 21) ? "17px monospace" : "20px monospace";
-			c.textAlign = "left";
+			c.loadTextStyle({
+				color: "rgb(200, 200, 200)",
+				font: (this.name.length > 21) ? "17px monospace" : "20px monospace",
+			});
 			c.fillText(this.name, MARGIN_WIDTH, 20);
 			/* title underline */
 			c.strokeStyle = "rgb(200, 200, 200)";
-			c.beginPath();
-			c.moveTo(MARGIN_WIDTH, 30);
-			c.lineTo(BOX_WIDTH - MARGIN_WIDTH, 30);
-			c.stroke();
+			c.strokeLine(
+				MARGIN_WIDTH            , 30,
+				BOX_WIDTH - MARGIN_WIDTH, 30
+			);
 			/* description text */
-			c.font = "20px monospace";
-			utilities.canvas.displayTextOverLines(this.description, MARGIN_WIDTH, 50, BOX_WIDTH - (MARGIN_WIDTH), 20);
+			c.loadTextStyle({ font: "20px monospace" });
+			c.displayTextOverLines(this.description, MARGIN_WIDTH, 50, BOX_WIDTH - (MARGIN_WIDTH), 20);
 			/* buttons */
 			var self = this;
 			if(this.bought) {
@@ -1478,17 +1612,18 @@ ShopItem.prototype.displayPopup = function() {
 		c.fillStyle = "rgb(100, 100, 100)";
 		c.fillRect(250, 250, 300, 300);
 		/* title */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.textAlign = "left";
+		c.loadTextStyle({
+			color: "rgb(200, 200, 200)",
+		});
 		c.fillText((this.isFullyUpgraded() ? "Fully Upgraded Abilities:" : "Upgrade Item"), 260, 270);
 		/* line */
 		c.strokeStyle = "rgb(200, 200, 200)";
-		c.beginPath();
-		c.moveTo(260, 280);
-		c.lineTo(540, 280);
-		c.stroke();
+		c.strokeLine(
+			260, 280,
+			540, 280
+		);
 		/* upgrade description */
-		utilities.canvas.displayTextOverLines(this.calculateUpgradeDescription(), 260, 300, 280, 20);
+		c.displayTextOverLines(this.calculateUpgradeDescription(), 260, 300, 280, 20);
 		/* button 1 (close dialog box) */
 		var self = this;
 		this.displayButton(
@@ -1529,7 +1664,9 @@ ShopItem.prototype.displayButton = function(x, y, w, h, settings) {
 		settings.canBeClicked = true;
 	}
 	c.save(); {
-		c.textAlign = "center";
+		c.loadTextStyle({
+			textAlign: "center"
+		});
 		c.strokeRect(x, y, w, h);
 		c.fillText(settings.text, x + (w / 2), y + (h / 2) + 5);
 	} c.restore();
@@ -1575,67 +1712,63 @@ var shop = {
 		800 / 4, 800 / 3,
 		"Piggy Bank of Money",
 		function(isGrayscale) {
-			c.save();
-			c.translate(10, 0);
-			/* body */
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(223, 160, 171)");
-			c.beginPath();
-			c.arc(0, 0, 30, 30, 0, 2 * Math.PI);
-			c.fill();
-			/* legs */
-			c.fillRect(0 - 20, 0, 15, 35);
-			c.fillRect(0 + 5, 0, 15, 35);
-			/* head */
-			c.beginPath();
-			c.arc(0 - 40, 0 - 10, 20, 0, 2 * Math.PI);
-			c.fill();
-			/* chin */
-			c.beginPath();
-			c.moveTo(0 - 40, 0 + 10);
-			c.lineTo(0, 0 + 20);
-			c.lineTo(0, 0);
-			c.fill();
-			/* head - whitespace */
-			c.fillStyle = "rgb(200, 200, 200)";
-			c.beginPath();
-			c.arc(0 - 50, 0 - 20, 20, 0, 2 * Math.PI);
-			c.fill();
-			/* coin slot - whitespace */
-			c.strokeStyle = "rgb(200, 200, 200)";
-			c.beginPath();
-			c.arc(0, 0, 20, 1.5 * Math.PI - 0.6, 1.5 * Math.PI + 0.6);
-			c.stroke();
-			c.restore();
-		},
+			c.save(); {
+				c.translate(10, 0);
+				/* body */
+				c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(223, 160, 171)");
+				c.fillCircle(0, 0, 30);
+				/* legs */
+				c.fillRect(0 - 20, 0, 15, 35);
+				c.fillRect(0 + 5, 0, 15, 35);
+				/* head */
+				c.save(); {
+					c.beginPath();
+					c.circle(0 - 50, 0 - 20, 20);
+					c.invertPath();
+					c.clip("evenodd");
+
+					c.fillCircle(0 - 40, 0 - 10, 20);
+				} } c.restore();
+				/* chin */
+				c.fillPoly(
+					0 - 40, 0 + 10,
+					0     , 0 + 20,
+					0     , 0
+				);
+				/* coin slot - whitespace */
+				c.strokeStyle = "rgb(200, 200, 200)";
+				c.strokeArc(0, 0, 20, Math.toRadians(270 - 35), Math.toRadians(270 + 35));
+				c.restore();
+			},
 		[
-			{
-				text: "With this amazing piggy bank, you will be able to collect a lot of money.",
-				price: 5
-			},
-			{
-				text: [
-					"Current Level:",
-					"● 2x coin multiplier",
-					"",
-					"Upgraded Level:",
-					"● 2x coin multiplier",
-					"● Coin magnet"
-				],
-				price: 10
-			},
-			{
-				text: [
-					"Current Level:",
-					"● 2x coin multiplier",
-					"● Coin magnet",
-					"",
-					"Upgraded Level:",
-					"● 2x coin multiplier",
-					"● Stronger coin magnet"
-				],
-				price: 15
-			},
-		]
+				{
+					text: "With this amazing piggy bank, you will be able to collect a lot of money.",
+					price: 5
+				},
+				{
+					text: [
+						"Current Level:",
+						"● 2x coin multiplier",
+						"",
+						"Upgraded Level:",
+						"● 2x coin multiplier",
+						"● Coin magnet"
+					],
+					price: 10
+				},
+				{
+					text: [
+						"Current Level:",
+						"● 2x coin multiplier",
+						"● Coin magnet",
+						"",
+						"Upgraded Level:",
+						"● 2x coin multiplier",
+						"● Stronger coin magnet"
+					],
+					price: 15
+				},
+			]
 	),
 	speedIncreaser: new ShopItem(
 		800 / 4 * 2, 800 / 3,
@@ -1647,24 +1780,28 @@ var shop = {
 			c.fillRect(0 + 30, 0 + 46, 20, 5);
 			/* stickman body + limbs */
 			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
-			c.beginPath();
-			c.moveTo(0 - 10, 0 - 10);
-			c.lineTo(0 + 10, 0 + 10);
-			c.lineTo(0 - 10, 0 + 30);
-			c.lineTo(0 + 10, 0 + 50);
-			c.moveTo(0 + 10, 0 + 10);
-			c.lineTo(0 + 50, 0 + 50);
-			c.moveTo(0 + 10, 0 - 30);
-			c.lineTo(0 - 30, 0 + 10);
-			c.lineTo(0 - 50, 0 - 10);
-			c.moveTo(0 + 10, 0 - 30);
-			c.lineTo(0 + 30, 0 - 10);
-			c.stroke();
+			c.strokeLine(
+				0 - 10, 0 - 10,
+				0 + 10, 0 + 10,
+				0 - 10, 0 + 30,
+				0 + 10, 0 + 50
+			);
+			c.strokeLine(
+				0 + 10, 0 + 10,
+				0 + 50, 0 + 50
+			);
+			c.strokeLine(
+				0 + 10, 0 - 30,
+				0 - 30, 0 + 10,
+				0 - 50, 0 - 10
+			);
+			c.strokeLine(
+				0 + 10, 0 - 30,
+				0 + 30, 0 - 10
+			);
 			/* stickman head */
-			c.beginPath();
 			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
-			c.arc(0 - 17, 0 - 17, 10, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(-17, -17, 10);
 		},
 		[
 			{
@@ -1702,26 +1839,24 @@ var shop = {
 		function(isGrayscale) {
 			/* potion */
 			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)");
-			c.beginPath();
-			c.moveTo(0 - 5 - 4, 0 + 4);
-			c.lineTo(0 + 5 + 4, 0 + 4);
-			c.lineTo(0 + 25, 0 + 20);
-			c.lineTo(0 - 25, 0 + 20);
-			c.fill();
+			c.fillPoly(
+				0 - 5 - 4, 0 + 4,
+				0 + 5 + 4, 0 + 4,
+				0 + 25, 0 + 20,
+				0 - 25, 0 + 20
+			);
 			/* beaker body */
 			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
-			c.beginPath();
-			c.moveTo(0 - 5, 0 - 20);
-			c.lineTo(0 - 5, 0);
-			c.lineTo(0 - 5 - 20, 0 + 20);
-			c.lineTo(0 + 25, 0 + 20);
-			c.lineTo(0 + 5, 0);
-			c.lineTo(0 + 5, 0 - 20);
-			c.stroke();
+			c.strokeLine(
+				0 - 5, 0 - 20,
+				0 - 5, 0,
+				0 - 5 - 20, 0 + 20,
+				0 + 25, 0 + 20,
+				0 + 5, 0,
+				0 + 5, 0 - 20
+			);
 			/* beaker opening */
-			c.beginPath();
-			c.arc(0, 0 - 27, 10, 0, 2 * Math.PI);
-			c.stroke();
+			c.strokeCircle(0, 0 - 27, 10);
 		},
 		[
 			{
@@ -1758,30 +1893,27 @@ var shop = {
 		"Talisman of Intangibility",
 		function(isGrayscale) {
 			c.fillStyle = "rgb(100, 100, 100)";
-			c.beginPath();
-			c.arc(0, 0, 30, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(0, 0, 30);
 			/* gemstone */
 			c.fillStyle = (isGrayscale ? "rgb(200, 200, 200)" : "rgb(0, 0, 128)");
-			c.beginPath();
-			c.moveTo(0 - 6, 0 - 12);
-			c.lineTo(0 + 6, 0 - 12);
-			c.lineTo(0 + 15, 0);
-			c.lineTo(0 + 6, 0 + 12);
-			c.lineTo(0 - 6, 0 + 12);
-			c.lineTo(0 - 15, 0);
-			c.lineTo(0 - 6, 0 - 12);
-			c.fill();
+			c.fillPoly(
+				0 - 6, 0 - 12,
+				0 + 6, 0 -12,
+				0 + 15, 0,
+				0 + 6, 0 + 12,
+				0 - 6, 0 + 12,
+				0 - 15, 0,
+			);
 			/* necklace threads */
 			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(138, 87, 0)");
-			c.beginPath();
-			c.moveTo(0 - 5, 0 - 29);
-			c.lineTo(0 - 15, 0 - 75);
-			c.stroke();
-			c.beginPath();
-			c.moveTo(0 + 5, 0 - 29);
-			c.lineTo(0 + 15, 0 - 75);
-			c.stroke();
+			c.strokeLine(
+				0 - 5, 0 - 29,
+				0 - 15, 0 - 75
+			);
+			c.strokeLine(
+				0 + 5, 0 - 29,
+				0 + 15, 0 - 75
+			);
 		},
 		[
 			{
@@ -1820,17 +1952,13 @@ var shop = {
 		function(isGrayscale) {
 			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
 			/* skull */
-			c.beginPath();
-			c.arc(0, 0, 30, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(0, 0, 30);
 			/* skull chin */
 			c.fillRect(0 - 15, 0 + 20, 30, 20);
 			/* eyes - whitespace */
 			c.fillStyle = "rgb(200, 200, 200)";
-			c.beginPath();
-			c.arc(0 - 13, 0 - 10, 7, 0, 2 * Math.PI);
-			c.arc(0 + 13, 0 - 10, 7, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(0 - 13, 0 - 10, 7);
+			c.fillCircle(0 + 13, 0 - 10, 7);
 			/* mouth */
 			c.fillRect(0 - 2, 0 + 20, 4, 20);
 			c.fillRect(0 - 10, 0 + 20, 4, 20);
@@ -1878,30 +2006,30 @@ var shop = {
 			c.fillRect(0 - 30, 0 - 10, 40, 40);
 			c.fill();
 			/* top face */
-			c.beginPath();
-			c.moveTo(0 - 30, 0 - 12);
-			c.lineTo(0 + 10, 0 - 12);
-			c.lineTo(0 + 40, 0 - 40);
-			c.lineTo(0, 0 - 40);
-			c.fill();
+			c.fillPoly(
+				0 - 30, 0 - 12,
+				0 + 10, 0 - 12,
+				0 + 40, 0 - 40,
+				0     , 0 - 40
+			);
 			/* right face */
-			c.beginPath();
-			c.moveTo(0 + 12, 0 - 10);
-			c.lineTo(0 + 12, 0 + 30);
-			c.lineTo(0 + 42, 0);
-			c.lineTo(0 + 42, 0 - 40);
-			c.fill();
+			c.fillPoly(
+				0 + 12, 0 - 10,
+				0 + 12, 0 + 30,
+				0 + 42, 0,
+				0 + 42, 0 - 40
+			);
 			/* lines separating lid from box - whitespace */
 			c.strokeStyle = "rgb(200, 200, 200)";
 			c.lineWidth = 2;
-			c.beginPath();
-			c.moveTo(0 - 30, 0 - 5);
-			c.lineTo(0 + 10, 0 - 5);
-			c.stroke();
-			c.beginPath();
-			c.moveTo(0 + 10, 0 - 3);
-			c.lineTo(0 + 42, 0 - 35);
-			c.stroke();
+			c.strokeLine(
+				0 - 30, 0 - 5,
+				0 + 10, 0 - 5
+			);
+			c.strokeLine(
+				0 + 10, 0 - 3,
+				0 + 42, 0 - 35
+			);
 			c.lineWidth = 5;
 		},
 		[
@@ -1912,6 +2040,15 @@ var shop = {
 		]
 	),
 
+	itemsBought: function() {
+		var itemsBought = [];
+		for(var i = 0; i < this.items.length; i ++) {
+			if(this.items[i].upgrades > 0) {
+				itemsBought.push(this.items[i]);
+			}
+		}
+		return itemsBought;
+	},
 	itemsEquipped: function() {
 		var itemsEquipped = [];
 		for(var i = 0; i < this.items.length; i ++) {
@@ -1932,422 +2069,371 @@ var shop = {
 	}
 };
 shop.initialize();
-p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins; // TEMPORARY
 
-function Achievement(x, y, name) {
+function Achievement(x, y, name, description, display, calculateProgress) {
 	this.x = x;
 	this.y = y;
 	this.name = name;
+	this.description = description;
+	this.display = display; // a function to display the graphics
+	this.calculateProgress = function() {
+		var progress = calculateProgress();
+		return Math.constrain(progress, 0, 1);
+	}; // a function to give a value between 0 and 1 indicating how much of the achievement the user has completed.
+	this.calculateProgressAsString = function() {
+		var progress = calculateProgress();
+		progress *= 100;
+		progress = Math.roundToAccuracy(progress, 2);
+		return progress + "%";
+	};
 	this.infoOp = 0;
-	this.progress = 0;
+	this.hasBeenAchieved = false;
 };
 Achievement.prototype.displayLogo = function() {
 	/* background circle */
 	c.fillStyle = "rgb(200, 200, 200)";
 	c.strokeStyle = "rgb(100, 100, 100)";
-	c.beginPath();
-	c.arc(this.x, this.y, 50, 0, 2 * Math.PI);
-	c.fill();
-	c.stroke();
-	if(this.name === "I Survived") {
-		/* rays of light */
-		for(var r = 0; r < 2 * Math.PI; r += 2 * Math.PI / 6) {
-			c.fillStyle = (this.progress === 100) ? "rgb(255, 128, 0)" : "rgb(200, 200, 200)";
-			c.save();
-			c.translate(this.x, this.y);
-			c.rotate(r);
-			c.beginPath();
-			c.arc(0, 0, 47, -0.2, 0.2);
-			c.lineTo(0, 0);
-			c.fill();
-			c.restore();
-		}
-		/* stickman */
-		c.beginPath();
-		c.strokeStyle = (this.progress === 100) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
-		c.moveTo(this.x - 20, this.y + 25);
-		c.lineTo(this.x - 20, this.y + 10);
-		c.lineTo(this.x + 20, this.y + 10);
-		c.lineTo(this.x + 20, this.y + 25);
-		c.moveTo(this.x, this.y + 10);
-		c.lineTo(this.x, this.y - 10);
-		c.moveTo(this.x - 20, this.y - 30);
-		c.lineTo(this.x - 20, this.y - 10);
-		c.lineTo(this.x + 20, this.y - 10);
-		c.lineTo(this.x + 20, this.y - 30);
-		c.stroke();
-		c.fillStyle = (this.progress === 100) ? "rgb(0, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.arc(this.x, this.y - 17, 10, 0, 2 * Math.PI);
-		c.fill();
-	}
-	else if(this.name === "Survivalist") {
-		c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(this.x - 30, this.y);
-		c.lineTo(this.x + 30, this.y);
-		c.lineTo(this.x, this.y + 30);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x - 15, this.y, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x + 15, this.y, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-	}
-	else if(this.name === "Extreme Survivalist") {
-		/* left heart */
-		c.save();
-		c.translate(this.x - 20, this.y);
-		c.scale(0.5, 0.5);
-		c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(-30, 0);
-		c.lineTo(30, 0);
-		c.lineTo(0, 30);
-		c.fill();
-		c.beginPath();
-		c.arc(-15, 0, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(15, 0, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.restore();
-		/* right heart */
-		c.save();
-		c.translate(this.x + 20, this.y);
-		c.scale(0.5, 0.5);
-		c.fillStyle = (this.progress === 100) ? "rgb(255, 0, 0)" : "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(-30, 0);
-		c.lineTo(30, 0);
-		c.lineTo(0, 30);
-		c.fill();
-		c.beginPath();
-		c.arc(-15, 0, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(15, 0, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.restore();
-	}
-	else if(this.name === "What are the Odds") {
-		/* front face */
-		c.fillStyle = (this.progress === 100) ? "" : "rgb(100, 100, 100)";
-		c.fillRect(this.x - 20 - 6, this.y - 10 + 6, 30, 30);
-		/* top face */
-		c.beginPath();
-		c.moveTo(this.x - 20 - 6, this.y - 12 + 6);
-		c.lineTo(this.x + 10 - 6, this.y - 12 + 6);
-		c.lineTo(this.x + 30 - 6, this.y - 32 + 6);
-		c.lineTo(this.x + 0 - 6, this.y - 32 + 6);
-		c.fill();
-		/* right face */
-		c.beginPath();
-		c.moveTo(this.x + 12 - 6, this.y - 10 + 6);
-		c.lineTo(this.x + 12 - 6, this.y + 20 + 6);
-		c.lineTo(this.x + 32 - 6, this.y + 6);
-		c.lineTo(this.x + 32 - 6, this.y - 30 + 6);
-		c.fill();
-		/* die 1 - whitespace */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.save();
-		c.translate(this.x  - 1, this.y - 15);
-		c.scale(1, 0.75);
-		c.beginPath();
-		c.arc(0, 0, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.restore();
-		/* die 2 - whitespace */
-		c.save();
-		c.translate(this.x + 12, this.y - 3);
-		c.scale(0.75, 1);
-		c.beginPath();
-		c.arc(0, 0, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.restore();
-		c.save();
-		c.translate(this.x + 21, this.y + 3);
-		c.scale(0.75, 1);
-		c.beginPath();
-		c.arc(0, 0, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.restore();
-		/* die 3 - whitespace */
-		c.beginPath();
-		c.arc(this.x - 21, this.y + 4, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x - 1, this.y + 18, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.arc(this.x - 10, this.y + 11, 5, 0, 2 * Math.PI);
-		c.fill();
-
-	}
-	else if(this.name === "Moneybags") {
-		c.fillStyle = (this.progress === 100) ? "rgb(255, 255, 0)" : "rgb(100, 100, 100)";
-		c.font = "bold 40px monospace";
-		c.textAlign = "center";
-		c.fillText("$", this.x, this.y + 12);
-	}
-	else if(this.name === "Extreme Moneybags") {
-		c.fillStyle = (this.progress === 100) ? "rgb(255, 255, 0)" : "rgb(100, 100, 100)";
-		c.font = "bold 40px monospace";
-		c.textAlign = "center";
-		c.fillText("$$", this.x, this.y + 12);
-	}
-	else if(this.name === "Improvement") {
-		c.fillStyle = (this.progress === 100) ? "rgb(0, 128, 0)" : "rgb(100, 100, 100)";
-		c.font = "bold 50px monospace";
-		c.textAlign = "center";
-		c.fillText("+", this.x, this.y + 12);
-	}
-	else if(this.name === "Places to Be") {
-		c.lineWidth = 2;
-		c.setLineDash([2, 2]);
-		c.beginPath();
-		c.moveTo(this.x, this.y - 10);
-		c.lineTo(this.x, this.y + 10);
-		c.lineTo(this.x + 10, this.y + 20);
-		c.moveTo(this.x, this.y + 10);
-		c.lineTo(this.x - 10, this.y + 20);
-		c.moveTo(this.x, this.y - 10);
-		c.lineTo(this.x + 10, this.y);
-		c.moveTo(this.x, this.y - 10);
-		c.lineTo(this.x - 10, this.y);
-		c.stroke();
-		c.beginPath();
-		c.arc(this.x, this.y - 15, 5, 0, 2 * Math.PI);
-		c.stroke();
-		c.setLineDash([]);
-		c.lineWidth = 5;
-	}
-	else if(this.name === "Ghost") {
-		c.save();
-		c.translate(0, 5);
-		c.fillStyle = (this.progress === 100) ? "rgb(255, 255, 255)" : "rgb(100, 100, 100)";
-		c.fillRect(this.x - 15, this.y - 15, 30, 30);
-		c.beginPath();
-		c.arc(this.x, this.y - 15, 15, Math.PI, 2 * Math.PI);
-		c.fill();
-		/* wavy bits */
-		c.beginPath();
-		c.arc(this.x - 12, this.y + 15, 3, 0, Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x, this.y + 15, 3, 0, Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x + 12, this.y + 15, 3, 0, Math.PI);
-		c.fill();
-		/* wavy bits - whitespace */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.beginPath();
-		c.arc(this.x - 6, this.y + 15, 3, Math.PI, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x + 6, this.y + 15, 3, Math.PI, 2 * Math.PI);
-		c.fill();
-		/* eyes - whitespace */
-		c.beginPath();
-		c.arc(this.x - 7, this.y - 10, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.beginPath();
-		c.arc(this.x + 7, this.y - 10, 5, 0, 2 * Math.PI);
-		c.fill();
-		c.restore();
-	}
-};
-Achievement.prototype.displayInfo = function() {
-	c.globalAlpha = (this.infoOp > 0) ? this.infoOp : 0;
-	if(this.x < 450) {
-		/* info box */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(this.x + 50, this.y);
-		c.lineTo(this.x + 60, this.y - 10);
-		c.lineTo(this.x + 60, this.y + 10);
-		c.fill();
-		c.fillRect(this.x + 60, this.y - 100, 250, 200);
-		/* title */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.font = "20px monospace";
-		c.textAlign = "left";
-		c.fillText(this.name, this.x + 70, this.y - 80);
-		/* line */
-		c.strokeStyle = "rgb(200, 200, 200)";
-		c.beginPath();
-		c.moveTo(this.x + 65, this.y - 70);
-		c.lineTo(this.x + 305, this.y - 70);
-		c.stroke();
-		/* description */
-		switch(this.name) {
-			case "I Survived":
-				c.fillText("Survive all of the", this.x + 70, this.y - 50);
-				c.fillText("events.", this.x + 70, this.y - 30);
-				break;
-			case "Survivalist":
-				c.fillText("Achieve a score of", this.x + 70, this.y - 50);
-				c.fillText("10 points or higher.", this.x + 70, this.y - 30);
-				break;
-			case "What are the Odds":
-				c.fillText("Experience the same", this.x + 70, this.y - 50);
-				c.fillText("event twice in a", this.x + 70, this.y - 30);
-				c.fillText("row.", this.x + 70, this.y - 10);
-				break;
-			case "Moneybags":
-				c.fillText("Buy something from", this.x + 70, this.y - 50);
-				c.fillText("the shop.", this.x + 70, this.y - 30);
-				break;
-			case "Improvement":
-				c.fillText("Beat your record", this.x + 70, this.y - 50);
-				c.fillText("5 times.", this.x + 70, this.y - 30);
-				break;
-			case "Places to Be":
-				c.fillText("[???]", this.x + 70, this.y - 50);
-				break;
-		}
-		/* progress */
-		c.strokeRect(this.x + 70, this.y + 60, 230, 30);
-		if(this.progress === 100) {
-			c.textAlign = "center";
-			c.fillText("Achieved", this.x + 175, this.y + 80);
-			c.textAlign = "left";
-		}
-		else {
-			c.textAlign = "center";
-			c.fillText("Progress: " + this.progress + "%", this.x + 175, this.y + 80);
-			c.textAlign = "left";
-		}
-	}
-	else {
-		/* info box */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.beginPath();
-		c.moveTo(this.x - 50, this.y);
-		c.lineTo(this.x - 60, this.y - 10);
-		c.lineTo(this.x - 60, this.y + 10);
-		c.fill();
-		c.fillRect(this.x - 310, this.y - 100, 250, 200);
-		/* title */
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.font = "20px monospace";
-		c.textAlign = "left";
-		c.fillText(this.name, this.x - 300, this.y - 80);
-		/* line */
-		c.strokeStyle = "rgb(200, 200, 200)";
-		c.beginPath();
-		c.moveTo(this.x - 65, this.y - 70);
-		c.lineTo(this.x - 305, this.y - 70);
-		c.stroke();
-		/* description */
-		switch(this.name) {
-			case "Extreme Survivalist":
-				c.fillText("Achieve a score of", this.x - 300, this.y - 50);
-				c.fillText("20 points or higher.", this.x - 300, this.y - 30);
-				break;
-			case "Extreme Moneybags":
-				c.fillText("Buy everything in", this.x - 300, this.y - 50);
-				c.fillText("the shop.", this.x - 300, this.y - 30);
-				break;
-			case "Ghost":
-				c.fillText("[???]", this.x - 300, this.y - 50);
-		}
-		/* progress */
-		c.strokeRect(this.x - 300, this.y + 60, 230, 30);
-		if(this.progress === 100) {
-			c.textAlign = "center";
-			c.fillText("Achieved", this.x - 175, this.y + 80);
-			c.textAlign = "left";
-		}
-		else {
-			c.textAlign = "center";
-			c.fillText("Progress: " + this.progress + "%", this.x - 175, this.y + 80);
-			c.textAlign = "left";
-		}
-	}
-	c.globalAlpha = 1;
+	c.fillCircle(this.x, this.y, 50);
+	c.strokeCircle(this.x, this.y, 50);
+	/* graphic */
+	this.display(this, (!this.hasBeenAchieved));
 	/* fading in */
 	if(Math.dist(this.x, this.y, input.mouse.x, input.mouse.y) <= 50) {
-		this.infoOp = (this.infoOp < 1) ? this.infoOp + 0.1 : 1;
+		this.infoOp += 0.1;
 	}
 	else {
-		this.infoOp = (this.infoOp > 0) ? this.infoOp - 0.1 : 0;
+		this.infoOp -= 0.1;
+	}
+	this.infoOp = Math.constrain(this.infoOp, 0, 1);
+};
+Achievement.prototype.displayInfo = function(direction) {
+	const BOX_WIDTH = 250;
+	const BOX_HEIGHT = 200;
+	const MARGIN_WIDTH = 10;
+	if(direction === "left") {
+		c.globalAlpha = this.infoOp;
+		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillPoly(
+			this.x - 50, this.y,
+			this.x - 60, this.y - 10,
+			this.x - 60, this.y + 10
+		);
+		c.save(); {
+			c.translate(this.x - 60, this.y);
+			c.translate(-BOX_WIDTH, -(BOX_HEIGHT / 2));
+			this.displayInfo("no-direction");
+		} c.restore();
+	}
+	else if(direction === "right") {
+		c.globalAlpha = this.infoOp;
+		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillPoly(
+			this.x + 50, this.y,
+			this.x + 60, this.y - 10,
+			this.x + 60, this.y + 10
+		);
+		c.save(); {
+			c.translate(this.x + 60, this.y);
+			c.translate(0, -(BOX_HEIGHT / 2));
+			this.displayInfo("no-direction");
+		} c.restore();
+	}
+	else if(direction === "no-direction") {
+		/*
+		direction === "no-direction": assume that the canvas has already been translated right or left and draw the infobox at the origin.
+		*/
+		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillRect(0, 0, BOX_WIDTH, BOX_HEIGHT);
+		/* title */
+		c.loadTextStyle({
+			color: "rgb(200, 200, 200)",
+			font: "20px monospace"
+		});
+		c.fillText(this.name, MARGIN_WIDTH, 20);
+		/* title underline */
+		c.strokeStyle = "rgb(200, 200, 200)";
+		c.strokeLine(
+			MARGIN_WIDTH, 30,
+			BOX_WIDTH - MARGIN_WIDTH, 30
+		);
+		/* description text */
+		c.displayTextOverLines(this.description, 10, 50, BOX_WIDTH - (2 * MARGIN_WIDTH), 20);
+		/* progress */
+		c.strokeRect(MARGIN_WIDTH, BOX_HEIGHT - 30 - MARGIN_WIDTH, BOX_WIDTH - (MARGIN_WIDTH * 2), 30);
+		c.textAlign = "center";
+		if(this.hasBeenAchieved) {
+			c.fillText("Achieved", BOX_WIDTH / 2, BOX_HEIGHT - 30 - MARGIN_WIDTH + 15 + 5);
+			c.textAlign = "left";
+		}
+		else {
+			c.fillText("Progress: " + this.calculateProgressAsString(), BOX_WIDTH / 2, BOX_HEIGHT - 30 - MARGIN_WIDTH + 15 + 5);
+		}
+	}
+	else {
+		/* pick a direction to display the info box */
+		if(this.x < 450) {
+			this.displayInfo("right");
+		}
+		else {
+			this.displayInfo("left");
+		}
 	}
 };
 Achievement.prototype.checkProgress = function() {
-	switch(this.name) {
-		case "I Survived":
-			this.progress = (p.eventsSurvived.length / game.events.length) * 100;
-			break;
-		case "Survivalist":
-			var theHighscore = p.score > p.highScore ? p.score : p.highScore;
-			this.progress = theHighscore * 10;
-			this.progress = this.progress > 100 ? 100 : this.progress;
-			break;
-		case "Extreme Survivalist":
-			var theHighscore = p.score > p.highScore ? p.score : p.highScore;
-			this.progress = theHighscore * 5;
-			this.progress = this.progress > 100 ? 100 : this.progress;
-			break;
-		case "What are the Odds":
-			this.progress = (p.repeatedEvent) ? 100 : 0;
-			break;
-		case "Moneybags":
-			if(shop.coinDoubler.bought || shop.speedIncreaser.bought || shop.doubleJumper.bought || shop.intangibilityTalisman.bought || shop.secondLife.bought || shop.secondItem.bought) {
-				this.progress = 100;
-			}
-			else {
-				this.progress = 0;
-			}
-			break;
-		case "Extreme Moneybags":
-			this.progress = 0;
-			if(shop.coinDoubler.bought) {
-				this.progress += 100 / 6;
-			}
-			if(shop.speedIncreaser.bought) {
-				this.progress += 100 / 6;
-			}
-			if(shop.doubleJumper.bought) {
-				this.progress += 100 / 6;
-			}
-			if(shop.intangibilityTalisman.bought) {
-				this.progress += 100 / 6;
-			}
-			if(shop.secondLife.bought) {
-				this.progress += 100 / 6;
-			}
-			if(shop.secondItem.bought) {
-				this.progress += 100 / 6;
-			}
-			break;
-		case "Improvement":
-			this.progress = p.numRecords * 20;
-			break;
-		case "Places to Be":
-			this.progress = p.gonePlaces ? 100 : 0;
-			break;
-		case "Ghost":
-			this.progress = p.beenGhost ? 100 : 0;
-			break;
-	}
-	this.progress = Math.ceil(this.progress * 10) / 10;
-	this.progress = Math.min(this.progress, 100);
-	if(this.progress >= 100 && this.previousProgress < 100) {
+	if(this.calculateProgress() >= 1 && !this.hasBeenAchieved) {
 		game.chatMessages.push(new ChatMessage("Achievement Earned: " + this.name, "rgb(255, 255, 0)"));
+		this.hasBeenAchieved = true;
 	}
-	this.previousProgress = this.progress;
 }
-var achievement1 = new Achievement(200, 200, "I Survived");
-var achievement2 = new Achievement(400, 200, "Survivalist");
-var achievement3 = new Achievement(600, 200, "Extreme Survivalist");
-var achievement4 = new Achievement(200, 400, "What are the Odds");
-var achievement5 = new Achievement(400, 400, "Moneybags");
-var achievement6 = new Achievement(600, 400, "Extreme Moneybags");
-var achievement7 = new Achievement(200, 600,  "Improvement");
-var achievement8 = new Achievement(400, 600, "Places to Be");
-var achievement9 = new Achievement(600, 600, "Ghost");
+var achievements = [
+	new Achievement(
+		200, 200,
+		"I Survived",
+		"Survive all of the events.",
+		function(self, isGrayscale) {
+			/* rays of light */
+			for(var r = 0; r < 360; r += 360 / 6) {
+				c.fillStyle = (isGrayscale ? "rgb(200, 200, 200)" : "rgb(255, 128, 0)");
+				c.save(); {
+					c.translate(self.x, self.y);
+					c.rotate(Math.toRadians(r));
+					c.fillArc(0, 0, 47, Math.toRadians(-11), Math.toRadians(11));
+				} c.restore();
+			}
+			/* stickman */
+			c.beginPath();
+			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.strokeLine(
+				self.x - 20, self.y + 25,
+				self.x - 20, self.y + 10,
+				self.x + 20, self.y + 10,
+				self.x + 20, self.y + 25
+			);
+			c.strokeLine(
+				self.x, self.y + 10,
+				self.x, self.y - 10
+			);
+			c.strokeLine(
+				self.x - 20, self.y - 30,
+				self.x - 20, self.y - 10,
+				self.x + 20, self.y - 10,
+				self.x + 20, self.y - 30
+			);
+			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.fillCircle(self.x, self.y - 17, 10);
+		},
+		function() {
+			return (p.eventsSurvived.length / game.events.length) * 100;
+		}
+	),
+	new Achievement(
+		400, 200,
+		"Survivalist",
+		"Achieve a score of 10 points or higher.",
+		function(self, isGrayscale) {
+			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 0, 0)");
+			c.fillPoly(
+				self.x - 30, self.y,
+				self.x + 30, self.y,
+				self.x, self.y + 30
+			);
+			c.fillArc(self.x - 15, self.y, 15, Math.toRadians(180), Math.toRadians(360));
+			c.fillArc(self.x + 15, self.y, 15, Math.toRadians(180), Math.toRadians(360));
+		},
+		function() {
+			var theHighscore = Math.max(p.score, p.highScore);
+			return theHighscore / 10;
+		}
+	),
+	new Achievement(
+		600, 200,
+		"Extreme Survivalist",
+		"Achieve a score of 20 points or higher.",
+		function(self, isGrayscale) {
+			function displayHeartGraphic(x, y) {
+				c.save(); {
+					c.translate(x, y);
+					c.scale(0.5, 0.5);
+					c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 0, 0)");
+					c.fillPoly(
+						-30, 0,
+						30, 0,
+						0, 30
+					);
+					c.fillArc(-15, 0, 15, Math.toRadians(180), Math.toRadians(360));
+					c.fillArc(15, 0, 15, Math.toRadians(180), Math.toRadians(360));
+				} c.restore();
+			};
+			displayHeartGraphic(self.x - 20, self.y);
+			displayHeartGraphic(self.x + 20, self.y);
+		},
+		function() {
+			var theHighscore = Math.max(p.score, p.highScore);
+			return theHighscore / 20;
+		}
+	),
+	new Achievement(
+		200, 400,
+		"What are the Odds",
+		"Experience the same event twice in a row.",
+		function(self, isGrayscale) {
+			/* front face */
+			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 128, 255)");
+			c.fillRect(self.x - 20 - 6, self.y - 10 + 6, 30, 30);
+			/* top face */
+			c.fillPoly(
+				self.x - 20 - 6, self.y - 12 + 6,
+				self.x + 10 - 6, self.y - 12 + 6,
+				self.x + 30 - 6, self.y - 32 + 6,
+				self.x + 0 - 6 , self.y - 32 + 6
+			);
+			/* right face */
+			c.fillPoly(
+				self.x + 12 - 6, self.y - 10 + 6,
+				self.x + 12 - 6, self.y + 20 + 6,
+				self.x + 32 - 6, self.y + 6,
+				self.x + 32 - 6, self.y - 30 + 6
+			);
+			/* die 1 - whitespace */
+			c.fillStyle = "rgb(200, 200, 200)";
+			c.save(); {
+				c.translate(self.x  - 1, self.y - 15);
+				c.scale(1, 0.75);
+				c.fillCircle(0, 0, 5);
+			} c.restore();
+			/* die 2 - whitespace */
+			c.save(); {
+				c.translate(self.x + 12, self.y - 3);
+				c.scale(0.75, 1);
+				c.fillCircle(0, 0, 5);
+			} c.restore();
+			c.save(); {
+				c.translate(self.x + 21, self.y + 3);
+				c.scale(0.75, 1);
+				c.fillCircle(0, 0, 5);
+			} c.restore();
+			/* die 3 - whitespace */
+			c.fillCircle(self.x - 21, self.y + 4, 5);
+			c.fillCircle(self.x - 1, self.y + 18, 5);
+			c.fillCircle(self.x - 10, self.y + 11, 5);
+		},
+		function() {
+			return (p.repeatedEvent ? 1 : 0);
+		}
+	),
+	new Achievement(
+		400, 400,
+		"Moneybags",
+		"Buy something from the shop.",
+		function(self, isGrayscale) {
+			c.loadTextStyle({
+				color: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)"),
+				font: "bold 40px monospace",
+				textAlign: "center"
+			});
+			c.fillText("$", self.x, self.y + 12);
+		},
+		function() {
+			return shop.itemsBought().length;
+		}
+	),
+	new Achievement(
+		600, 400,
+		"Extreme Moneybags",
+		"Buy everything in the shop.",
+		function(self, isGrayscale) {
+			c.loadTextStyle({
+				color: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)"),
+				font: "bold 40px monospace",
+				textAlign: "center"
+			});
+			c.fillText("$$", self.x, self.y + 12);
+		},
+		function() {
+			return shop.itemsBought.length / shop.items.length;
+		}
+	),
+	new Achievement(
+		200, 600,
+		"Improvement",
+		"Beat your record five times.",
+		function(self, isGrayscale) {
+			c.loadTextStyle({
+				fillStyle: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 128, 0)"),
+				font: "bold 50px monospace",
+				textAlign: "center"
+			});
+			c.fillText("+", self.x, self.y + 12);
+		},
+		function() {
+			return p.numRecords / 5;
+		}
+	),
+	new Achievement(
+		400, 600,
+		"Places to Be",
+		"[???]",
+		function(self) {
+			c.save(); {
+				c.lineWidth = 2;
+				c.setLineDash([2, 2]);
+				c.strokeLine(
+					self.x, self.y - 10,
+					self.x, self.y + 10,
+					self.x + 10, self.y + 20
+				);
+				c.strokeLine(
+					self.x, self.y + 10,
+					self.x - 10, self.y + 20,
+				);
+				c.strokeLine(
+					self.x, self.y - 10,
+					self.x + 10, self.y
+				);
+				c.strokeLine(
+					self.x, self.y - 10,
+					self.x - 10, self.y
+				);
+				c.strokeCircle(self.x, self.y - 15, 5);
+			} c.restore();
+		},
+		function() {
+			return p.gonePlaces ? 1 : 0;
+		}
+	),
+	new Achievement(
+		600, 600,
+		"Ghost",
+		"[???]",
+		function(self, isGrayscale) {
+			c.save(); {
+				c.translate(0, 5);
+				c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
+				c.fillRect(self.x - 15, self.y - 15, 30, 30);
+				c.beginPath();
+				c.arc(self.x, self.y - 15, 15, Math.PI, 2 * Math.PI);
+				c.fill();
+				/* wavy bits on bottom of ghost */
+				for(var x = -12; x <= 12; x += 6) {
+					if(x % 12 === 0) {
+						c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
+					}
+					else {
+						c.fillStyle = "rgb(200, 200, 200)"; // whitespace
+					}
+					c.fillCircle(self.x + x, self.y + 15, 3);
+				}
+				/* eyes - whitespace */
+				c.fillStyle = "rgb(200, 200, 200)";
+				c.fillCircle(self.x - 7, self.y - 10, 5);
+				c.fillCircle(self.x + 7, self.y - 10, 5);
+			} c.restore();
+		},
+		function() {
+			return p.beenGhost ? 1 : 0;
+		}
+	),
+];
 
 function Coin(x, y, timeToAppear) {
 	this.x = x;
@@ -2360,13 +2446,11 @@ function Coin(x, y, timeToAppear) {
 Coin.prototype.display = function() {
 	if(this.age > this.timeToAppear) {
 		c.fillStyle = "rgb(255, 255, 0)";
-		c.save();
-		c.translate(this.x, this.y + p.worldY);
-		c.scale(this.spin, 1);
-		c.beginPath();
-		c.arc(0, 0, 20, 0, 2 * Math.PI);
-		c.fill();
-		c.restore();
+		c.save(); {
+			c.translate(this.x, this.y + p.worldY);
+			c.scale(this.spin, 1);
+			c.fillCircle(0, 0, 20);
+		} c.restore();
 	}
 };
 Coin.prototype.update = function() {
@@ -2383,7 +2467,7 @@ Coin.prototype.update = function() {
 		p.coins += (shop.coinDoubler.equipped) ? 2 : 1;
 	}
 	if(this.age > this.timeToAppear && shop.coinDoubler.equipped) {
-		if(shop.coinDoubler.numUpgrades === 2 && Math.dist(this.x, this.y, p.x, p.y) < 200 && this.age > this.timeToAppear) {
+		if(shop.coinDoubler.numUpgrades === 2 && Math.dist(this.x, this.y, p.x, p.y) < 200) {
 			this.x += (p.x - this.x) / 10;
 			this.y += (p.y - this.y) / 10;
 		}
@@ -2399,14 +2483,16 @@ function ChatMessage(msg, col) {
 	this.time = 120;
 };
 ChatMessage.prototype.display = function(y) {
-	c.fillStyle = this.col;
-	c.textAlign = "right";
-	c.font = "20px monospace";
+	c.loadTextStyle({
+		color: this.col,
+		textAlign: "right",
+		font: "20px monospace"
+	});
 	c.fillText(this.msg, 790, y);
 	this.time --;
 };
 /* laser event */
-function Laser() {
+function Crosshair() {
 	this.x = Math.random() * 800;
 	this.y = Math.random() * 800;
 	this.numMoves = 0;
@@ -2415,24 +2501,20 @@ function Laser() {
 	this.timeSinceBlink = 0;
 	this.blinking = false;
 };
-Laser.prototype.display = function() {
-	if(this.blinking) {
-		return;
+Crosshair.prototype.display = function() {
+	if(!this.blinking) {
+		c.strokeStyle = "rgb(255, 0, 0)";
+		c.strokeCircle(this.x, this.y, 50);
+		for(var r = 0; r < 360; r += 90) {
+			c.save(); {
+				c.translate(this.x, this.y);
+				c.rotate(Math.toRadians(r));
+				c.strokeLine(0, -40, 0, -60);
+			} c.restore();
+		}
 	}
-	c.strokeStyle = "rgb(255, 0, 0)";
-	c.beginPath();
-	c.arc(this.x, this.y + p.worldY, 50, 0, 2 * Math.PI);
-	c.moveTo(this.x, this.y + p.worldY - 60);
-	c.lineTo(this.x, this.y + p.worldY - 40);
-	c.moveTo(this.x + 60, this.y + p.worldY);
-	c.lineTo(this.x + 40, this.y + p.worldY);
-	c.moveTo(this.x, this.y + p.worldY + 60);
-	c.lineTo(this.x, this.y + p.worldY + 40);
-	c.moveTo(this.x - 60, this.y + p.worldY);
-	c.lineTo(this.x - 40, this.y + p.worldY);
-	c.stroke();
 };
-Laser.prototype.update = function() {
+Crosshair.prototype.update = function() {
 	this.timeInLocation ++;
 	if(this.timeInLocation > 60 && this.numMoves < 4) {
 		this.x = Math.random() * 800;
@@ -2459,7 +2541,7 @@ Laser.prototype.update = function() {
 		}
 	}
 };
-Laser.prototype.explode = function(nonLethal) {
+Crosshair.prototype.explode = function(nonLethal) {
 	nonLethal = nonLethal || false;
 	const MIN_PARTICLE_VELOCITY = 1;
 	const MAX_PARTICLE_VELOCITY = 5;
@@ -2534,12 +2616,17 @@ Acid.prototype.update = function() {
 };
 Acid.prototype.beginRising = function() {
 	this.velY = -2;
-	game.objects.push(new Platform(320, 40, 160, 20));
-	game.objects.push(new Platform(0, -135, 160, 20));
-	game.objects.push(new Platform(800 - 160, -135, 160, 20));
-	game.objects.push(new Platform(320, -310, 160, 20));
-	game.objects.push(new Platform(0, -485, 160, 20));
-	game.objects.push(new Platform(800 - 160, -485, 160, 20));
+	var platformInMiddle = true;
+	for(var y = 50; y >= -475; y -= 175) {
+		if(platformInMiddle) {
+			game.objects.push(new Platform((canvas.width / 2) - (160 / 2), y - 10, 160, 20));
+		}
+		else {
+			game.objects.push(new Platform(0, y - 10, 160, 20));
+			game.objects.push(new Platform(canvas.width - 160, y - 10, 160, 20));
+		}
+		platformInMiddle = !platformInMiddle;
+	}
 	for(var i = 0; i < game.objects.length; i ++) {
 		if(game.objects[i] instanceof Platform && game.objects[i].y <= 210) {
 			game.objects[i].opacity = 0;
@@ -2589,16 +2676,11 @@ function Boulder(x, y, velX) {
 };
 Boulder.prototype.display = function() {
 	c.fillStyle = "rgb(100, 100, 100)";
-	c.save();
-	c.translate(this.x, this.y);
-	c.rotate(Math.toRadians(this.rotation));
-	c.beginPath();
-	c.moveTo(this.vertices[0].x, this.vertices[0].y);
-	for(var i = 1; i < this.vertices.length; i ++) {
-		c.lineTo(this.vertices[i].x, this.vertices[i].y);
-	}
-	c.fill();
-	c.restore();
+	c.save(); {
+		c.translate(this.x, this.y);
+		c.rotate(Math.toRadians(this.rotation));
+		c.fillPoly(this.vertices);
+	} c.restore();
 };
 Boulder.prototype.update = function() {
 	this.velY += 0.1;
@@ -2664,16 +2746,11 @@ function RockParticle(x, y, vertices, velX, velY) {
 };
 RockParticle.prototype.display = function() {
 	c.fillStyle = "rgb(100, 100, 100)";
-	c.save();
-	c.translate(this.x, this.y);
-	c.rotate(Math.toRadians(this.rotation));
-	c.beginPath();
-	c.moveTo(this.vertices[0].x, this.vertices[0].y);
-	for(var i = 1; i < this.vertices.length; i ++) {
-		c.lineTo(this.vertices[i].x, this.vertices[i].y);
-	}
-	c.fill();
-	c.restore();
+	c.save(); {
+		c.translate(this.x, this.y);
+		c.rotate(Math.toRadians(this.rotation));
+		c.fillPoly(this.vertices);
+	} c.restore();
 };
 RockParticle.prototype.update = function() {
 	this.x += this.velX;
@@ -2694,54 +2771,59 @@ RockParticle.prototype.update = function() {
 function SpinnyBlade(x, y) {
 	this.x = x;
 	this.y = y;
-	this.r = 0.5 * Math.PI;
+	// this.r = 0.5 * Math.PI;
+	this.r = 90;
 	this.numRevolutions = 0;
 	this.opacity = 0;
+
+	this.ROTATION_SPEED = 1;
+	if(Math.random() < 0.5) {
+		this.ROTATION_SPEED *= -1;
+	}
 };
 SpinnyBlade.prototype.display = function() {
 	c.fillStyle = "rgb(215, 215, 215)";
 	c.globalAlpha = this.opacity;
-	c.save();
-	c.translate(this.x, this.y + p.worldY);
-	c.rotate(this.r);
-	c.beginPath();
-	c.moveTo(-5, 0);
-	c.lineTo(5, 0);
-	c.lineTo(0, -80);
-	c.fill();
-	c.beginPath();
-	c.moveTo(-5, 0);
-	c.lineTo(5, 0);
-	c.lineTo(0, 80);
-	c.fill();
-	c.restore();
+	c.save(); {
+		c.translate(this.x, this.y + p.worldY);
+		c.rotate(Math.toRadians(this.r));
+		c.fillPoly(
+			-5, 0,
+			5, 0,
+			0, -80
+		);
+		c.fillPoly(
+			-5, 0,
+			5, 0,
+			0, 80
+		);
+	} c.restore();
 	c.globalAlpha = 1;
 };
 SpinnyBlade.prototype.update = function() {
 	if(this.opacity >= 1) {
 		this.r += 0.02;
 	}
-	this.r -= (this.r > 2 * Math.PI ? 2 * Math.PI : 0);
-	if(this.r > 0.5 * Math.PI - 0.01 && this.r < 0.5 * Math.PI + 0.01 && this.opacity >= 1) {
+	this.r -= this.ROTATION_SPEED;
+	if(Math.dist(this.r, 90) <= this.ROTATION_SPEED) {
 		this.numRevolutions ++;
 	}
-	if(this.opacity < 1 && this.numRevolutions < 2) {
+	if(this.numRevolutions < 2) {
 		this.opacity += 0.05;
 	}
-	if(this.opacity > 0 && this.numRevolutions >= 2) {
+	else {
 		this.opacity -= 0.05;
 	}
-	var endPoint1 = Math.rotate(0, -80, this.r);
+	this.opacity = Math.constrain(this.opacity, 0, 1);
+	/* player collisions */
+	var endPoint1 = Math.rotateDegrees(0, -80, this.r);
 	var endPoint2 = { x: -endPoint1.x, y: -endPoint1.y };
 	endPoint1.x += this.x; endPoint2.x += this.x;
 	endPoint1.y += this.y; endPoint2.y += this.y;
-	var bladeArray = Math.findPointsLinear(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y);
-	for(var i = 0; i < bladeArray.length; i ++) {
-		var point = bladeArray[i];
-		if(!p.isIntangible()) {
-			utilities.killCollisionPoint(point.x, point.y, "spinnyblades");
-		}
+	if(!p.isIntangible()) {
+		utilities.killCollisionLine(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y);
 	}
+	/* remove self when faded out */
 	if(this.opacity <= 0 && this.numRevolutions >= 2) {
 		this.splicing = true;
 		p.surviveEvent("spinnyblades");
@@ -2759,49 +2841,47 @@ function Pirhana(x) {
 	this.velY = -10;
 	this.scaleY = 1;
 	this.mouth = 1; // 1 = open, 0 = closed
+	this.mouthAngle = 45;
 	this.mouthVel = 0;
+
+	this.BITE_SPEED = 3;
 };
 Pirhana.prototype.display = function() {
 	c.fillStyle = "rgb(0, 128, 0)";
-	c.save();
-	c.translate(this.x, this.y);
-	c.scale(1, this.scaleY);
-	c.beginPath();
-	c.arc(0, 0, 25, 0, Math.PI);
-	c.fill();
-	c.beginPath();
-	c.arc(0, 0, 25, -0.5 * Math.PI + this.mouth, 0.5 * Math.PI + this.mouth);
-	c.fill();
-	c.beginPath();
-	c.arc(0, 0, 25, 0.5 * Math.PI - this.mouth, -0.5 * Math.PI - this.mouth);
-	c.fill();
-	c.beginPath();
-	c.moveTo(0, 12);
-	c.lineTo(-25, 37);
-	c.lineTo(25, 37);
-	c.fill();
-	c.restore();
+	c.save(); {
+		c.translate(this.x, this.y);
+		c.scale(1, this.scaleY);
+		c.fillArc(0, 0, 25, Math.toRadians(270 + this.mouthAngle), Math.toRadians(270 - this.mouthAngle));
+		c.fillPoly(
+			0, 12,
+			-25, 37,
+			25, 37
+		);
+	} c.restore();
 };
 Pirhana.prototype.update = function() {
 	this.y += this.velY;
 	this.velY += 0.1;
-	if(this.scaleY > -1 && this.velY > 0) {
+	if(this.velY > 0) {
 		this.scaleY -= 0.1;
 	}
-	this.mouth += this.mouthVel;
+	this.scaleY = Math.constrain(this.scaleY, -1, 1);
+	this.mouthAngle += this.mouthVel;
+	/* pirhana biting animations */
 	if(Math.dist(this.x, this.y, p.x, p.y) < 100 && this.mouthVel === 0) {
-		this.mouthVel = -0.05;
+		this.mouthVel = -this.BITE_SPEED;
 	}
-	if(this.mouth <= 0) {
-		this.mouthVel = 0.1;
+	if(this.mouthAngle <= 0) {
+		this.mouthVel = this.BITE_SPEED;
 	}
-	if(this.mouth > 1) {
+	if(this.mouthAngle > 45 && this.mouthVel > 0) {
 		this.mouthVel = 0;
-		this.mouth = 1;
 	}
+	/* player deaths */
 	if(!p.isIntangible()) {
 		utilities.killCollisionRect(this.x - 25, this.y - 25, 50, 62, "pirhanas");
 	}
+	/* remove offscreen pirhanas */
 	if(this.y > 850 && this.velY > 0) {
 		this.splicing = true;
 		if(game.numObjects(Pirhana) === 0) {
@@ -2819,9 +2899,7 @@ function Dot(x, y, timeToAppear) {
 Dot.prototype.display = function() {
 	if(this.timeToAppear <= 0) {
 		c.fillStyle = "rgb(255, 255, 255)";
-		c.beginPath();
-		c.arc(this.x, this.y, 20, 0, 2 * Math.PI);
-		c.fill();
+		c.fillCircle(this.x, this.y, 20);
 	}
 };
 Dot.prototype.update = function() {
@@ -2845,12 +2923,6 @@ Pacman.prototype.display = function() {
 	} c.restore();
 };
 Pacman.prototype.update = function() {
-	if(this.velX > 0) {
-		this.r = 0.5 * Math.PI;
-	}
-	else {
-		this.r = -0.5 * Math.PI;
-	}
 	this.x += this.velX;
 	this.mouth += this.mouthVel;
 	const MOUTH_ANIMATION_SPEED = 0.5;
@@ -2877,7 +2949,10 @@ Pacman.prototype.update = function() {
 	}
 	/* remove dots when eaten */
 	for(var i = 0; i < game.objects.length; i ++) {
-		if(game.objects[i] instanceof Dot && game.objects[i].y === this.y && ((game.objects[i].x < this.x - 20 && this.velX > 0) || (game.objects[i].x > this.x + 20 && this.velX < 0))) {
+		if(game.objects[i] instanceof Dot && game.objects[i].y === this.y &&
+			((game.objects[i].x < this.x - 20 && this.velX > 0) ||
+			(game.objects[i].x > this.x + 20 && this.velX < 0))
+		) {
 			game.objects[i].splicing = true;
 		}
 	}
@@ -2906,14 +2981,13 @@ function FireParticle(x, y, size, settings) {
 	this.KILLS_PLAYER = settings.KILLS_PLAYER || false;
 };
 FireParticle.prototype.display = function() {
-	c.globalAlpha = this.opacity;
-	c.fillStyle = "rgb(255, " + this.color + ", 0)";
-	c.beginPath();
-	if(this.size > 0) {
-		c.arc(this.x, this.y, this.size, 0, 2 * Math.PI);
-	}
-	c.fill();
-	c.globalAlpha = 1;
+	c.save(); {
+		c.globalAlpha = this.opacity;
+		c.fillStyle = "rgb(255, " + this.color + ", 0)";
+		if(this.size > 0) {
+			c.fillCircle(this.x, this.y, this.size);
+		}
+	} c.restore();
 };
 FireParticle.prototype.update = function() {
 	this.opacity -= this.FADEOUT_SPEED;
@@ -2937,67 +3011,47 @@ function Rocket(x, y, velX) {
 	this.velX = velX;
 };
 Rocket.prototype.display = function() {
-	c.fillStyle = "rgb(100, 100, 100)";
-	if(this.velX > 0) {
-		c.fillRect(this.x, this.y, 50, 20);
+	c.save(); {
+		c.translate(this.x, this.y);
+		if(this.velX < 0) {
+			c.scale(-1, 1);
+		}
+		c.fillRect(0, -10, 50, 20);
 		/* tip */
-		c.beginPath();
-		c.moveTo(this.x + 50, this.y);
-		c.lineTo(this.x + 100, this.y + 10);
-		c.lineTo(this.x + 50, this.y + 20);
-		c.fill();
-		/* top back spike */
-		c.beginPath();
-		c.moveTo(this.x, this.y);
-		c.lineTo(this.x - 50, this.y - 5);
-		c.lineTo(this.x, this.y + 10);
-		c.fill();
-		/* bottom back spike */
-		c.beginPath();
-		c.moveTo(this.x, this.y + 20);
-		c.lineTo(this.x - 50, this.y + 25);
-		c.lineTo(this.x, this.y + 10);
-		c.fill();
-	}
-	else {
-		c.fillRect(this.x - 50, this.y, 50, 20);
-		/* tip */
-		c.beginPath();
-		c.moveTo(this.x - 50, this.y);
-		c.lineTo(this.x - 100, this.y + 10);
-		c.lineTo(this.x - 50, this.y + 20);
-		c.fill();
-		/* top backspike */
-		c.beginPath();
-		c.moveTo(this.x, this.y);
-		c.lineTo(this.x + 50, this.y - 5);
-		c.lineTo(this.x, this.y + 10);
-		c.fill();
-		/* bottom backspike */
-		c.beginPath();
-		c.moveTo(this.x, this.y + 20);
-		c.lineTo(this.x + 50, this.y + 25);
-		c.lineTo(this.x, this.y + 10);
-		c.fill();
-	}
+		c.fillPoly(
+			50, -10,
+			100, 0,
+			50, 10
+		);
+		/* spikes on back */
+		for(var scale = -1; scale <= 1; scale += 2) {
+			c.save(); {
+				c.scale(1, scale);
+				c.fillPoly(
+					0, 10,
+					-50, 15,
+					0, 0
+				);
+			} c.restore();
+		}
+	} c.restore();
 };
 Rocket.prototype.update = function() {
 	this.x += this.velX;
 	if(utilities.frameCount % 1 === 0) {
 		game.objects.push(new FireParticle(this.x, this.y + 10));
 	}
-	if(this.velX > 0) {
-		if(!p.isIntangible()) {
+	if(!p.isIntangible()) {
+		if(this.velX > 0) {
 			utilities.killCollisionRect(this.x - 50, this.y, 150, 10, "rocket");
 		}
-	}
-	else {
-		if(!p.isIntangible()) {
+		else {
 			utilities.killCollisionRect(this.x - 100, this.y, 150, 10, "rocket");
 		}
 	}
 	/* remove self if off-screen */
-	if(this.x < -100 || this.x > 900) {
+	const OFFSCREEN_BUFFER = 100;
+	if(this.x < -OFFSCREEN_BUFFER || this.x > canvas.width + OFFSCREEN_BUFFER) {
 		this.splicing = true;
 		game.addEvent();
 		p.surviveEvent("rocket");
@@ -3019,36 +3073,31 @@ function Spikeball(velX, velY) {
 	this.fadedIn = false;
 	this.hitbox = { left: -30, right: 30, top: -30, bottom: 30 };
 	this.collideWithBorders = true;
+
+	this.ROTATION_SPEED = 5;
 };
 Spikeball.prototype.display = function() {
-	c.fillStyle = "rgb(150, 150, 155)";
-	c.globalAlpha = this.opacity;
-	var movedTo = false;
-	c.save();
-	c.translate(this.x, this.y + p.worldY);
-	c.rotate(this.r);
-	c.beginPath();
-	for(var degrees = 0; degrees < 360; degrees += 18) {
-		if(degrees % 36 === 0) {
-			var point = Math.rotateDegrees(0, -30, degrees);
+	const NUM_SPIKES = 10;
+	const DEGREES_BETWEEN_SPIKES = 360 / NUM_SPIKES;
+	var points = [];
+	for(var degrees = 0; degrees < 360; degrees += DEGREES_BETWEEN_SPIKES / 2) {
+		if(degrees % DEGREES_BETWEEN_SPIKES) {
+			points.push(Math.rotateDegrees(0, -30, degrees));
 		}
 		else {
-			var point = Math.rotateDegrees(0, -20, degrees);
-		}
-		if(!movedTo) {
-			c.moveTo(point.x, point.y);
-			movedTo = true;
-		}
-		else {
-			c.lineTo(point.x, point.y);
+			points.push(Math.rotateDegrees(0, -20, degrees));
 		}
 	}
-	c.fill();
-	c.restore();
-	c.globalAlpha = 1;
+	c.save(); {
+		c.fillStyle = "rgb(150, 150, 155)";
+		c.globalAlpha = this.opacity;
+		c.translate(this.x, this.y);
+		c.rotate(Math.toRadians(this.r));
+		c.fillPoly(points);
+	} c.restore();
 };
 Spikeball.prototype.update = function() {
-	this.r += 0.1;
+	this.r += this.ROTATION_SPEED;
 	/* fading in */
 	if(!this.fadedIn) {
 		this.opacity += 0.05;
@@ -3091,24 +3140,25 @@ Spikeball.prototype.handleCollision = function(direction, platform) {
 };
 /* spike wall event */
 function Spikewall(x) {
-	this.fastSpeed = 10;
-	this.slowSpeed = 2;
+	this.FAST_SPEED = 10;
+	this.SLOW_SPEED = 2;
 	this.x = x;
-	this.velX = (x < 400) ? this.fastSpeed : -this.fastSpeed;
+	this.velX = (x < 400) ? this.FAST_SPEED : -this.FAST_SPEED;
+	this.direction = (x < 400) ? "right" : "left";
 };
 Spikewall.prototype.display = function() {
 	c.strokeStyle = "rgb(215, 215, 215)";
 	c.fillStyle = "rgb(100, 100, 100)";
-	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed) {
+	if(this.direction === "right") {
 		c.fillRect(this.x - 800, 0, 800, 800);
 		c.strokeRect(this.x - 800, 0, 800, 800);
 		for(var y = 0; y < 800; y += 40) {
 			c.fillStyle = "rgb(215, 215, 215)";
-			c.beginPath();
-			c.moveTo(this.x, y);
-			c.lineTo(this.x, y + 40);
-			c.lineTo(this.x + 20, y + 20);
-			c.fill();
+			c.fillPoly(
+				this.x, y,
+				this.x, y + 40,
+				this.x + 20, y + 20
+			);
 		}
 	}
 	else {
@@ -3125,24 +3175,15 @@ Spikewall.prototype.display = function() {
 };
 Spikewall.prototype.update = function() {
 	this.x += this.velX;
-	if(this.velX === this.fastSpeed && this.x > 250) {
-		this.velX = -this.slowSpeed;
+	if(this.direction === "right" && this.x > 250) {
+		this.velX = -this.SLOW_SPEED;
 		game.objects.push(new Coin(80, (Math.random() < 0.5) ? 175 : 525));
 	}
-	if(this.velX === -this.fastSpeed && this.x < 550) {
-		this.velX = this.slowSpeed;
+	if(this.direction === "left" && this.x < canvas.width - 250) {
+		this.velX = this.SLOW_SPEED;
 		game.objects.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
 	}
-	if(this.velX === -this.fastSpeed || this.velX === this.slowSpeed) {
-		if(p.x + 5 > this.x && !p.isIntangible()) {
-			p.die("spikewall");
-		}
-	}
-	if(this.velX === this.fastSpeed || this.velX === -this.slowSpeed && !p.isIntangible()) {
-		if(p.x - 5 < this.x) {
-			p.die("spikewall");
-		}
-	}
+	utilities.killCollisionRect(this.x - 5, 0, 10, canvas.height, "spikewall");
 	if((this.velX < 0 && this.x < -50) || (this.velX > 0 && this.x > 850)) {
 		this.splicing = true;
 		game.addEvent();
@@ -3172,13 +3213,13 @@ function AfterImage(image) {
 AfterImage.prototype.display = function() {
 	var opacity = this.timeLeft / this.timeToExist;
 	opacity = Math.constrain(opacity, 0, 1);
-	c.save();
-	if(this.image instanceof Player) {
-		c.translate(0, 1 * p.worldY);
-	}
-	c.globalAlpha = opacity;
-	this.image.display();
-	c.restore();
+	c.save(); {
+		if(this.image instanceof Player) {
+			c.translate(0, p.worldY);
+		}
+		c.globalAlpha = opacity;
+		this.image.display();
+	} c.restore();
 };
 AfterImage.prototype.update = function() {
 	this.timeLeft --;
@@ -3188,19 +3229,19 @@ AfterImage.prototype.update = function() {
 };
 var effects = {
 	remove: function() {
-		game.events.removeAll("blindness");
-		game.events.removeAll("confusion");
-		game.events.removeAll("nausea");
+		game.removeEventByID("blindness");
+		game.removeEventByID("nausea");
+		game.removeEventByID("confusion");
 	},
 	add: function() {
-		if(!game.events.includes("blindness")) {
-			game.events.push("blindness");
+		if(!game.events.includesItemsWithProperty("id", "blindness")) {
+			game.events.push(game.originalEvents.getItemsWithProperty("id", "blindness")[0]);
 		}
-		if(!game.events.includes("confusion")) {
-			game.events.push("confusion");
+		if(!game.events.includesItemsWithProperty("id", "nausea")) {
+			game.events.push(game.originalEvents.getItemsWithProperty("id", "nausea")[0]);
 		}
-		if(!game.events.includes("nausea")) {
-			game.events.push("nausea");
+		if(!game.events.includesItemsWithProperty("id", "confusion")) {
+			game.events.push(game.originalEvents.getItemsWithProperty("id", "confusion")[0]);
 		}
 	},
 	displayNauseaEffect: function(obj) {
@@ -3338,27 +3379,31 @@ LaserBot.prototype.display = function() {
 	c.fillRect(this.x - 10, bodyY, 20, 20);
 	/* spring */
 	c.lineWidth = 2;
-	c.save();
-	c.translate(this.x, this.y);
-	c.scale(1, this.springY);
-	c.beginPath();
-	for(var y = 0; y >= -30; y -= 3) {
-		var x = (y % (3 * 2) === 0) ? -7 : 7;
-		if(y === 0) {
-			c.moveTo(x, y);
+	c.save(); {
+		c.translate(this.x, this.y);
+		c.scale(1, this.springY);
+		c.beginPath();
+		for(var y = 0; y >= -30; y -= 3) {
+			var x = (y % (3 * 2) === 0) ? -7 : 7;
+			if(y === 0) {
+				c.moveTo(x, y);
+			}
+			else {
+				c.lineTo(x, y);
+			}
 		}
-		else {
-			c.lineTo(x, y);
-		}
-	}
-	c.stroke();
-	c.restore();
+		c.stroke();
+	} c.restore();
 	/* laser */
 	if(this.facing === "right") {
 		c.beginPath();
 		c.moveTo(this.x + 10, bodyY + 3);
 		c.lineTo(this.x + 20, bodyY + 3);
 		c.stroke();
+		c.strokeLine(
+			this.x + 10, bodyY + 3,
+			this.x + 20, bodyY + 3
+		);
 	}
 	else {
 		c.beginPath();
@@ -3498,9 +3543,9 @@ LaserBot.prototype.calculateDestination = function() {
 LaserBot.prototype.goToPlatform = function(platform) {
 	/*
 	This function should only be called when one assumes that:
-	 - This laserbot has not calculated where to go
-	 - The destination platform is unoccupied
-	 - This laserbot wants to go to that platform
+	- This laserbot has not calculated where to go
+	- The destination platform is unoccupied
+	- This laserbot wants to go to that platform
 	*/
 	const MIDDLE_PLATFORM_X = (canvas.width / 2) - (160 / 2);
 	if(Math.dist(platform.x, MIDDLE_PLATFORM_X) <= 1) {
@@ -3596,10 +3641,10 @@ LaserBot.prototype.shoot = function() {
 	var bodyY = this.y - 20 - (30 * this.springY);
 	this.timeSinceShot = 0;
 	if(this.facing === "right") {
-		game.objects.push(new LaserBotProjectile(this.x, bodyY + 3, 4, this));
+		game.objects.push(new Laser(this.x, bodyY + 3, 4, this));
 	}
 	else {
-		game.objects.push(new LaserBotProjectile(this.x, bodyY + 3, -4, this));
+		game.objects.push(new Laser(this.x, bodyY + 3, -4, this));
 	}
 };
 LaserBot.isPlatformOccupied = function(platform) {
@@ -3614,31 +3659,32 @@ LaserBot.isPlatformOccupied = function(platform) {
 	}
 	return false;
 };
-function LaserBotProjectile(x, y, velX, shooter) {
+function Laser(x, y, velX, shooter) {
 	this.x = x;
 	this.y = y;
 	this.velX = velX;
 	this.length = 0;
 	this.shooter = shooter; // which laserbot shot this laser
 };
-LaserBotProjectile.prototype.display = function() {
+Laser.prototype.display = function() {
 	c.strokeStyle = "rgb(255, 0, 0)";
 	c.lineWidth = 5;
-	c.beginPath();
-	c.moveTo(this.x, this.y);
 	if(this.velX > 0) {
-		c.lineTo(this.x - this.length, this.y);
+		c.strokeLine(
+			this.x, this.y, this.x - this.length, this.y
+		);
 	}
 	else {
-		c.lineTo(this.x + this.length, this.y);
+		c.strokeLine(
+			this.x, this.y, this.x + this.length, this.y
+		);
 	}
-	c.stroke();
 };
-LaserBotProjectile.prototype.update = function() {
+Laser.prototype.update = function() {
 	this.x += this.velX;
 	if(this.length < 50) {
 		this.length += Math.abs(this.velX);
-		if(this.shooter !== undefined && this.shooter !== null) {
+		if(this.shooter instanceof LaserBot) {
 			this.y = this.shooter.y - 20 - (30 * this.shooter.springY) + 3;
 			this.x += this.shooter.velX;
 		}
@@ -3680,10 +3726,10 @@ BadGuy.prototype.display = function() {
 	c.fillStyle = "rgb(255, 0, 0)";
 	c.beginPath();
 	if(this.x > p.x) {
-		c.arc(this.player.x - 4, this.player.y + 10, 3, 0, 2 * Math.PI);
+		c.fillCircle(this.player.x - 4, this.player.y + 10, 3);
 	}
 	else {
-		c.arc(this.player.x + 4, this.player.y + 10, 3, 0, 2 * Math.PI);
+		c.fillCircle(this.player.x + 4, this.player.y + 10, 3);
 	}
 	c.fill();
 };
@@ -3791,40 +3837,36 @@ Alien.prototype.display = function() {
 		c.rotate(Math.toRadians(this.rotation));
 		/* tractor beam */
 		c.save(); {
-			c.globalAlpha = this.tractorBeamOpacity;
 			var gradient = c.createLinearGradient(0, 0, 0, this.TRACTOR_BEAM_HEIGHT);
 			gradient.addColorStop(1, "rgb(255, 255, 0, 0)");
 			gradient.addColorStop(0, "rgb(255, 255, 0, 1)");
 			c.fillStyle = gradient;
-			c.beginPath();
-			c.moveTo(-15, 0);
-			c.lineTo(15, 0);
-			c.lineTo(30, this.TRACTOR_BEAM_HEIGHT);
-			c.lineTo(-30, this.TRACTOR_BEAM_HEIGHT);
-			c.fill();
+			c.globalAlpha = this.tractorBeamOpacity;
+			c.fillPoly(
+				-15, 0,
+				15, 0,
+				30, this.TRACTOR_BEAM_HEIGHT,
+				-30, this.TRACTOR_BEAM_HEIGHT
+			);
 		} c.restore();
 		/* spaceship body */
 		c.save(); {
 			c.fillStyle = "rgb(150, 150, 155)";
 			c.scale(1, 0.5);
-			c.beginPath();
-			c.arc(0, 0, 40, 0, 2 * Math.PI);
-			c.fill();
+			c.fillCircle(0, 0, 40);
 		} c.restore();
 		/* moving lines (to make spaceship look like it is spinning) */
 		c.save(); {
 			c.scale(1, 0.5);
-			c.beginPath();
-			c.arc(0, 0, 40, 0, 2 * Math.PI);
-			c.clip();
+			c.clipCircle(0, 0, 40);
 			c.strokeStyle = "rgb(120, 120, 125)";
 			for(var r = 0; r <= 360; r += 360 / 8) {
 				var rotation = r + (utilities.frameCount * 4); // for animation
 				var point = Math.rotateDegrees(-50, 0, rotation);
-				c.beginPath();
-				c.moveTo(0, -20);
-				c.lineTo(point.x, point.y - 20);
-				c.stroke();
+				c.strokeLine(
+					0, -20,
+					point.x, point.y - 20
+				);
 			}
 		} c.restore();
 		/* spaceship cockpit - bottom arc */
@@ -3846,7 +3888,6 @@ Alien.prototype.display = function() {
 			c.fillRect(left, top, right - left, bottom - top);
 			c.fillArc(0, top, right, Math.toRadians(180), Math.toRadians(360));
 		} c.restore();
-		/* debug */
 	} c.restore();
 };
 Alien.prototype.update = function() {
@@ -3928,7 +3969,7 @@ Alien.prototype.update = function() {
 				game.addEvent();
 			}
 			/* create explosion */
-			var laser = new Laser();
+			var laser = new Crosshair();
 			laser.x = Math.average(this.x, aliens[i].x);
 			laser.y = Math.average(this.y, aliens[i].y);
 			laser.explode(true);
@@ -3968,9 +4009,242 @@ Alien.prototype.handleCollision = function(direction, platform) {
 /* generic event selection + running */
 var game = {
 	events: [
-		"laser", "acid", "boulder", "spinnyblades", "pirhanas", "pacmans", "rocket", "spikeballs", "block shuffle", "spikewall",
-		"confusion", "blindness", "nausea",
-		"laserbots", "bad guys", "aliens"
+		{
+			id: "laser",
+			begin: function() {
+				game.objects.push(new Crosshair());
+				game.chatMessages.push(new ChatMessage("Laser incoming!", "rgb(255, 128, 0)"));
+			}
+		},
+		{
+			id: "acid",
+			begin: function() {
+				game.objects.push(new Acid());
+				game.objects[game.objects.length - 1].beginRising();
+			}
+		},
+		{
+			id: "boulder",
+			begin: function() {
+				var chooser = Math.random();
+				game.chatMessages.push(new ChatMessage("Boulder incoming!", "rgb(255, 128, 0)"));
+				if(chooser < 0.5) {
+					game.objects.push(new Boulder(850, 100, -3));
+				}
+				else {
+					game.objects.push(new Boulder(-50, 100, 3));
+				}
+			}
+		},
+		{
+			id: "spinnyblades",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Spinning blades are appearing", "rgb(255, 128, 0)"));
+				var platforms = game.getObjectsByType(Platform);
+				for(var i = 0; i < platforms.length; i ++) {
+					game.objects.push(new SpinnyBlade(platforms[i].x + 80, platforms[i].y + 10));
+				}
+			}
+		},
+		{
+			id: "pirhanas",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Jumping pirhanas incoming!", "rgb(255, 128, 0)"));
+				/* fancy algorithm to make sure none of the pirhanas are touching */
+				var pirhanasSeparated = false;
+				while(!pirhanasSeparated) {
+					for(var i = 0; i < game.objects.length; i ++) {
+						if(game.objects[i] instanceof Pirhana) {
+							game.objects.splice(i, 1);
+							i --;
+							continue;
+						}
+					}
+					game.objects.push(new Pirhana(Math.random() * 700 + 50));
+					game.objects.push(new Pirhana(Math.random() * 700 + 50));
+					game.objects.push(new Pirhana(Math.random() * 700 + 50));
+					pirhanasSeparated = true;
+					for(var i = 0; i < game.objects.length; i ++) {
+						/* check if they collide */
+						for(var j = 0; j < game.objects.length; j ++) {
+							if(i !== j && game.objects[i] instanceof Pirhana && game.objects[j] instanceof Pirhana && Math.dist(game.objects[i].x, game.objects[j].x) < 75) {
+								pirhanasSeparated = false;
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			id: "pacmans",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Pacmans incoming!", "rgb(255, 128, 0)"));
+				var coinNum = Math.round(Math.random() * 11 + 1) * 60;
+				for(var x = 0; x < 800; x += 60) {
+					if(x === coinNum) {
+						game.objects.push(new Coin(x, 200, x * 0.25));
+					} else {
+						game.objects.push(new Dot(x, 200, x * 0.25));
+					}
+					game.objects.push(new Dot(800 - x, 600, x * 0.25));
+				}
+				game.objects.push(new Pacman(-200, 200, 1.5));
+				game.objects.push(new Pacman(1000, 600, -1.5));
+			}
+		},
+		{
+			id: "rocket",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Rocket incoming!", "rgb(255, 128, 0)"));
+				if(p.x > 400) {
+					game.objects.push(new Rocket(-50, p.y, 6));
+				}
+				else {
+					game.objects.push(new Rocket(850, p.y, -6));
+				}
+			}
+		},
+		{
+			id: "spikeballs",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
+				var angles = [];
+				var buffer = 30;
+				for(var i = 0; i < 360; i ++) {
+					if((i > 90 - buffer && i < 90 + buffer) || (i > 270 - buffer && i < 270 + buffer)) {
+						continue;
+					}
+					angles.push(i);
+				}
+				for(var i = 0; i < 3; i ++) {
+					var index = Math.floor(Math.random() * (angles.length - 1));
+					var angle = angles[index];
+					for(var j = 0; j < angles.length; j ++) {
+						var distanceBetweenAngles = Math.min(Math.abs(angle - angles[j]), Math.abs((angle + 360) - angles[j]), Math.abs((angle - 360) - angles[j]));
+						if(distanceBetweenAngles < buffer) {
+							angles.splice(j, 1);
+							j --;
+							continue;
+						}
+					}
+					var angleRadians = angle / 180 * Math.PI;
+					var velocity = Math.rotateDegrees(0, -5, angle);
+					game.objects.push(new Spikeball(velocity.x, velocity.y));
+				}
+			}
+		},
+		{
+			id: "block shuffle",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
+				var platforms = game.getObjectsByType(Platform);
+				for(var i = 0; i < platforms.length; i ++) {
+					if(platforms[i].y < 300) {
+						if(platforms[i].x < 400) {
+							platforms[i].destX = 0;
+							platforms[i].destY = 565;
+						}
+						else {
+							platforms[i].destX = 0;
+							platforms[i].destY = 215;
+						}
+					}
+					if(platforms[i].y > 400) {
+						if(platforms[i].x < 400) {
+							platforms[i].destX = 320;
+							platforms[i].destY = 390;
+						}
+						else {
+							platforms[i].destX = 640;
+							platforms[i].destY = 215;
+						}
+					}
+					if(platforms[i].y > 300 && platforms[i].y < 400) {
+						platforms[i].destX = 640;
+						platforms[i].destY = 565;
+					}
+					platforms[i].calculateVelocity();
+				}
+			}
+		},
+		{
+			id: "spikewall",
+			begin: function() {
+				var spikeWallDistance = 1500;
+				if(Math.random() < 0.5) {
+					game.objects.push(new Spikewall(-spikeWallDistance));
+					game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "rgb(255, 128, 0)"));
+				}
+				else {
+					game.objects.push(new Spikewall(800 + spikeWallDistance));
+					game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "rgb(255, 128, 0)"));
+				}
+			}
+		},
+		{
+			id: "confusion",
+			begin: function() {
+				game.timeToEvent = FPS * 3;
+				p.timeConfused = FPS * 15;
+				game.chatMessages.push(new ChatMessage("You have been confused", "rgb(0, 255, 0)"));
+				effects.remove();
+				game.currentEvent = null;
+			}
+		},
+		{
+			id: "blindness",
+			begin: function() {
+				game.timeToEvent = FPS * 3;
+				p.timeBlinded = FPS * 15;
+				game.chatMessages.push(new ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
+				effects.remove();
+				game.currentEvent = null;
+			}
+		},
+		{
+			id: "nausea",
+			begin: function() {
+				game.timeToEvent = FPS * 3;
+				p.timeNauseated = FPS * 15;
+				game.chatMessages.push(new ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
+				effects.remove();
+				game.currentEvent = null;
+			}
+		},
+		{
+			id: "laserbots",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
+				var numEnemies = 2;
+				game.addEnemiesAtPosition(LaserBot, numEnemies, null, 50);
+			}
+		},
+		{
+			id: "bad guys",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
+				var numEnemies = 2;
+				game.addEnemiesAtPosition(BadGuy, numEnemies, null, 25);
+			}
+		},
+		{
+			id: "aliens",
+			begin: function() {
+				game.chatMessages.push(new ChatMessage("UFOs are invading!", "rgb(255, 0, 0)"));
+				var numEnemies = 2;
+				if(numEnemies === 2) {
+					var xPosition = (Math.random() < 0.5) ? (0 - 50) : (canvas.width + 50);
+					game.addEnemiesAtPosition(
+						Alien, 2,
+						[
+							{ x: xPosition, y: 225 - 75 },
+							{ x: xPosition, y: 575 - 75 }
+						],
+						0
+					);
+				}
+			}
+		}
 	],
 	currentEvent: null,
 	timeToEvent: -5,
@@ -3978,6 +4252,50 @@ var game = {
 	chatMessages: [],
 	hitboxes: [], // debugging only. for showing hitboxes if SHOW_HITBOXES is true
 	screen: "home",
+
+	exist: function() {
+		game.hitboxes = [];
+
+		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillRect(0, 0, 800, 800);
+		/* player */
+		p.update();
+		p.display();
+		/* random events */
+		game.runEvent();
+		if(p.y + 46 >= 800 && (game.numObjects(Acid) === 0 || game.getObjectsByType(Acid)[0].y + p.worldY > 820)) {
+			p.die("fall");
+		}
+		/* shop status effect indicators */
+		var numItemsEquipped = 0;
+		for(var i = 0; i < shop.items.length; i ++) {
+			if(shop.items[i].equipped) {
+				shop.items[i].x = 50 + 100 * numItemsEquipped;
+				shop.items[i].y = 50;
+				shop.items[i].displayLogo(0.5);
+				numItemsEquipped ++;
+			}
+		}
+		/* offscreen enemy collisions */
+		if(game.numObjects(Enemy) !== 0) {
+			utilities.collisionRect(-100,         225 - 10, 100, 20);
+			utilities.collisionRect(-100,         575 - 10, 100, 20);
+			utilities.collisionRect(canvas.width, 225 - 10, 100, 20);
+			utilities.collisionRect(canvas.width, 575 - 10, 100, 20);
+		}
+		/* score + coins */
+		c.loadTextStyle({
+			color: "rgb(100, 100, 100)",
+			textAlign: "left"
+		});
+		c.fillText("Score: " + p.score, 10, 790);
+		c.textAlign = "right";
+		c.fillText("Coins: " + p.coins, 790, 790);
+		/* debug */
+		if(SHOW_HITBOXES) {
+			game.displayHitboxes();
+		}
+	},
 
 	numObjects: function(constructor) {
 		return game.getObjectsByType(constructor).length;
@@ -3993,6 +4311,12 @@ var game = {
 			}
 		}
 		return arr;
+	},
+	getEventByID: function(id) {
+		return this.events.getItemsWithProperty("id", id)[0];
+	},
+	removeEventByID: function(id) {
+		this.events.removeItemsWithProperty("id", id)[0];
 	},
 	initializePlatforms: function() {
 		for(var y = 225; y <= 575; y += 175) {
@@ -4146,7 +4470,7 @@ var game = {
 			if(a instanceof FireParticle && b instanceof Rocket) {
 				return A_FIRST;
 			}
-			if(a instanceof LaserBot && b instanceof LaserBotProjectile) {
+			if(a instanceof LaserBot && b instanceof Laser) {
 				return B_FIRST;
 			}
 			if(a instanceof Platform && b instanceof SpinnyBlade) {
@@ -4158,13 +4482,13 @@ var game = {
 			if(a instanceof Platform && b instanceof Spikeball) {
 				return A_FIRST;
 			}
-			if(a instanceof Platform && b instanceof Laser) {
+			if(a instanceof Platform && b instanceof Crosshair) {
 				return A_FIRST;
 			}
 			if(a instanceof Platform && b instanceof Enemy) {
 				return B_FIRST;
 			}
-			if(a instanceof Platform && b instanceof LaserBotProjectile) {
+			if(a instanceof Platform && b instanceof Laser) {
 				return A_FIRST;
 			}
 			/* inverse cases */
@@ -4207,7 +4531,9 @@ var game = {
 	},
 	addEvent: function() {
 		p.score ++;
-		game.currentEvent = game.events.randomItem();
+		var theEvent = game.events.randomItem();
+		game.currentEvent = theEvent.id;
+		theEvent.begin();
 		if(game.currentEvent === p.previousEvent) {
 			p.repeatedEvent = true;
 		}
@@ -4215,197 +4541,6 @@ var game = {
 		if(p.score === p.highScore + 1) {
 			p.numRecords ++;
 			game.chatMessages.push(new ChatMessage("New Record!", "rgb(0, 0, 255)"));
-		}
-
-		if(game.currentEvent === "laser") {
-			game.objects.push(new Laser());
-			game.chatMessages.push(new ChatMessage("Laser incoming!", "rgb(255, 128, 0)"));
-		}
-		else if(game.currentEvent === "acid") {
-			game.objects.push(new Acid());
-			game.objects[game.objects.length - 1].beginRising();
-		}
-		else if(game.currentEvent === "boulder") {
-			var chooser = Math.random();
-			game.chatMessages.push(new ChatMessage("Boulder incoming!", "rgb(255, 128, 0)"));
-			if(chooser < 0.5) {
-				game.objects.push(new Boulder(850, 100, -3));
-			}
-			else {
-				game.objects.push(new Boulder(-50, 100, 3));
-			}
-		}
-		else if(game.currentEvent === "spinnyblades") {
-			game.chatMessages.push(new ChatMessage("Spinning blades are appearing", "rgb(255, 128, 0)"));
-			for(var i = 0; i < game.objects.length; i ++) {
-				if(game.objects[i] instanceof Platform) {
-					game.objects.push(new SpinnyBlade(game.objects[i].x + 80, game.objects[i].y + 10));
-				}
-			}
-		}
-		else if(game.currentEvent === "pirhanas") {
-			game.chatMessages.push(new ChatMessage("Jumping pirhanas incoming!", "rgb(255, 128, 0)"));
-			/* fancy algorithm to make sure none of the pirhanas are touching */
-			var pirhanasSeparated = false;
-			while(!pirhanasSeparated) {
-				for(var i = 0; i < game.objects.length; i ++) {
-					if(game.objects[i] instanceof Pirhana) {
-						game.objects.splice(i, 1);
-						i --;
-						continue;
-					}
-				}
-				game.objects.push(new Pirhana(Math.random() * 700 + 50));
-				game.objects.push(new Pirhana(Math.random() * 700 + 50));
-				game.objects.push(new Pirhana(Math.random() * 700 + 50));
-				pirhanasSeparated = true;
-				for(var i = 0; i < game.objects.length; i ++) {
-					/* check if they collide */
-					for(var j = 0; j < game.objects.length; j ++) {
-						if(i !== j && game.objects[i] instanceof Pirhana && game.objects[j] instanceof Pirhana && Math.abs(game.objects[i].x - game.objects[j].x) < 75) {
-							pirhanasSeparated = false;
-						}
-					}
-				}
-			}
-		}
-		else if(game.currentEvent === "pacmans") {
-			game.chatMessages.push(new ChatMessage("Pacmans incoming!", "rgb(255, 128, 0)"));
-			var coinNum = Math.round(Math.random() * 11 + 1) * 60;
-			coinNum = 7 * 60;
-			for(var x = 0; x < 800; x += 60) {
-				if(x === coinNum) {
-					game.objects.push(new Coin(x, 200, x * 0.25));
-				} else {
-					game.objects.push(new Dot(x, 200, x * 0.25));
-				}
-				game.objects.push(new Dot(800 - x, 600, x * 0.25));
-			}
-			game.objects.push(new Pacman(-200, 200, 1.5));
-			game.objects.push(new Pacman(1000, 600, -1.5));
-		}
-		else if(game.currentEvent === "rocket") {
-			game.chatMessages.push(new ChatMessage("Rocket incoming!", "rgb(255, 128, 0)"));
-			if(p.x > 400) {
-				game.objects.push(new Rocket(-50, p.y, 6));
-			}
-			else {
-				game.objects.push(new Rocket(850, p.y, -6));
-			}
-		}
-		else if(game.currentEvent === "spikeballs") {
-			game.chatMessages.push(new ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
-			var angles = [];
-			var buffer = 30;
-			for(var i = 0; i < 360; i ++) {
-				if((i > 90 - buffer && i < 90 + buffer) || (i > 270 - buffer && i < 270 + buffer)) {
-					continue;
-				}
-				angles.push(i);
-			}
-			for(var i = 0; i < 3; i ++) {
-				var index = Math.floor(Math.random() * (angles.length - 1));
-				var angle = angles[index];
-				for(var j = 0; j < angles.length; j ++) {
-					var distanceBetweenAngles = Math.min(Math.abs(angle - angles[j]), Math.abs((angle + 360) - angles[j]), Math.abs((angle - 360) - angles[j]));
-					if(distanceBetweenAngles < buffer) {
-						angles.splice(j, 1);
-						j --;
-						continue;
-					}
-				}
-				var angleRadians = angle / 180 * Math.PI;
-				var velocity = Math.rotateDegrees(0, -5, angle);
-				game.objects.push(new Spikeball(velocity.x, velocity.y));
-			}
-		}
-		else if(game.currentEvent === "block shuffle") {
-			game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
-			var platforms = game.getObjectsByType(Platform);
-			for(var i = 0; i < platforms.length; i ++) {
-				if(platforms[i].y < 300) {
-					if(platforms[i].x < 400) {
-						platforms[i].destX = 0;
-						platforms[i].destY = 565;
-					}
-					else {
-						platforms[i].destX = 0;
-						platforms[i].destY = 215;
-					}
-				}
-				if(platforms[i].y > 400) {
-					if(platforms[i].x < 400) {
-						platforms[i].destX = 320;
-						platforms[i].destY = 390;
-					}
-					else {
-						platforms[i].destX = 640;
-						platforms[i].destY = 215;
-					}
-				}
-				if(platforms[i].y > 300 && platforms[i].y < 400) {
-					platforms[i].destX = 640;
-					platforms[i].destY = 565;
-				}
-				platforms[i].calculateVelocity();
-			}
-		}
-		else if(game.currentEvent === "spikewall") {
-			var spikeWallDistance = 1500;
-			if(Math.random() < 0.5) {
-				game.objects.push(new Spikewall(-spikeWallDistance));
-				game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "rgb(255, 128, 0)"));
-			}
-			else {
-				game.objects.push(new Spikewall(800 + spikeWallDistance));
-				game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "rgb(255, 128, 0)"));
-			}
-		}
-		else if(game.currentEvent === "confusion") {
-			game.timeToEvent = FPS * 3;
-			p.timeConfused = FPS * 15;
-			game.chatMessages.push(new ChatMessage("You have been confused", "rgb(0, 255, 0)"));
-			effects.remove();
-			game.currentEvent = null;
-		}
-		else if(game.currentEvent === "blindness") {
-			game.timeToEvent = FPS * 3;
-			p.timeBlinded = FPS * 15;
-			game.chatMessages.push(new ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
-			effects.remove();
-			game.currentEvent = null;
-		}
-		else if(game.currentEvent === "nausea") {
-			game.timeToEvent = FPS * 3;
-			p.timeNauseated = FPS * 15;
-			game.chatMessages.push(new ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
-			effects.remove();
-			game.currentEvent = null;
-		}
-		else if(game.currentEvent === "laserbots") {
-			game.chatMessages.push(new ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
-			var numEnemies = 2;
-			game.addEnemiesAtPosition(LaserBot, numEnemies, null, 50);
-		}
-		else if(game.currentEvent === "bad guys") {
-			game.chatMessages.push(new ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
-			var numEnemies = 2;
-			game.addEnemiesAtPosition(BadGuy, numEnemies, null, 25);
-		}
-		else if(game.currentEvent === "aliens") {
-			game.chatMessages.push(new ChatMessage("UFOs are invading!", "rgb(255, 0, 0)"));
-			var numEnemies = 2;
-			if(numEnemies === 2) {
-				var xPosition = (Math.random() < 0.5) ? (0 - 50) : (canvas.width + 50);
-				game.addEnemiesAtPosition(
-					Alien, 2,
-					[
-						{ x: xPosition, y: 225 - 75 },
-						{ x: xPosition, y: 575 - 75 }
-					],
-					0
-				);
-			}
 		}
 	},
 	runEvent: function() {
@@ -4462,19 +4597,34 @@ var game = {
 		}
 	}
 };
-game.events = TESTING_MODE ? ["laserbots"] : game.events;
-
-function doByTime() {
-	utilities.canvas.resize();
-	if(game.screen === "home") {
+game.originalEvents = game.events.clone();
+game.events = TESTING_MODE ? [game.getEventByID("blindness"), game.getEventByID("nausea"), game.getEventByID("confusion")] : game.events;
+p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
+var debugging = {
+	displayTestingModeWarning: function() {
+		c.loadTextStyle({
+			color: "rgb(255, 255, 255)",
+			font: "15px monospace"
+		});
+		if(TESTING_MODE && SHOW_HITBOXES) {
+			c.fillText("testing mode and hitboxes are on", 10, 20);
+		}
+		else if(TESTING_MODE) {
+			c.fillText("testing mode is on", 10, 20);
+		}
+		else if(SHOW_HITBOXES) {
+			c.fillText("hitboxes are on", 10, 20);
+		}
+	}
+};
+var ui = {
+	homeScreen: function() {
 		/* background + erase previous frame */
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.font = "50px cursive";
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.textAlign = "center";
 		if(!TESTING_MODE) {
+			c.loadTextStyle(ui.titleTextStyle);
 			c.fillText("Randomonicity", 400, 150);
 			c.fillText("Survival", 400, 200);
 		}
@@ -4495,100 +4645,39 @@ function doByTime() {
 		playButton.display();
 		playButton.mouseOver = playButton.hasMouseOver();
 		playButton.checkForClick();
-	}
-	else if(game.screen === "play") {
-		game.hitboxes = [];
-
-		c.fillStyle = "rgb(200, 200, 200)";
-		c.fillRect(0, 0, 800, 800);
-		/* player */
-		p.update();
-		p.display();
-		/* random events */
-		game.runEvent();
-		if(p.y + 46 >= 800 && (game.numObjects(Acid) === 0 || game.getObjectsByType(Acid)[0].y + p.worldY > 820)) {
-			p.die("fall");
-		}
-		/* shop status effect indicators */
-		var numItemsEquipped = 0;
-		for(var i = 0; i < shop.items.length; i ++) {
-			if(shop.items[i].equipped) {
-				shop.items[i].x = 50 + 100 * numItemsEquipped;
-				shop.items[i].y = 50;
-				shop.items[i].displayLogo(0.5);
-				numItemsEquipped ++;
-			}
-		}
-		/* offscreen enemy collisions */
-		if(game.numObjects(Enemy) !== 0) {
-			utilities.collisionRect(-100,         225 - 10, 100, 20);
-			utilities.collisionRect(-100,         575 - 10, 100, 20);
-			utilities.collisionRect(canvas.width, 225 - 10, 100, 20);
-			utilities.collisionRect(canvas.width, 575 - 10, 100, 20);
-		}
-		/* score + coins */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.font = "20px monospace";
-		c.textAlign = "left";
-		c.fillText("Score: " + p.score, 10, 790);
-		c.textAlign = "right";
-		c.fillText("Coins: " + p.coins, 790, 790);
-		/* debug */
-		if(SHOW_HITBOXES) {
-			game.displayHitboxes();
-		}
-	}
-	else if(game.screen === "death") {
+	},
+	deathScreen: function() {
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.font = "50px cursive";
-		c.textAlign = "center";
+		c.loadTextStyle(ui.titleTextStyle);
 		c.fillText("You Died", 400, 200);
 		/* body text */
-		c.font = "30px monospace";
-		c.textAlign = "left";
-		switch(p.deathCause) {
-			case "laser":
-				c.fillText("You were shot by a laser", 200, 300);
-				break;
-			case "acid":
-				c.fillText("You fell into a pool of acid", 200, 300);
-				break;
-			case "boulder":
-				c.fillText("You were crushed by a boulder", 200, 300);
-				break;
-			case "spinnyblades":
-				c.fillText("You were sliced in half", 200, 300);
-				break;
-			case "pirhanas":
-				c.fillText("You were bitten by a pirhana", 200, 300);
-				break;
-			case "pacmans":
-				c.fillText("You were killed by a pacman", 200, 300);
-				break;
-			case "rocket":
-				c.fillText("You were hit with a rocket", 200, 300);
-				break;
-			case "spikeballs":
-				c.fillText("You were taken out by a spikeball", 200, 300);
-				break;
-			case "spikewall":
-				c.fillText("You were impaled on a wall of spikes", 200, 300);
-				break;
-			case "laserbots":
-				c.fillText("You were zapped by a laserbot", 200, 300);
-				break;
-			case "bad guys":
-				c.fillText("The bad guys got you", 200, 300);
-				break;
-			case "aliens":
-				c.fillText("You were abducted by a UFO", 200, 300);
-				break;
-			case "fall":
-				c.fillText("You fell way too far", 200, 300);
-				break;
+		c.loadTextStyle({
+			font: "30px monospace",
+			textAlign: "left"
+		});
+		var deathMessages = {
+			"laser": "You were shot by a laser.",
+			"acid": "You fell into a pool of acid.",
+			"boulder": "You were crushed by a boulder.",
+			"spinnyblades": "You were sliced in half.",
+			"pirhanas": "You were bitten by a pirhana.",
+			"pacmans": "You were killed by a pacman.",
+			"rocket": "You were hit with a rocket.",
+			"spikeballs": "You were sliced by a spikeball.",
+			"spikewall": "You were impaled on a wall of spikes.",
+			"laserbots": "You were zapped by a laserbot.",
+			"bad guys": "The bad guys got you.",
+			"aliens": "You were abducted by a UFO.",
+			"fall": "You fell way too far."
+		};
+		if(typeof deathMessages[p.deathCause] !== "string") {
+			c.fillText("You died.", 200, 300);
+			console.errorOnce("Invalid player death cause of '" + p.deathCause + "'");
+		}
+		else {
+			c.fillText(deathMessages[p.deathCause], 200, 300);
 		}
 		p.highScore = Math.max(p.score, p.highScore);
 		c.fillText("You got a score of " + p.score + " points", 200, 350);
@@ -4602,18 +4691,19 @@ function doByTime() {
 		retryButton.display();
 		retryButton.mouseOver = retryButton.hasMouseOver();
 		retryButton.checkForClick();
-	}
-	else if(game.screen === "shop") {
+	},
+	shop: function() {
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.font = "50px cursive";
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.textAlign = "center";
+		c.loadTextStyle(ui.titleTextStyle);
 		c.fillText("Shop", 400, 100);
 		/* coin counter */
-		c.font = "20px cursive";
-		c.fillStyle = "rgb(255, 255, 0)";
+		c.loadTextStyle({
+			color: "rgb(255, 255, 0)",
+			font: "20px cursive",
+			textAlign: "center"
+		});
 		c.fillText("coins: " + p.totalCoins, 400, 150);
 		/* items */
 		for(var i = 0; i < shop.items.length; i ++) {
@@ -4629,17 +4719,14 @@ function doByTime() {
 		homeFromShop.display();
 		homeFromShop.mouseOver = homeFromShop.hasMouseOver();
 		homeFromShop.checkForClick();
-	}
-	else if(game.screen === "achievements") {
+	},
+	achievements: function() {
 		c.fillStyle = "rgb(200, 200, 200)";
 		c.fillRect(0, 0, 800, 800);
 		/* title */
-		c.fillStyle = "rgb(100, 100, 100)";
-		c.font = "50px cursive";
-		c.textAlign = "center";
+		c.loadTextStyle(ui.titleTextStyle);
 		c.fillText("Achievements", 400, 100);
 		/* achievements */
-		var achievements = [achievement1, achievement2, achievement3, achievement4, achievement5, achievement6, achievement7, achievement8, achievement9];
 		for(var i = 0; i < achievements.length; i ++) {
 			achievements[i].displayLogo();
 		}
@@ -4650,9 +4737,33 @@ function doByTime() {
 		homeFromAchievements.display();
 		homeFromAchievements.mouseOver = homeFromAchievements.hasMouseOver();
 		homeFromAchievements.checkForClick();
+	},
+
+	titleTextStyle: {
+		fillStyle: "rgb(100, 100, 100)",
+		font: "50px cursive",
+		textAlign: "center"
+	}
+};
+
+function doByTime() {
+	utilities.canvas.resize();
+	if(game.screen === "home") {
+		ui.homeScreen();
+	}
+	else if(game.screen === "play") {
+		game.exist();
+	}
+	else if(game.screen === "death") {
+		ui.deathScreen();
+	}
+	else if(game.screen === "shop") {
+		ui.shop();
+	}
+	else if(game.screen === "achievements") {
+		ui.achievements();
 	}
 
-	var achievements = [achievement1, achievement2, achievement3, achievement4, achievement5, achievement6, achievement7, achievement8, achievement9];
 	for(var i = 0; i < achievements.length; i ++) {
 		achievements[i].checkProgress();
 	}
@@ -4674,18 +4785,7 @@ function doByTime() {
 	pastWorldY = p.worldY;
 	utilities.pastInputs.update();
 
-	c.fillStyle = "rgb(255, 255, 255)";
-	c.textAlign = "left";
-	c.font = "15px monospace";
-	if(TESTING_MODE && SHOW_HITBOXES) {
-		c.fillText("testing mode and hitboxes are on", 10, 20);
-	}
-	else if(TESTING_MODE) {
-		c.fillText("testing mode is on", 10, 20);
-	}
-	else if(SHOW_HITBOXES) {
-		c.fillText("hitboxes are on", 10, 20);
-	}
+	debugging.displayTestingModeWarning();
 
 	document.body.style.cursor = input.mouse.cursor;
 	input.mouse.cursor = "default";
