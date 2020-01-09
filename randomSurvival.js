@@ -300,6 +300,11 @@ var input = {
 		return true;
 	} ()
 };
+const COLORS = {
+	UI_DARK_GRAY: "rgb(59, 67, 70)",
+	STONE_DARK_GRAY: "rgb(100, 100, 100)",
+	BACKGROUND_LIGHT_GRAY: "rgb(200, 200, 200)"
+};
 
 console. logOnce = function(parameter) {
 	/*
@@ -812,11 +817,11 @@ Player.prototype.display = function() {
 		} c.restore();
 		/* eyes */
 		if(this.facing === "left" || this.facing === "forward") {
-			c.fillStyle = "rgb(200, 200, 200)";
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.fillCircle(this.x - 4, this.y + 10, 3);
 		}
 		if(this.facing === "right" || this.facing === "forward") {
-			c.fillStyle = "rgb(200, 200, 200)";
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.fillCircle(this.x + 4, this.y + 10, 3);
 		}
 		/* body */
@@ -1125,7 +1130,7 @@ Platform.prototype.collide = function() {
 Platform.prototype.display = function() {
 	c.globalAlpha = this.opacity;
 	this.y += p.worldY;
-	c.fillStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.STONE_DARK_GRAY;
 	c.fillRect(this.x, this.y, this.w, this.h);
 	this.y -= p.worldY;
 	c.globalAlpha = 1;
@@ -1175,7 +1180,7 @@ function DollarIcon() {
 };
 DollarIcon.prototype.display = function() {
 	c.loadTextStyle({
-		color: "rgb(100, 100, 100)",
+		color: COLORS.STONE_DARK_GRAY,
 		font: "20px cursive",
 		textAlign: "center"
 	});
@@ -1199,12 +1204,12 @@ Button.prototype.display = function() {
 	c.lineWidth = 5;
 	if(this.icon === "play") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 75);
 		/* small triangle (mouse is not over) */
 		if(!this.mouseOver) {
-			c.fillStyle = "rgb(100, 100, 100)";
+			c.fillStyle = COLORS.STONE_DARK_GRAY;
 			c.fillPoly(
 				this.x - 15, this.y - 22.5,
 				this.x - 15, this.y + 22.5,
@@ -1213,7 +1218,7 @@ Button.prototype.display = function() {
 		}
 		/* big triangle (mouse is over) */
 		else {
-			c.fillStyle = "rgb(100, 100, 100)";
+			c.fillStyle = COLORS.STONE_DARK_GRAY;
 			c.fillPoly(
 				this.x - 20, this.y - 30,
 				this.x - 20, this.y + 30,
@@ -1223,12 +1228,12 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "question") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.fillCircle(this.x, this.y, 50);
 		/* question mark */
 		c.loadTextStyle({
-			color: "rgb(100, 100, 100)",
+			color: COLORS.STONE_DARK_GRAY,
 			textAlign: "center"
 		});
 		c.save(); {
@@ -1245,11 +1250,11 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "gear") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 50);
 		/* gear body */
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.STONE_DARK_GRAY;
 		c.fillCircle(this.x, this.y, 20);
 		/* gear prongs */
 		for(var r = 0; r < 2 * Math.PI; r += (2 * Math.PI) / 9) {
@@ -1265,12 +1270,12 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "dollar") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 50);
 		/* dollar sign */
 		c.loadTextStyle({
-			color: "rgb(100, 100, 100)",
+			color: COLORS.STONE_DARK_GRAY,
 			font: "50px cursive",
 			textAlign: "center"
 		});
@@ -1283,7 +1288,7 @@ Button.prototype.display = function() {
 			for(var x = this.x - 70; x < this.x + 70; x ++) {
 				for(var y = this.y - 70; y < this.y + 70; y ++) {
 					if(Math.dist(x, y, this.x, this.y) > 52.5) {
-						c.fillStyle = "rgb(200, 200, 200)";
+						c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 						c.fillRect(x, y, 1, 1);
 					}
 				}
@@ -1308,7 +1313,7 @@ Button.prototype.display = function() {
 				c.save(); {
 					c.translate(this.x, this.y);
 					c.rotate(r);
-					c.fillStyle = "rgb(200, 200, 200)";
+					c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 					c.fillPoly(
 						0, 0,
 						-10, -50,
@@ -1318,11 +1323,11 @@ Button.prototype.display = function() {
 			}
 		}
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 50);
 		/* trophy base */
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.STONE_DARK_GRAY;
 		c.fillArc(this.x, this.y + 23, 13, Math.toRadians(-180), 0);
 		/* trophy support */
 		c.fillRect(this.x - 5, this.y - 2, 10, 20);
@@ -1335,10 +1340,10 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "house") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.strokeCircle(this.x, this.y, 50);
 		/* house icon */
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.STONE_DARK_GRAY;
 		c.fillRect(this.x - 20, this.y - 15, 15, 35);
 		c.fillRect(this.x - 20, this.y - 15, 40, 15);
 		c.fillRect(this.x + 5, this.y - 15, 15, 35);
@@ -1362,7 +1367,7 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "retry") {
 		/* button outline */
-		c.strokeStyle = "rgb(100, 100, 100)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.strokeCircle(this.x, this.y, 50);
 		/* retry icon */
 		c.save(); {
@@ -1370,6 +1375,7 @@ Button.prototype.display = function() {
 			if(this.mouseOver) {
 				c.rotate(0.5 * Math.PI);
 			}
+			c.strokeStyle = COLORS.STONE_DARK_GRAY;
 			c.strokeArc(0, 0, 30, Math.toRadians(90), Math.toRadians(360));
 			c.fillPoly(
 				15, 0,
@@ -1446,20 +1452,20 @@ ShopItem.prototype.displayLogo = function(size) {
 	c.save(); {
 		c.translate(this.x, this.y);
 		c.scale(size, size);
-		c.strokeStyle = "rgb(100, 100, 100)";
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.strokeStyle = COLORS.UI_DARK_GRAY;
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(0, 0, 75);
 		if(size !== 1) {
 			c.fill();
 		}
 		if(this.bought && !this.noUpgrades) {
-			c.fillStyle = (this.equipped) ? "rgb(100, 100, 100)" : "rgb(200, 200, 200)";
-			c.strokeStyle = "rgb(100, 100, 100)";
+			c.fillStyle = (this.equipped) ? COLORS.UI_DARK_GRAY : COLORS.BACKGROUND_LIGHT_GRAY;
+			c.strokeStyle = COLORS.UI_DARK_GRAY;
 			c.fillCircle  (50, -50, 20);
 			c.strokeCircle(50, -50, 20);
 			c.loadTextStyle({
-				color: (this.equipped ? "rgb(200, 200, 200)" : "rgb(100, 100, 100)"),
+				color: (this.equipped ? COLORS.BACKGROUND_LIGHT_GRAY : COLORS.UI_DARK_GRAY),
 				textAlign: "center",
 				font: "bold 20px monospace"
 			});
@@ -1513,7 +1519,7 @@ ShopItem.prototype.displayInfo = function(direction) {
 	const MARGIN_WIDTH = 10;
 	c.save(); {
 		c.globalAlpha = Math.max(this.infoOp, 0);
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		/* display triangle + box */
 		c.save(); {
 			c.translate(this.x, this.y);
@@ -1543,12 +1549,12 @@ ShopItem.prototype.displayInfo = function(direction) {
 			buttonOffset.y -= BOX_HEIGHT / 2;
 			/* textbox title */
 			c.loadTextStyle({
-				color: "rgb(200, 200, 200)",
+				color: COLORS.BACKGROUND_LIGHT_GRAY,
 				font: (this.name.length > 21) ? "17px monospace" : "20px monospace",
 			});
 			c.fillText(this.name, MARGIN_WIDTH, 20);
 			/* title underline */
-			c.strokeStyle = "rgb(200, 200, 200)";
+			c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.strokeLine(
 				MARGIN_WIDTH            , 30,
 				BOX_WIDTH - MARGIN_WIDTH, 30
@@ -1609,15 +1615,15 @@ ShopItem.prototype.displayPopup = function() {
 		for(var i = 0; i < shop.items.length; i ++) {
 			shop.items[i].infoOp = -0.5;
 		}
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		c.fillRect(250, 250, 300, 300);
 		/* title */
 		c.loadTextStyle({
-			color: "rgb(200, 200, 200)",
+			color: COLORS.BACKGROUND_LIGHT_GRAY,
 		});
 		c.fillText((this.isFullyUpgraded() ? "Fully Upgraded Abilities:" : "Upgrade Item"), 260, 270);
 		/* line */
-		c.strokeStyle = "rgb(200, 200, 200)";
+		c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.strokeLine(
 			260, 280,
 			540, 280
@@ -1715,7 +1721,7 @@ var shop = {
 			c.save(); {
 				c.translate(10, 0);
 				/* body */
-				c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(223, 160, 171)");
+				c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(223, 160, 171)");
 				c.fillCircle(0, 0, 30);
 				/* legs */
 				c.fillRect(0 - 20, 0, 15, 35);
@@ -1736,7 +1742,7 @@ var shop = {
 					0     , 0
 				);
 				/* coin slot - whitespace */
-				c.strokeStyle = "rgb(200, 200, 200)";
+				c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 				c.strokeArc(0, 0, 20, Math.toRadians(270 - 35), Math.toRadians(270 + 35));
 				c.restore();
 			},
@@ -1775,11 +1781,11 @@ var shop = {
 		"Boots of Speediness",
 		function(isGrayscale) {
 			/* boots */
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 223, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 223, 0)");
 			c.fillRect(0 - 10, 0 + 46, 20, 5);
 			c.fillRect(0 + 30, 0 + 46, 20, 5);
 			/* stickman body + limbs */
-			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.strokeStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
 			c.strokeLine(
 				0 - 10, 0 - 10,
 				0 + 10, 0 + 10,
@@ -1800,7 +1806,7 @@ var shop = {
 				0 + 30, 0 - 10
 			);
 			/* stickman head */
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
 			c.fillCircle(-17, -17, 10);
 		},
 		[
@@ -1838,7 +1844,7 @@ var shop = {
 		"Potion of Jumpiness",
 		function(isGrayscale) {
 			/* potion */
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 0)");
 			c.fillPoly(
 				0 - 5 - 4, 0 + 4,
 				0 + 5 + 4, 0 + 4,
@@ -1846,7 +1852,7 @@ var shop = {
 				0 - 25, 0 + 20
 			);
 			/* beaker body */
-			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.strokeStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
 			c.strokeLine(
 				0 - 5, 0 - 20,
 				0 - 5, 0,
@@ -1892,28 +1898,31 @@ var shop = {
 		800 / 4, 800 / 3 * 2,
 		"Talisman of Intangibility",
 		function(isGrayscale) {
-			c.fillStyle = "rgb(100, 100, 100)";
-			c.fillCircle(0, 0, 30);
-			/* gemstone */
-			c.fillStyle = (isGrayscale ? "rgb(200, 200, 200)" : "rgb(0, 0, 128)");
-			c.fillPoly(
-				0 - 6, 0 - 12,
-				0 + 6, 0 -12,
-				0 + 15, 0,
-				0 + 6, 0 + 12,
-				0 - 6, 0 + 12,
-				0 - 15, 0,
-			);
-			/* necklace threads */
-			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(138, 87, 0)");
-			c.strokeLine(
-				0 - 5, 0 - 29,
-				0 - 15, 0 - 75
-			);
-			c.strokeLine(
-				0 + 5, 0 - 29,
-				0 + 15, 0 - 75
-			);
+			c.save(); {
+				c.clipCircle(0, 0, 75 - 1.5);
+				c.fillStyle = COLORS.STONE_DARK_GRAY;
+				c.fillCircle(0, 0, 30);
+				/* gemstone */
+				c.fillStyle = (isGrayscale ? COLORS.BACKGROUND_LIGHT_GRAY : "rgb(0, 0, 128)");
+				c.fillPoly(
+					0 - 6, 0 - 12,
+					0 + 6, 0 -12,
+					0 + 15, 0,
+					0 + 6, 0 + 12,
+					0 - 6, 0 + 12,
+					0 - 15, 0,
+				);
+				/* necklace threads */
+				c.strokeStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(138, 87, 0)");
+				c.strokeLine(
+					0 - 5, 0 - 29,
+					0 - 15, 0 - 75
+				);
+				c.strokeLine(
+					0 + 5, 0 - 29,
+					0 + 15, 0 - 75
+				);
+			} c.restore();
 		},
 		[
 			{
@@ -1950,13 +1959,13 @@ var shop = {
 		800 / 4 * 2, 800 / 3 * 2,
 		"Skull of Reanimation",
 		function(isGrayscale) {
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 255)");
 			/* skull */
 			c.fillCircle(0, 0, 30);
 			/* skull chin */
 			c.fillRect(0 - 15, 0 + 20, 30, 20);
 			/* eyes - whitespace */
-			c.fillStyle = "rgb(200, 200, 200)";
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.fillCircle(0 - 13, 0 - 10, 7);
 			c.fillCircle(0 + 13, 0 - 10, 7);
 			/* mouth */
@@ -2000,7 +2009,7 @@ var shop = {
 		800 / 4 * 3, 800 / 3 * 2,
 		"Box of Storage",
 		function(isGrayscale) {
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(138, 87, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(138, 87, 0)");
 			/* front face */
 			c.beginPath();
 			c.fillRect(0 - 30, 0 - 10, 40, 40);
@@ -2020,7 +2029,7 @@ var shop = {
 				0 + 42, 0 - 40
 			);
 			/* lines separating lid from box - whitespace */
-			c.strokeStyle = "rgb(200, 200, 200)";
+			c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.lineWidth = 2;
 			c.strokeLine(
 				0 - 30, 0 - 5,
@@ -2091,8 +2100,8 @@ function Achievement(x, y, name, description, display, calculateProgress) {
 };
 Achievement.prototype.displayLogo = function() {
 	/* background circle */
-	c.fillStyle = "rgb(200, 200, 200)";
-	c.strokeStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
+	c.strokeStyle = COLORS.UI_DARK_GRAY;
 	c.fillCircle(this.x, this.y, 50);
 	c.strokeCircle(this.x, this.y, 50);
 	/* graphic */
@@ -2112,7 +2121,7 @@ Achievement.prototype.displayInfo = function(direction) {
 	const MARGIN_WIDTH = 10;
 	if(direction === "left") {
 		c.globalAlpha = this.infoOp;
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		c.fillPoly(
 			this.x - 50, this.y,
 			this.x - 60, this.y - 10,
@@ -2126,7 +2135,7 @@ Achievement.prototype.displayInfo = function(direction) {
 	}
 	else if(direction === "right") {
 		c.globalAlpha = this.infoOp;
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		c.fillPoly(
 			this.x + 50, this.y,
 			this.x + 60, this.y - 10,
@@ -2142,16 +2151,16 @@ Achievement.prototype.displayInfo = function(direction) {
 		/*
 		direction === "no-direction": assume that the canvas has already been translated right or left and draw the infobox at the origin.
 		*/
-		c.fillStyle = "rgb(100, 100, 100)";
+		c.fillStyle = COLORS.UI_DARK_GRAY;
 		c.fillRect(0, 0, BOX_WIDTH, BOX_HEIGHT);
 		/* title */
 		c.loadTextStyle({
-			color: "rgb(200, 200, 200)",
+			color: COLORS.BACKGROUND_LIGHT_GRAY,
 			font: "20px monospace"
 		});
 		c.fillText(this.name, MARGIN_WIDTH, 20);
 		/* title underline */
-		c.strokeStyle = "rgb(200, 200, 200)";
+		c.strokeStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.strokeLine(
 			MARGIN_WIDTH, 30,
 			BOX_WIDTH - MARGIN_WIDTH, 30
@@ -2193,7 +2202,7 @@ var achievements = [
 		function(self, isGrayscale) {
 			/* rays of light */
 			for(var r = 0; r < 360; r += 360 / 6) {
-				c.fillStyle = (isGrayscale ? "rgb(200, 200, 200)" : "rgb(255, 128, 0)");
+				c.fillStyle = (isGrayscale ? COLORS.BACKGROUND_LIGHT_GRAY : "rgb(255, 128, 0)");
 				c.save(); {
 					c.translate(self.x, self.y);
 					c.rotate(Math.toRadians(r));
@@ -2202,7 +2211,7 @@ var achievements = [
 			}
 			/* stickman */
 			c.beginPath();
-			c.strokeStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.strokeStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
 			c.strokeLine(
 				self.x - 20, self.y + 25,
 				self.x - 20, self.y + 10,
@@ -2219,7 +2228,7 @@ var achievements = [
 				self.x + 20, self.y - 10,
 				self.x + 20, self.y - 30
 			);
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 0, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
 			c.fillCircle(self.x, self.y - 17, 10);
 		},
 		function() {
@@ -2231,7 +2240,7 @@ var achievements = [
 		"Survivalist",
 		"Achieve a score of 10 points or higher.",
 		function(self, isGrayscale) {
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 0, 0)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 0, 0)");
 			c.fillPoly(
 				self.x - 30, self.y,
 				self.x + 30, self.y,
@@ -2254,7 +2263,7 @@ var achievements = [
 				c.save(); {
 					c.translate(x, y);
 					c.scale(0.5, 0.5);
-					c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 0, 0)");
+					c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 0, 0)");
 					c.fillPoly(
 						-30, 0,
 						30, 0,
@@ -2278,7 +2287,7 @@ var achievements = [
 		"Experience the same event twice in a row.",
 		function(self, isGrayscale) {
 			/* front face */
-			c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 128, 255)");
+			c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 128, 255)");
 			c.fillRect(self.x - 20 - 6, self.y - 10 + 6, 30, 30);
 			/* top face */
 			c.fillPoly(
@@ -2295,7 +2304,7 @@ var achievements = [
 				self.x + 32 - 6, self.y - 30 + 6
 			);
 			/* die 1 - whitespace */
-			c.fillStyle = "rgb(200, 200, 200)";
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 			c.save(); {
 				c.translate(self.x  - 1, self.y - 15);
 				c.scale(1, 0.75);
@@ -2327,7 +2336,7 @@ var achievements = [
 		"Buy something from the shop.",
 		function(self, isGrayscale) {
 			c.loadTextStyle({
-				color: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)"),
+				color: (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 0)"),
 				font: "bold 40px monospace",
 				textAlign: "center"
 			});
@@ -2343,7 +2352,7 @@ var achievements = [
 		"Buy everything in the shop.",
 		function(self, isGrayscale) {
 			c.loadTextStyle({
-				color: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 0)"),
+				color: (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 0)"),
 				font: "bold 40px monospace",
 				textAlign: "center"
 			});
@@ -2359,7 +2368,7 @@ var achievements = [
 		"Beat your record five times.",
 		function(self, isGrayscale) {
 			c.loadTextStyle({
-				fillStyle: (isGrayscale ? "rgb(100, 100, 100)" : "rgb(0, 128, 0)"),
+				fillStyle: (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(0, 128, 0)"),
 				font: "bold 50px monospace",
 				textAlign: "center"
 			});
@@ -2408,7 +2417,7 @@ var achievements = [
 		function(self, isGrayscale) {
 			c.save(); {
 				c.translate(0, 5);
-				c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
+				c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 255)");
 				c.fillRect(self.x - 15, self.y - 15, 30, 30);
 				c.beginPath();
 				c.arc(self.x, self.y - 15, 15, Math.PI, 2 * Math.PI);
@@ -2416,15 +2425,15 @@ var achievements = [
 				/* wavy bits on bottom of ghost */
 				for(var x = -12; x <= 12; x += 6) {
 					if(x % 12 === 0) {
-						c.fillStyle = (isGrayscale ? "rgb(100, 100, 100)" : "rgb(255, 255, 255)");
+						c.fillStyle = (isGrayscale ? COLORS.STONE_DARK_GRAY : "rgb(255, 255, 255)");
 					}
 					else {
-						c.fillStyle = "rgb(200, 200, 200)"; // whitespace
+						c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY; // whitespace
 					}
 					c.fillCircle(self.x + x, self.y + 15, 3);
 				}
 				/* eyes - whitespace */
-				c.fillStyle = "rgb(200, 200, 200)";
+				c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 				c.fillCircle(self.x - 7, self.y - 10, 5);
 				c.fillCircle(self.x + 7, self.y - 10, 5);
 			} c.restore();
@@ -2675,7 +2684,7 @@ function Boulder(x, y, velX) {
 	this.hitbox = { top: -50, bottom: 50, left: -50, right: 50 };
 };
 Boulder.prototype.display = function() {
-	c.fillStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.STONE_DARK_GRAY;
 	c.save(); {
 		c.translate(this.x, this.y);
 		c.rotate(Math.toRadians(this.rotation));
@@ -2745,7 +2754,7 @@ function RockParticle(x, y, vertices, velX, velY) {
 	this.rotation = 0;
 };
 RockParticle.prototype.display = function() {
-	c.fillStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.STONE_DARK_GRAY;
 	c.save(); {
 		c.translate(this.x, this.y);
 		c.rotate(Math.toRadians(this.rotation));
@@ -3148,7 +3157,7 @@ function Spikewall(x) {
 };
 Spikewall.prototype.display = function() {
 	c.strokeStyle = "rgb(215, 215, 215)";
-	c.fillStyle = "rgb(100, 100, 100)";
+	c.fillStyle = COLORS.STONE_DARK_GRAY;
 	if(this.direction === "right") {
 		c.fillRect(this.x - 800, 0, 800, 800);
 		c.strokeRect(this.x - 800, 0, 800, 800);
@@ -4256,7 +4265,7 @@ var game = {
 	exist: function() {
 		game.hitboxes = [];
 
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* player */
 		p.update();
@@ -4285,7 +4294,7 @@ var game = {
 		}
 		/* score + coins */
 		c.loadTextStyle({
-			color: "rgb(100, 100, 100)",
+			color: COLORS.UI_DARK_GRAY,
 			textAlign: "left"
 		});
 		c.fillText("Score: " + p.score, 10, 790);
@@ -4620,7 +4629,7 @@ var debugging = {
 var ui = {
 	homeScreen: function() {
 		/* background + erase previous frame */
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		if(!TESTING_MODE) {
@@ -4647,7 +4656,7 @@ var ui = {
 		playButton.checkForClick();
 	},
 	deathScreen: function() {
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		c.loadTextStyle(ui.titleTextStyle);
@@ -4693,7 +4702,7 @@ var ui = {
 		retryButton.checkForClick();
 	},
 	shop: function() {
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		c.loadTextStyle(ui.titleTextStyle);
@@ -4721,7 +4730,7 @@ var ui = {
 		homeFromShop.checkForClick();
 	},
 	achievements: function() {
-		c.fillStyle = "rgb(200, 200, 200)";
+		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
 		/* title */
 		c.loadTextStyle(ui.titleTextStyle);
@@ -4740,7 +4749,7 @@ var ui = {
 	},
 
 	titleTextStyle: {
-		fillStyle: "rgb(100, 100, 100)",
+		fillStyle: COLORS.UI_DARK_GRAY,
 		font: "50px cursive",
 		textAlign: "center"
 	}
