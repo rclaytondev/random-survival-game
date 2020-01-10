@@ -933,7 +933,7 @@ Player.prototype.update = function() {
 			if(this.velX > DEFAULT_MAX_VELOCITY || this.velX < -DEFAULT_MAX_VELOCITY) {
 				this.gonePlaces = true;
 			}
-			game.objects.push(new DoubleJumpParticle(this.x, this.y + 46));
+			game.objects.push(new DoubleJumpParticle(this.x, this.y + 46 - this.worldY));
 		}
 	}
 };
@@ -1112,7 +1112,7 @@ Platform.prototype.update = function() {
 			}
 		}
 		if(numMoving === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("block shuffle");
 		}
 	}
@@ -1176,15 +1176,14 @@ function Button(x, y, whereTo, icon) {
 	this.whereTo = whereTo;
 	this.icon = icon;
 	this.mouseOver = false;
-	this.r = 0;
-	this.rDir = 0;
-	this.doorX = 0;
-	this.mousedOverBefore = false;
 };
 Button.prototype.display = function() {
 	c.globalAlpha = 1;
 	c.lineWidth = 5;
 	if(this.icon === "play") {
+		this.resetAnimation = function() {
+			this.iconScale = 1;
+		};
 		this.iconScale = this.iconScale || 1;
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
@@ -1208,15 +1207,6 @@ Button.prototype.display = function() {
 			this.iconScale -= 0.1;
 		}
 		this.iconScale = Math.constrain(this.iconScale, 1, 1.5);
-		/* big triangle (mouse is over) */
-		// else {
-		// 	c.fillStyle = COLORS.STONE_DARK_GRAY;
-		// 	c.fillPoly(
-		// 		this.x - 20, this.y - 30,
-		// 		this.x - 20, this.y + 30,
-		// 		this.x + 40, this.y
-		// 	);
-		// }
 	}
 	else if(this.icon === "question") {
 		/* button outline */
@@ -1261,6 +1251,9 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "dollar") {
+		this.resetAnimation = function() {
+			this.dollarIcons = [];
+		};
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
@@ -1274,7 +1267,7 @@ Button.prototype.display = function() {
 		c.fillText("$", this.x, this.y + 15);
 		/* dollar sign animation */
 		this.dollarIcons = this.dollarIcons || [];
-		if(this.mouseOver && utilities.frameCount % 20 === 0) {
+		if(this.mouseOver && utilities.frameCount % 15 === 0) {
 			this.dollarIcons.push({ x: Math.randomInRange(225, 325), y: 450 });
 		}
 		if(this.dollarIcons.length > 0) {
@@ -1288,7 +1281,7 @@ Button.prototype.display = function() {
 				for(var i = 0; i < this.dollarIcons.length; i ++) {
 					c.fillText("$", this.dollarIcons[i].x, this.dollarIcons[i].y);
 					this.dollarIcons[i].y += 3;
-					if(this.dollarIcons[i].y > this.y + 75) {
+					if(this.dollarIcons[i].y > this.y + 100) {
 						this.dollarIcons.splice(i, 1);
 						i --;
 					}
@@ -1297,33 +1290,34 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "trophy") {
+		this.resetAnimation = function() {
+			this.radii = [];
+			this.shouldAddLightGraphic = false;
+		};
 		/* rays of light */
-		if(this.mouseOver) {
-			this.r += 2;
-			if(this.r > 50) {
-				this.r = 0;
+		c.save(); {
+			c.clipCircle(this.x, this.y, 50);
+			this.radii = this.radii || [];
+			if(this.mouseOver) {
+				this.shouldAddLightGraphic = true;
+			}
+			if(this.shouldAddLightGraphic && (this.radii[0] > 25 || this.radii.length === 0)) {
+				this.shouldAddLightGraphic = false;
+				this.radii.unshift(0);
 			}
 			c.strokeStyle = "rgb(170, 170, 170)";
-			// c.strokeCircle(this.x, this.y, this.r);
-			// for(var r = 0; r < 360; r += 360 / 8) {
-			// 	c.save(); {
-			// 		c.translate(this.x, this.y);
-			// 		c.rotate(Math.toRadians(r));
-			// 		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
-			// 		c.fillPoly(
-			// 			0, 0,
-			// 			-10, -50,
-			// 			10, -50
-			// 		);
-			// 	} c.restore();
-			// }
-			for(var r = 0; r < 360; r += 360 / 8) {
-				c.save(); {
-					c.translate(this.x, this.y);
-					c.strokeArc(0, 0, this.r)
-				} c.restore();
+			for(var i = 0; i < this.radii.length; i ++) {
+				this.radii[i] ++;
+				if(this.radii[i] > 60) {
+					this.radii.splice(i, 1);
+					i --;
+					continue;
+				}
+				for(var r = 0; r < 360; r += 360 / 8) {
+					c.strokeArc(this.x, this.y, this.radii[i], Math.toRadians(r - (360 / 8 / 4)), Math.toRadians(r + (360 / 8 / 4)));
+				}
 			}
-		}
+		} c.restore();
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
@@ -1341,6 +1335,10 @@ Button.prototype.display = function() {
 		} c.restore();
 	}
 	else if(this.icon === "house") {
+		this.resetAnimation = function() {
+			this.doorX = 0;
+		};
+		this.doorX = this.doorX || 0;
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.strokeCircle(this.x, this.y, 50);
@@ -1369,6 +1367,9 @@ Button.prototype.display = function() {
 	}
 	else if(this.icon === "retry") {
 		this.iconRotation = this.iconRotation || 0;
+		this.resetAnimation = function() {
+			this.iconRotation = 0;
+		};
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.strokeCircle(this.x, this.y, 50);
@@ -1392,7 +1393,9 @@ Button.prototype.display = function() {
 		}
 		this.iconRotation = Math.constrain(this.iconRotation, 0, 90);
 	}
-	this.mousedOverBefore = this.mouseOver;
+	if(this.mouseOver) {
+		input.mouse.cursor = "pointer";
+	}
 };
 Button.prototype.hasMouseOver = function() {
 	return Math.hypot(input.mouse.x - this.x, input.mouse.y - this.y) < ((this.icon === "play") ? 75 : 50);
@@ -1403,6 +1406,12 @@ Button.prototype.checkForClick = function() {
 		if(this.icon === "retry" || this.icon === "play") {
 			p.reset();
 		}
+		for(var i = 0; i < buttons.length; i ++) {
+			buttons[i].mouseOver = false;
+			if(typeof buttons[i].resetAnimation === "function") {
+				buttons[i].resetAnimation();
+			}
+		}
 	}
 };
 var playButton = new Button(400, 400, "play", "play");
@@ -1412,6 +1421,7 @@ var homeFromDeath = new Button(266, 650, "home", "house");
 var homeFromShop = new Button(75, 75, "home", "house");
 var homeFromAchievements = new Button(75, 75, "home", "house");
 var retryButton = new Button(533, 650, "play", "retry");
+var buttons = [playButton, shopButton, achievementsButton, retryButton, homeFromDeath, homeFromShop, homeFromAchievements];
 
 function DoubleJumpParticle(x, y) {
 	this.x = x;
@@ -2617,7 +2627,7 @@ Acid.prototype.update = function() {
 		this.velY = 0;
 		this.y = 850;
 		p.surviveEvent("acid");
-		game.addEvent();
+		game.endEvent(-1);
 		this.splicing = true;
 	}
 	/* player collisions */
@@ -2779,13 +2789,14 @@ RockParticle.prototype.update = function() {
 		this.splicing = true;
 		if(game.numObjects(RockParticle) === 0) {
 			/* This is the last rock particle, so end the event */
-			game.addEvent();
+			game.endEvent(-1);
 			p.surviveEvent("boulders");
 		}
 	}
 };
 /* spinny blades event */
 function SpinnyBlade(x, y) {
+	console.log("calling the constructor");
 	this.x = x;
 	this.y = y;
 	// this.r = 0.5 * Math.PI;
@@ -2822,7 +2833,9 @@ SpinnyBlade.prototype.update = function() {
 		this.r += 0.02;
 	}
 	this.r -= this.ROTATION_SPEED;
-	if(Math.dist(this.r, 90) <= this.ROTATION_SPEED) {
+	this.r = this.r.mod(360);
+	if(Math.dist(this.r, 90) <= Math.abs(this.ROTATION_SPEED)) {
+		console.log("spinnyblade is spinning");
 		this.numRevolutions ++;
 	}
 	if(this.numRevolutions < 2) {
@@ -2847,7 +2860,7 @@ SpinnyBlade.prototype.update = function() {
 		if(game.numObjects(SpinnyBlade) === 0) {
 			/* This is the last spinnyblade, so end the event */
 			p.surviveEvent("spinnyblades");
-			game.addEvent();
+			game.endEvent();
 		}
 	}
 };
@@ -2902,7 +2915,7 @@ Pirhana.prototype.update = function() {
 	if(this.y > 850 && this.velY > 0) {
 		this.splicing = true;
 		if(game.numObjects(Pirhana) === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("pirhanas");
 		}
 	}
@@ -2977,7 +2990,7 @@ Pacman.prototype.update = function() {
 	if((this.x > 1000 && this.velX > 0) || (this.x < -200 && this.velX < 0)) {
 		this.splicing = true;
 		if(game.numObjects(Pacman) === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("pacmans");
 		}
 	}
@@ -3014,7 +3027,7 @@ FireParticle.prototype.update = function() {
 	if(this.size <= 0 || this.opacity <= 0) {
 		this.splicing = true;
 		if(game.currentEvent === "laser" && game.numObjects(FireParticle) === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("laser");
 		}
 	}
@@ -3070,7 +3083,7 @@ Rocket.prototype.update = function() {
 	const OFFSCREEN_BUFFER = 100;
 	if(this.x < -OFFSCREEN_BUFFER || this.x > canvas.width + OFFSCREEN_BUFFER) {
 		this.splicing = true;
-		game.addEvent();
+		game.endEvent();
 		p.surviveEvent("rocket");
 	}
 	/* add coin if in middle of screen */
@@ -3136,7 +3149,7 @@ Spikeball.prototype.update = function() {
 	if(this.opacity <= 0) {
 		this.splicing = true;
 		if(game.numObjects(Spikeball) === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("spikeballs");
 		}
 	}
@@ -3203,7 +3216,7 @@ Spikewall.prototype.update = function() {
 	utilities.killCollisionRect(this.x - 5, 0, 10, canvas.height, "spikewall");
 	if((this.velX < 0 && this.x < -50) || (this.velX > 0 && this.x > 850)) {
 		this.splicing = true;
-		game.addEvent();
+		game.endEvent();
 		p.surviveEvent("spikewall");
 	}
 };
@@ -3434,7 +3447,7 @@ LaserBot.prototype.update = function() {
 		this.splicing = true;
 		if(game.numObjects(LaserBot) === 0) {
 			/* this is the final LaserBot; end the event */
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("laserbots");
 		}
 	}
@@ -3770,7 +3783,7 @@ BadGuy.prototype.update = function() {
 	if(this.y > 850) {
 		this.splicing = true;
 		if(game.numObjects(BadGuy) === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("bad guys");
 		}
 	}
@@ -3983,7 +3996,7 @@ Alien.prototype.update = function() {
 			}
 			if(game.numObjects(Alien) === 0) {
 				p.surviveEvent("aliens");
-				game.addEvent();
+				game.endEvent();
 			}
 			/* create explosion */
 			var laser = new Crosshair();
@@ -4548,6 +4561,7 @@ var game = {
 	},
 	addEvent: function() {
 		p.score ++;
+		console.log("adding an event");
 		var theEvent = game.events.randomItem();
 		game.currentEvent = theEvent.id;
 		theEvent.begin();
@@ -4612,10 +4626,15 @@ var game = {
 		if(p.timeConfused > 0) {
 			effects.displayConfusionEffect();
 		}
+	},
+	endEvent: function(timeToNextEvent) {
+		timeToNextEvent = timeToNextEvent || FPS * 1;
+		game.timeToEvent = timeToNextEvent;
+		game.currentEvent = null;
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("blindness"), game.getEventByID("nausea"), game.getEventByID("confusion")] : game.events;
+game.events = TESTING_MODE ? [game.events[3]] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
