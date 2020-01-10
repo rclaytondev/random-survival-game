@@ -558,7 +558,6 @@ Array.prototype.removeItemsWithProperty = function(propertyName, propertyValue) 
 		return itemsFound;
 	}
 	else {
-		console.log("not undefined");
 		/* return the items whose properties match the value */
 		var itemsFound = [];
 		for(var i = 0; i < this.length; i ++) {
@@ -1171,60 +1170,43 @@ Platform.prototype.locationToString = function() {
 	}
 };
 
-function DollarIcon() {
-	/*
-	This is for the dollar icons that fall from the sky when you hover over the shop button.
-	*/
-	this.x = Math.random() * 100 + 225;
-	this.y = 450;
-};
-DollarIcon.prototype.display = function() {
-	c.loadTextStyle({
-		color: COLORS.STONE_DARK_GRAY,
-		font: "20px cursive",
-		textAlign: "center"
-	});
-	c.fillText("$", this.x, this.y);
-	this.y += 5;
-};
-var dollarIcons = [];
 function Button(x, y, whereTo, icon) {
 	this.x = x;
 	this.y = y;
 	this.whereTo = whereTo;
 	this.icon = icon;
 	this.mouseOver = false;
-	this.r = 0;
-	this.rDir = 0;
-	this.doorX = 0;
-	this.mousedOverBefore = false;
 };
 Button.prototype.display = function() {
 	c.globalAlpha = 1;
 	c.lineWidth = 5;
 	if(this.icon === "play") {
+		this.resetAnimation = function() {
+			this.iconScale = 1;
+		};
+		this.iconScale = this.iconScale || 1;
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
 		c.strokeCircle(this.x, this.y, 75);
 		/* small triangle (mouse is not over) */
-		if(!this.mouseOver) {
+		c.save(); {
+			c.translate(this.x, this.y);
+			c.scale(this.iconScale, this.iconScale);
 			c.fillStyle = COLORS.STONE_DARK_GRAY;
 			c.fillPoly(
-				this.x - 15, this.y - 22.5,
-				this.x - 15, this.y + 22.5,
-				this.x + 30, this.y
+				-15, -22.5,
+				-15, 22.5,
+				30, 0
 			);
+		} c.restore();
+		if(this.mouseOver) {
+			this.iconScale += 0.1;
 		}
-		/* big triangle (mouse is over) */
 		else {
-			c.fillStyle = COLORS.STONE_DARK_GRAY;
-			c.fillPoly(
-				this.x - 20, this.y - 30,
-				this.x - 20, this.y + 30,
-				this.x + 40, this.y
-			);
+			this.iconScale -= 0.1;
 		}
+		this.iconScale = Math.constrain(this.iconScale, 1, 1.5);
 	}
 	else if(this.icon === "question") {
 		/* button outline */
@@ -1269,6 +1251,9 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "dollar") {
+		this.resetAnimation = function() {
+			this.dollarIcons = [];
+		};
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
@@ -1281,47 +1266,58 @@ Button.prototype.display = function() {
 		});
 		c.fillText("$", this.x, this.y + 15);
 		/* dollar sign animation */
-		if(this.mouseOver && utilities.frameCount % 10 === 0) {
-			dollarIcons.push(new DollarIcon());
+		this.dollarIcons = this.dollarIcons || [];
+		if(this.mouseOver && utilities.frameCount % 15 === 0) {
+			this.dollarIcons.push({ x: Math.randomInRange(225, 325), y: 450 });
 		}
-		if(dollarIcons.length > 0) {
-			for(var x = this.x - 70; x < this.x + 70; x ++) {
-				for(var y = this.y - 70; y < this.y + 70; y ++) {
-					if(Math.dist(x, y, this.x, this.y) > 52.5) {
-						c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
-						c.fillRect(x, y, 1, 1);
+		if(this.dollarIcons.length > 0) {
+			c.save(); {
+				c.clipCircle(this.x, this.y, 50 - 1.5);
+				c.loadTextStyle({
+					color: COLORS.STONE_DARK_GRAY,
+					font: "20px cursive",
+					textAlign: "center"
+				});
+				for(var i = 0; i < this.dollarIcons.length; i ++) {
+					c.fillText("$", this.dollarIcons[i].x, this.dollarIcons[i].y);
+					this.dollarIcons[i].y += 3;
+					if(this.dollarIcons[i].y > this.y + 100) {
+						this.dollarIcons.splice(i, 1);
+						i --;
 					}
 				}
-			}
-			var g = c.createRadialGradient(this.x, this.y, 52, this.x, this.y, 53);
-			g.addColorStop(0, "rgba(200, 200, 200, 0)");
-			g.addColorStop(1, "rgba(200, 200, 200, 255)");
-			c.fillStyle = g;
-			c.fillRect(this.x - 70, this.y - 70, 140, 140);
+			} c.restore();
 		}
 	}
 	else if(this.icon === "trophy") {
+		this.resetAnimation = function() {
+			this.radii = [];
+			this.shouldAddLightGraphic = false;
+		};
 		/* rays of light */
-		if(this.mouseOver) {
-			this.r += 1;
-			if(this.r > 50) {
-				this.r = 0;
+		c.save(); {
+			c.clipCircle(this.x, this.y, 50);
+			this.radii = this.radii || [];
+			if(this.mouseOver) {
+				this.shouldAddLightGraphic = true;
+			}
+			if(this.shouldAddLightGraphic && (this.radii[0] > 25 || this.radii.length === 0)) {
+				this.shouldAddLightGraphic = false;
+				this.radii.unshift(0);
 			}
 			c.strokeStyle = "rgb(170, 170, 170)";
-			c.strokeCircle(this.x, this.y, this.r);
-			for(var r = 0; r < 2 * Math.PI; r += (2 * Math.PI) / 8) {
-				c.save(); {
-					c.translate(this.x, this.y);
-					c.rotate(r);
-					c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
-					c.fillPoly(
-						0, 0,
-						-10, -50,
-						10, -50
-					);
-				} c.restore();
+			for(var i = 0; i < this.radii.length; i ++) {
+				this.radii[i] ++;
+				if(this.radii[i] > 60) {
+					this.radii.splice(i, 1);
+					i --;
+					continue;
+				}
+				for(var r = 0; r < 360; r += 360 / 8) {
+					c.strokeArc(this.x, this.y, this.radii[i], Math.toRadians(r - (360 / 8 / 4)), Math.toRadians(r + (360 / 8 / 4)));
+				}
 			}
-		}
+		} c.restore();
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.lineWidth = 5;
@@ -1339,6 +1335,10 @@ Button.prototype.display = function() {
 		} c.restore();
 	}
 	else if(this.icon === "house") {
+		this.resetAnimation = function() {
+			this.doorX = 0;
+		};
+		this.doorX = this.doorX || 0;
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.strokeCircle(this.x, this.y, 50);
@@ -1366,15 +1366,17 @@ Button.prototype.display = function() {
 		}
 	}
 	else if(this.icon === "retry") {
+		this.iconRotation = this.iconRotation || 0;
+		this.resetAnimation = function() {
+			this.iconRotation = 0;
+		};
 		/* button outline */
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.strokeCircle(this.x, this.y, 50);
 		/* retry icon */
 		c.save(); {
 			c.translate(this.x, this.y);
-			if(this.mouseOver) {
-				c.rotate(0.5 * Math.PI);
-			}
+			c.rotate(Math.toRadians(this.iconRotation));
 			c.strokeStyle = COLORS.STONE_DARK_GRAY;
 			c.strokeArc(0, 0, 30, Math.toRadians(90), Math.toRadians(360));
 			c.fillPoly(
@@ -1383,8 +1385,17 @@ Button.prototype.display = function() {
 				30, 20
 			);
 		} c.restore();
+		if(this.mouseOver) {
+			this.iconRotation += 12;
+		}
+		else {
+			this.iconRotation -= 12;
+		}
+		this.iconRotation = Math.constrain(this.iconRotation, 0, 90);
 	}
-	this.mousedOverBefore = this.mouseOver;
+	if(this.mouseOver) {
+		input.mouse.cursor = "pointer";
+	}
 };
 Button.prototype.hasMouseOver = function() {
 	return Math.hypot(input.mouse.x - this.x, input.mouse.y - this.y) < ((this.icon === "play") ? 75 : 50);
@@ -1395,6 +1406,12 @@ Button.prototype.checkForClick = function() {
 		if(this.icon === "retry" || this.icon === "play") {
 			p.reset();
 		}
+		for(var i = 0; i < buttons.length; i ++) {
+			buttons[i].mouseOver = false;
+			if(typeof buttons[i].resetAnimation === "function") {
+				buttons[i].resetAnimation();
+			}
+		}
 	}
 };
 var playButton = new Button(400, 400, "play", "play");
@@ -1404,6 +1421,7 @@ var homeFromDeath = new Button(266, 650, "home", "house");
 var homeFromShop = new Button(75, 75, "home", "house");
 var homeFromAchievements = new Button(75, 75, "home", "house");
 var retryButton = new Button(533, 650, "play", "retry");
+var buttons = [playButton, shopButton, achievementsButton, retryButton, homeFromDeath, homeFromShop, homeFromAchievements];
 
 function DoubleJumpParticle(x, y) {
 	this.x = x;
@@ -4638,13 +4656,6 @@ var ui = {
 			c.fillText("Survival", 400, 200);
 		}
 		/* buttons */
-		for(var i = 0; i < dollarIcons.length; i ++) {
-			dollarIcons[i].display();
-			if(dollarIcons[i].y >= 545) {
-				dollarIcons.splice(i, 1);
-				i --;
-			}
-		}
 		shopButton.display();
 		shopButton.mouseOver = shopButton.hasMouseOver();
 		shopButton.checkForClick();
