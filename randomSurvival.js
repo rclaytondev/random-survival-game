@@ -990,7 +990,7 @@ Player.prototype.reset = function() {
 	this.facing = "forward";
 	this.armHeight = 10;
 	this.worldY = 0;
-	game.timeToEvent = FPS;
+	game.timeToEvent = 2 * FPS;
 	game.objects = [];
 	game.initializePlatforms();
 	game.chatMessages = [];
@@ -1121,7 +1121,7 @@ Platform.prototype.update = function() {
 			}
 		}
 		if(numMoving === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("block shuffle");
 		}
 	}
@@ -2636,7 +2636,7 @@ Acid.prototype.update = function() {
 		this.velY = 0;
 		this.y = 850;
 		p.surviveEvent("acid");
-		game.addEvent();
+		game.endEvent(-1);
 		this.splicing = true;
 	}
 	/* player collisions */
@@ -2798,7 +2798,7 @@ RockParticle.prototype.update = function() {
 		this.splicing = true;
 		if(game.numObjects(RockParticle) === 0) {
 			/* This is the last rock particle, so end the event */
-			game.addEvent();
+			game.endEvent(-1);
 			p.surviveEvent("boulders");
 		}
 	}
@@ -2924,7 +2924,7 @@ Pirhana.prototype.update = function() {
 	if(this.y > 850 && this.velY > 0) {
 		this.splicing = true;
 		if(game.numObjects(Pirhana) === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("pirhanas");
 		}
 	}
@@ -2999,7 +2999,7 @@ Pacman.prototype.update = function() {
 	if((this.x > 1000 && this.velX > 0) || (this.x < -200 && this.velX < 0)) {
 		this.splicing = true;
 		if(game.numObjects(Pacman) === 0) {
-			game.addEvent();
+			game.endEvent(-1);
 			p.surviveEvent("pacmans");
 		}
 	}
@@ -3036,7 +3036,7 @@ FireParticle.prototype.update = function() {
 	if(this.size <= 0 || this.opacity <= 0) {
 		this.splicing = true;
 		if(game.currentEvent === "laser" && game.numObjects(FireParticle) === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("laser");
 		}
 	}
@@ -3092,7 +3092,7 @@ Rocket.prototype.update = function() {
 	const OFFSCREEN_BUFFER = 100;
 	if(this.x < -OFFSCREEN_BUFFER || this.x > canvas.width + OFFSCREEN_BUFFER) {
 		this.splicing = true;
-		game.addEvent();
+		game.endEvent(-1);
 		p.surviveEvent("rocket");
 	}
 	/* add coin if in middle of screen */
@@ -3158,7 +3158,7 @@ Spikeball.prototype.update = function() {
 	if(this.opacity <= 0) {
 		this.splicing = true;
 		if(game.numObjects(Spikeball) === 0) {
-			game.addEvent();
+			game.endEvent();
 			p.surviveEvent("spikeballs");
 		}
 	}
@@ -3225,7 +3225,7 @@ Spikewall.prototype.update = function() {
 	utilities.killCollisionRect(this.x - 5, 0, 10, canvas.height, "spikewall");
 	if((this.velX < 0 && this.x < -50) || (this.velX > 0 && this.x > 850)) {
 		this.splicing = true;
-		game.addEvent();
+		game.endEvent(-1);
 		p.surviveEvent("spikewall");
 	}
 };
@@ -3456,7 +3456,7 @@ LaserBot.prototype.update = function() {
 		this.splicing = true;
 		if(game.numObjects(LaserBot) === 0) {
 			/* this is the final LaserBot; end the event */
-			game.addEvent();
+			game.endEvent(FPS * 2);
 			p.surviveEvent("laserbots");
 		}
 	}
@@ -3792,7 +3792,7 @@ BadGuy.prototype.update = function() {
 	if(this.y > 850) {
 		this.splicing = true;
 		if(game.numObjects(BadGuy) === 0) {
-			game.addEvent();
+			game.endEvent(FPS * 2.5);
 			p.surviveEvent("bad guys");
 		}
 	}
@@ -4005,7 +4005,7 @@ Alien.prototype.update = function() {
 			}
 			if(game.numObjects(Alien) === 0) {
 				p.surviveEvent("aliens");
-				game.addEvent();
+				game.endEvent(FPS * 2);
 			}
 			/* create explosion */
 			var laser = new Crosshair();
@@ -4223,31 +4223,28 @@ var game = {
 		{
 			id: "confusion",
 			begin: function() {
-				game.timeToEvent = FPS * 3;
 				p.timeConfused = FPS * 15;
 				game.chatMessages.push(new ChatMessage("You have been confused", "rgb(0, 255, 0)"));
 				effects.remove();
-				game.currentEvent = null;
+				game.endEvent();
 			}
 		},
 		{
 			id: "blindness",
 			begin: function() {
-				game.timeToEvent = FPS * 3;
 				p.timeBlinded = FPS * 15;
 				game.chatMessages.push(new ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
 				effects.remove();
-				game.currentEvent = null;
+				game.endEvent();
 			}
 		},
 		{
 			id: "nausea",
 			begin: function() {
-				game.timeToEvent = FPS * 3;
 				p.timeNauseated = FPS * 15;
 				game.chatMessages.push(new ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
 				effects.remove();
-				game.currentEvent = null;
+				game.endEvent();
 			}
 		},
 		{
@@ -4634,10 +4631,15 @@ var game = {
 		if(p.timeConfused > 0) {
 			effects.displayConfusionEffect();
 		}
+	},
+	endEvent: function(timeToNextEvent) {
+		timeToNextEvent = timeToNextEvent || FPS * 1;
+		game.timeToEvent = timeToNextEvent;
+		game.currentEvent = null;
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("spinnyblades")] : game.events;
+game.events = TESTING_MODE ? [game.events[15]] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
