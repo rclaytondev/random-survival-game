@@ -468,7 +468,19 @@ CanvasRenderingContext2D.prototype.displayTextOverLines = function(text, x, y, w
 		this.fillText(lines[i], x, lineY);
 		lineY += lineHeight;
 	}
-}
+};
+CanvasRenderingContext2D.prototype.fillCanvas = function() {
+	/*
+	Fills the entire canvas with the current fillStyle.
+	*/
+	this.save(); {
+		this.resetTransform();
+		this.fillRect(0, 0, this.canvas.width, this.canvas.height);
+	} this.restore();
+};
+CanvasRenderingContext2D.prototype.resetTransform = function() {
+	this.setTransform(1, 0, 0, 1, 0, 0);
+};
 Object.prototype.clone = function() {
 	var clone = new this.constructor();
 	for(var i in this) {
@@ -1042,7 +1054,7 @@ Player.prototype.die = function(cause) {
 			console.log("becoming invincible for " + this.invincible + " frames");
 		}
 		else {
-			game.screen = "death";
+			game.transitionToScreen("death");
 			this.deathCause = cause;
 			this.totalCoins += this.coins;
 		}
@@ -1407,19 +1419,16 @@ Button.prototype.display = function() {
 	}
 };
 Button.prototype.hasMouseOver = function() {
+	if(game.transitionOpacity !== 0 && game.transitioningToScreen === this.whereTo) {
+		return true;
+	}
 	return Math.hypot(input.mouse.x - this.x, input.mouse.y - this.y) < ((this.icon === "play") ? 75 : 50);
 };
 Button.prototype.checkForClick = function() {
 	if(this.mouseOver && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
-		game.screen = this.whereTo;
+		game.transitionToScreen(this.whereTo);
 		if(this.icon === "retry" || this.icon === "play") {
 			p.reset();
-		}
-		for(var i = 0; i < buttons.length; i ++) {
-			buttons[i].mouseOver = false;
-			if(typeof buttons[i].resetAnimation === "function") {
-				buttons[i].resetAnimation();
-			}
 		}
 	}
 };
@@ -4291,6 +4300,37 @@ var game = {
 	hitboxes: [], // debugging only. for showing hitboxes if SHOW_HITBOXES is true
 	screen: "home",
 
+	transitioningToScreen: null,
+	transitionOpacity: 0,
+	transitionOpacityDirection: 0,
+	TRANSITION_SPEED: 0.1,
+	transitionToScreen: function(screen) {
+		this.transitionOpacityDirection = this.TRANSITION_SPEED;
+		this.transitioningToScreen = screen;
+	},
+	displayTransitions: function() {
+		c.save(); {
+			c.globalAlpha = this.transitionOpacity;
+			c.fillStyle = "rgb(255, 255, 255)";
+			c.fillCanvas();
+		} c.restore();
+		this.transitionOpacity += this.transitionOpacityDirection;
+		if(this.transitionOpacity > 1) {
+			this.screen = this.transitioningToScreen;
+			this.transitionOpacityDirection = -this.TRANSITION_SPEED;
+			for(var i = 0; i < buttons.length; i ++) {
+				buttons[i].mouseOver = false;
+				if(typeof buttons[i].resetAnimation === "function") {
+					buttons[i].resetAnimation();
+				}
+			}
+		}
+		else if(this.transitionOpacity < 0) {
+			this.transitionOpacityDirection = 0;
+		}
+		this.transitionOpacity = Math.constrain(this.transitionOpacity, 0, 1);
+	},
+
 	exist: function() {
 		game.hitboxes = [];
 
@@ -4822,6 +4862,7 @@ function doByTime() {
 	utilities.pastInputs.update();
 
 	debugging.displayTestingModeWarning();
+	game.displayTransitions();
 
 	document.body.style.cursor = input.mouse.cursor;
 	input.mouse.cursor = "default";
