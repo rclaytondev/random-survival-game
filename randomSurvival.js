@@ -3078,7 +3078,7 @@ Rocket.prototype.display = function() {
 Rocket.prototype.update = function() {
 	this.x += this.velX;
 	if(utilities.frameCount % 1 === 0) {
-		game.objects.push(new FireParticle(this.x, this.y + 10));
+		game.objects.push(new FireParticle(this.x, this.y));
 	}
 	if(!p.isIntangible()) {
 		if(this.velX > 0) {
@@ -4136,10 +4136,10 @@ var game = {
 			begin: function() {
 				game.chatMessages.push(new ChatMessage("Rocket incoming!", "rgb(255, 128, 0)"));
 				if(p.x > 400) {
-					game.objects.push(new Rocket(-50, p.y, 6));
+					game.objects.push(new Rocket(-100, p.y, 6));
 				}
 				else {
-					game.objects.push(new Rocket(850, p.y, -6));
+					game.objects.push(new Rocket(900, p.y, -6));
 				}
 			}
 		},
@@ -4639,7 +4639,7 @@ var game = {
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.events[15]] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("rocket")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
