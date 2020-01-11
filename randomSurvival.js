@@ -2858,7 +2858,7 @@ SpinnyBlade.prototype.update = function() {
 	endPoint1.x += this.x; endPoint2.x += this.x;
 	endPoint1.y += this.y; endPoint2.y += this.y;
 	if(!p.isIntangible()) {
-		utilities.killCollisionLine(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y);
+		utilities.killCollisionLine(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y, "spinnyblades");
 	}
 	/* remove self when faded out */
 	if(this.opacity <= 0 && this.numRevolutions >= 2) {
@@ -3216,10 +3216,12 @@ Spikewall.prototype.update = function() {
 	this.x += this.velX;
 	if(this.direction === "right" && this.x > 250) {
 		this.velX = -this.SLOW_SPEED;
+		this.x = Math.min(this.x, 250);
 		game.objects.push(new Coin(80, (Math.random() < 0.5) ? 175 : 525));
 	}
 	if(this.direction === "left" && this.x < canvas.width - 250) {
 		this.velX = this.SLOW_SPEED;
+		this.x = Math.max(this.x, canvas.width - 250);
 		game.objects.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
 	}
 	utilities.killCollisionRect(this.x - 5, 0, 10, canvas.height, "spikewall");
@@ -4639,7 +4641,7 @@ var game = {
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("rocket")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("spikewall")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
