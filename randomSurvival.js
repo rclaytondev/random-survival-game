@@ -933,7 +933,7 @@ Player.prototype.update = function() {
 			if(this.velX > DEFAULT_MAX_VELOCITY || this.velX < -DEFAULT_MAX_VELOCITY) {
 				this.gonePlaces = true;
 			}
-			game.objects.push(new DoubleJumpParticle(this.x, this.y + 46));
+			game.objects.push(new DoubleJumpParticle(this.x, this.y + 46 - this.worldY));
 		}
 	}
 };
