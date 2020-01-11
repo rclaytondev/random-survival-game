@@ -572,6 +572,15 @@ Array.prototype.removeItemsWithProperty = function(propertyName, propertyValue) 
 Array.prototype.includesItemsWithProperty = function(propertyName, propertyValue) {
 	return (this.getItemsWithProperty(propertyName, propertyValue).length !== 0);
 };
+Number.prototype.mod = function(divisor) {
+	/*
+	This is used instead of the % operator because % returns negatives for negative numbers. (ex: -5 % 10 === -5)
+
+	This is on the number prototype instead of Math since it seems more like an arithmetic operation than the Math functions.
+	*/
+
+	return ((this % divisor) + divisor) % divisor;
+};
 Math.average = function(values) {
 	if(Array.isArray(arguments[0])) {
 		return Math.average.apply(Math, arguments);
@@ -2798,15 +2807,12 @@ RockParticle.prototype.update = function() {
 function SpinnyBlade(x, y) {
 	this.x = x;
 	this.y = y;
-	// this.r = 0.5 * Math.PI;
 	this.r = 90;
 	this.numRevolutions = 0;
 	this.opacity = 0;
 
-	this.ROTATION_SPEED = 1;
-	if(Math.random() < 0.5) {
-		this.ROTATION_SPEED *= -1;
-	}
+	this.ROTATION_SPEED = 1 * (Math.random() < 0.5 ? 1 : -1);
+	this.MAX_NUM_REVOLUTIONS = 3;
 };
 SpinnyBlade.prototype.display = function() {
 	c.fillStyle = "rgb(215, 215, 215)";
@@ -2829,13 +2835,17 @@ SpinnyBlade.prototype.display = function() {
 };
 SpinnyBlade.prototype.update = function() {
 	if(this.opacity >= 1) {
-		this.r += 0.02;
+		this.r += this.ROTATION_SPEED;
 	}
-	this.r -= this.ROTATION_SPEED;
-	if(Math.dist(this.r, 90) <= this.ROTATION_SPEED) {
+	this.r = this.r.mod(360);
+	if(
+		(Math.dist(this.r, 90) < Math.abs(this.ROTATION_SPEED) ||
+		Math.dist(this.r, 270) < Math.abs(this.ROTATION_SPEED)) &&
+		this.opacity >= 1 && this.age > FPS
+	) {
 		this.numRevolutions ++;
 	}
-	if(this.numRevolutions < 2) {
+	if(this.numRevolutions < this.MAX_NUM_REVOLUTIONS) {
 		this.opacity += 0.05;
 	}
 	else {
@@ -2853,13 +2863,15 @@ SpinnyBlade.prototype.update = function() {
 	/* remove self when faded out */
 	if(this.opacity <= 0 && this.numRevolutions >= 2) {
 		this.splicing = true;
-		p.surviveEvent("spinnyblades");
 		if(game.numObjects(SpinnyBlade) === 0) {
 			/* This is the last spinnyblade, so end the event */
 			p.surviveEvent("spinnyblades");
-			game.addEvent();
+			game.endEvent();
 		}
 	}
+
+	this.age = this.age || 0;
+	this.age ++;
 };
 /* jumping pirhanas event */
 function Pirhana(x) {
@@ -4625,7 +4637,7 @@ var game = {
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("blindness"), game.getEventByID("nausea"), game.getEventByID("confusion")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("spinnyblades")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
