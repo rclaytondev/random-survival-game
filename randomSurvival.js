@@ -145,6 +145,7 @@ var utilities = {
 		settings.sides = settings.sides || ["top", "bottom", "left", "right"];
 		settings.includedTypes = settings.includedTypes || null; // if provided, this parameter will exclude all types of objects other than those given.
 		settings.excludedTypes = settings.excludedTypes || null; // if provided, this parameter will exclude the types of objects given.
+		settings.collisionRequirements = settings.collisionRequirements || function(obj) { return true; };
 
 		if(!p.isIntangible()) {
 			game.objects.push(p);
@@ -153,13 +154,13 @@ var utilities = {
 			var obj = game.objects[i];
 
 			if(Array.isArray(settings.excludedTypes)) {
-				for(var j = 0; j < settings.excludedTypes; j ++) {
+				for(var j = 0; j < settings.excludedTypes.length; j ++) {
 					if(obj instanceof settings.excludedTypes[j]) {
 						continue objectLoop;
 					}
 				}
 			}
-			else if(Array.isArray(settings.includedTypes)) {
+			if(Array.isArray(settings.includedTypes)) {
 				var isIncluded = false;
 				innerLoop: for(var j = 0; j < settings.includedTypes.length; j ++) {
 					if(obj instanceof settings.includedTypes[j]) {
@@ -172,7 +173,17 @@ var utilities = {
 				}
 			}
 
-			if(game.objects[i].hitbox !== undefined && game.objects[i].hitbox !== null && typeof game.objects[i].hitbox === "object" && typeof game.objects[i].handleCollision === "function") {
+			if(settings.collisionRequirements(obj) !== true) {
+				continue;
+			}
+
+			if(
+				game.objects[i].hitbox !== undefined && game.objects[i].hitbox !== null &&
+				typeof game.objects[i].hitbox === "object" &&
+				typeof game.objects[i].handleCollision === "function" &&
+				game.objects[i] !== settings.caller &&
+				!game.objects[i].noCollisions
+			) {
 				var collisionBuffer = { top: 5, bottom: 5, left: 5, right: 5 };
 				if(obj.hasOwnProperty("velY")) {
 					collisionBuffer.top = obj.velY - settings.velY + 2;
@@ -358,6 +369,16 @@ CanvasRenderingContext2D.prototype.clipCircle = function(x, y, r) {
 	this.beginPath();
 	this.arc(x, y, r, Math.toRadians(0), Math.toRadians(360));
 	this.clip();
+};
+CanvasRenderingContext2D.prototype.fillEllipse = function(x, y, w, h) {
+	/*
+	This does NOT create a real ellipse! It just stretches a circle to make a kind of oval.
+	*/
+	this.save(); {
+		this.translate(x, y);
+		this.scale(w, h);
+		this.fillCircle(0, 0, 1);
+	} this.restore();
 };
 CanvasRenderingContext2D.prototype.line = function() {
 	/*
@@ -641,8 +662,47 @@ Math.rotate = function(x, y, rad) {
 		y: x * Math.sin(rad) + y * Math.cos(rad)
 	};
 };
-Math.findPointsCircular = function(x, y, r) {
+Math.rotateAboutPoint = function(x, y, pointX, pointY, degrees) {
+	x -= pointX;
+	y -= pointY;
+	var rotated = Math.rotateDegrees(x, y, degrees);
+	return {
+		x: rotated.x + pointX,
+		y: rotated.y + pointY
+	};
+};
+Math.scale = function(x, y, scaleFactorX, scaleFactorY) {
+	/*
+	Returns ('x', 'y') scaled by 'scaleFactorX' and 'scaleFactorY' about the origin.
+	*/
+	scaleFactorY = scaleFactorY || scaleFactorX;
+	return {
+		x: x * scaleFactorX,
+		y: y * scaleFactorY
+	}
+};
+Math.scaleAboutPoint = function(x, y, pointX, pointY, scaleFactorX, scaleFactorY) {
+	scaleFactorY = scaleFactorY || scaleFactorX;
+	var scaledPoint = { x: x, y: y };
+	scaledPoint.x -= pointX;
+	scaledPoint.y -= pointY;
+	scaledPoint = Math.scale(scaledPoint.x, scaledPoint.y, scaleFactorX, scaleFactorY);
+	scaledPoint.x += pointX;
+	scaledPoint.y += pointY;
+	return scaledPoint;
+};
+Math.findPointsCircular = function(x, y, r, includeInsideCircle) {
 	var circularPoints = [];
+	if(includeInsideCircle) {
+		for(var X = x - r; X < x + r; X ++) {
+			for(var Y = y - r; Y < y + r; Y ++) {
+				if(Math.distSq(x, y, X, Y) <= r * r) {
+					circularPoints.push({ x: X, y: Y });
+				}
+			}
+		}
+		return circularPoints;
+	}
 	/* top right quadrant */
 	for(var X = x; X < x + r; X ++) {
 		for(var Y = y - r; Y < y; Y ++) {
@@ -819,22 +879,20 @@ function Player() {
 	/* Other properties */
 	this.standingOnPlatform = null;
 	this.beingAbductedBy = null; // used for UFO enemies
+	this.isDead = false;
+	this.timeToDeath = -1;
 };
 Player.prototype.display = function() {
 	c.globalAlpha = 1;
 	/*
 	The player is a rectangle. 10 wide, 46 tall. (this.x, this.y) is at the middle of the top of the rectangle.
 	*/
-	if(this.invincible < 0 || utilities.frameCount % 2 === 0) {
+	if((this.invincible < 0 || utilities.frameCount % 2 === 0) && !this.isDead) {
 		c.lineWidth = 5;
 		c.lineCap = "round";
 		/* head */
 		c.fillStyle = "rgb(0, 0, 0)";
-		c.save(); {
-			c.translate(this.x, this.y);
-			c.scale(1, 1.2);
-			c.fillCircle(0, 12, 10);
-		} c.restore();
+		c.fillEllipse(this.x, this.y + 12 * 1.2, 10, 10 * 1.2);
 		/* eyes */
 		if(this.facing === "left" || this.facing === "forward") {
 			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
@@ -857,6 +915,10 @@ Player.prototype.display = function() {
 	}
 };
 Player.prototype.update = function() {
+	if(this.isDead) {
+		this.updateAnimations();
+		return;
+	}
 	this.timeConfused --;
 	this.timeBlinded --;
 	this.timeNauseated --;
@@ -896,26 +958,28 @@ Player.prototype.update = function() {
 	/* gravity */
 	this.velY += 0.1;
 	/* Collisions */
-	const SCREEN_BORDERS = (!this.isIntangible() || shop.intangibilityTalisman.numUpgrades < 2);
-	if(!SCREEN_BORDERS) {
-		if(this.x > 800) {
-			this.x = 0;
+	if(!this.noCollisions) {
+		const SCREEN_BORDERS = (!this.isIntangible() || shop.intangibilityTalisman.numUpgrades < 2);
+		if(!SCREEN_BORDERS) {
+			if(this.x > 800) {
+				this.x = 0;
+			}
+			else if(this.x < 0) {
+				this.x = 800;
+			}
+			if(this.usedRevive) {
+				this.beenGhost = true;
+			}
 		}
-		else if(this.x < 0) {
-			this.x = 800;
-		}
-		if(this.usedRevive) {
-			this.beenGhost = true;
-		}
-	}
-	else {
-		if(this.x < 10) {
-			this.velX = 0;
-			this.x = Math.max(this.x, 10);
-		}
-		if(this.x > 790) {
-			this.velX = 0;
-			this.x = Math.min(this.x, 790);
+		else {
+			if(this.x < 10) {
+				this.velX = 0;
+				this.x = Math.max(this.x, 10);
+			}
+			if(this.x > 790) {
+				this.velX = 0;
+				this.x = Math.min(this.x, 790);
+			}
 		}
 	}
 	/* movement cap */
@@ -991,6 +1055,17 @@ Player.prototype.updateAnimations = function() {
 	else {
 		this.armHeight += (this.armHeight > -5) ? -1 : 0;
 	}
+	/* death animations */
+	if(game.numObjects(PlayerDisintegrationParticle) !== 0) {
+		game.getObjectsByType(PlayerDisintegrationParticle)[0].checkForAnimationEnd();
+	}
+	if(game.numObjects(PlayerBodyPart) !== 0) {
+		game.getObjectsByType(PlayerBodyPart)[0].checkForAnimationEnd();
+	}
+	this.timeToDeath --;
+	if(this.isDead && this.timeToDeath === 0) {
+		game.transitionToScreen("death");
+	}
 };
 Player.prototype.reset = function() {
 	this.score = 0;
@@ -1002,7 +1077,11 @@ Player.prototype.reset = function() {
 	this.facing = "forward";
 	this.armHeight = 10;
 	this.worldY = 0;
+	this.hitbox = new Player().hitbox;
+	this.noCollisions = false;
 	game.timeToEvent = 2 * FPS;
+	this.isDead = false;
+	this.timeToDeath = -1;
 	game.objects = [];
 	game.initializePlatforms();
 	game.chatMessages = [];
@@ -1051,11 +1130,28 @@ Player.prototype.die = function(cause) {
 		if(shop.secondLife.equipped && this.numRevives > 0) {
 			this.numRevives --;
 			this.invincible = (shop.secondLife.numUpgrades >= 2) ? FPS * 2 : FPS;
-			console.log("becoming invincible for " + this.invincible + " frames");
 		}
 		else {
-			game.transitionToScreen("death");
 			this.deathCause = cause;
+			var deathAnimations = {
+				"disintegration": ["laser", "acid", "laserbots"],
+				"limbs-fall-off": ["boulder", "spinnyblades", "rocket", "spikeballs", "spikewall", "pirhanas"],
+				"other-death-animation": ["pacmans"], // more complex animations defined somewhere else
+				"no-death-animation": ["aliens", "fall"]
+			};
+			for(var i in deathAnimations) {
+				if(deathAnimations.hasOwnProperty(i) && deathAnimations[i].contains(cause)) {
+					if(i === "no-death-animation") {
+						game.transitionToScreen("death");
+					}
+					else if(i === "other-death-animation") {
+						/* Do nothing. The animation will be handled somewhere else. */
+					}
+					else {
+						this.beginDeathAnimation(i);
+					}
+				}
+			}
 			this.totalCoins += this.coins;
 		}
 	}
@@ -1090,6 +1186,269 @@ Player.prototype.isInPath = function() {
 		c.isPointInPath(this.x + this.hitbox.left, this.y + this.hitbox.bottom) ||
 		c.isPointInPath(this.x + this.hitbox.right, this.y + this.hitbox.bottom)
 	)
+};
+Player.prototype.beginDeathAnimation = function(deathAnimation) {
+	/*
+	Possible values for deathAnimation: "disintegration", "limbs-fall-off"
+	*/
+	if(this.isDead) {
+		return;
+	}
+	this.isDead = true;
+	if(deathAnimation === "disintegration") {
+		function disintegrateLine(x1, y1, x2, y2) {
+			var points = Math.findPointsLinear(x1, y1, x2, y2);
+			for(var i = 0; i < points.length; i ++) {
+				game.objects.push(new PlayerDisintegrationParticle(points[i].x, points[i].y - p.worldY));
+			}
+		};
+		function disintegrateEllipse(x, y, radiusX, radiusY) {
+			var points = Math.findPointsCircular(x, y, Math.min(radiusX, radiusY), true);
+			if(radiusX < radiusY) {
+				for(var i = 0; i < points.length; i ++) {
+					points[i].y = Math.scaleAboutPoint(points[i].x, points[i].y, x, y, 1, (radiusY / radiusX)).y;
+				}
+			}
+			else {
+				for(var i = 0; i < points.length; i ++) {
+					points[i].x = Math.scaleAboutPoint(points[i].x, points[i].y, x, y, (radiusX / radiusY), 1).x;
+				}
+			}
+			for(var i = 0; i < points.length; i ++) {
+				game.objects.push(new PlayerDisintegrationParticle(points[i].x, points[i].y - p.worldY));
+			}
+		};
+		function removeParticlesInCircle(x, y, r) {
+			for(var i = 0; i < game.objects.length; i ++) {
+				if(game.objects[i] instanceof PlayerDisintegrationParticle && Math.dist(game.objects[i].x, game.objects[i].y + p.worldY, x, y) < r) {
+					game.objects.splice(i, 1);
+					i --;
+				}
+			}
+		};
+		/* head */
+		disintegrateEllipse(this.x, this.y + 12, 10, 12);
+		/* body */
+		disintegrateLine(this.x, this.y + 15, this.x, this.y + 36);
+		/* legs */
+		disintegrateLine(this.x, this.y + 36, this.x - this.legs, this.y + 46);
+		disintegrateLine(this.x, this.y + 36, this.x + this.legs, this.y + 46);
+		/* arms */
+		disintegrateLine(this.x, this.y + 26, this.x + 10, this.y + 26 + this.armHeight);
+		disintegrateLine(this.x, this.y + 26, this.x - 10, this.y + 26 + this.armHeight);
+		/* remove particles where player's eyes are */
+		if(this.facing === "left" || this.facing === "forward") {
+			removeParticlesInCircle(this.x - 4, this.y + 10, 4);
+		}
+		if(this.facing === "right" || this.facing === "forward") {
+			removeParticlesInCircle(this.x + 4, this.y + 10, 4);
+		}
+	}
+	else if(deathAnimation === "limbs-fall-off") {
+		game.objects.push(new PlayerBodyPart("player-head", { x: this.x, y: this.y + 12 * 1.2 }));
+		/* body */
+		c.strokeStyle = "rgb(0, 0, 0)";
+		c.strokeLine(this.x, this.y + 15, this.x, this.y + 36);
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 15,
+					x2: this.x,
+					y2: this.y + 36
+				}
+			)
+		);
+		/* legs */
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 36,
+					x2: this.x - this.legs,
+					y2: this.y + 46
+				}
+			)
+		);
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 36,
+					x2: this.x + this.legs,
+					y2: this.y + 46
+				}
+			)
+		);
+		/* arms */
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 26,
+					x2: this.x + 10,
+					y2: this.y + 26 + this.armHeight
+				}
+			)
+		);
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 26,
+					x2: this.x - 10,
+					y2: this.y + 26 + this.armHeight
+				}
+			)
+		);
+	}
+};
+
+function PlayerDisintegrationParticle(x, y) {
+	this.x = x;
+	this.y = y;
+	var maximumXVelocity = Math.max(0, 2 - Math.abs(p.velY));
+	maximumXVelocity = 0.4;
+	this.velX = Math.randomInRange(-maximumXVelocity, maximumXVelocity);
+	this.velY = Math.randomInRange(-2, -1.5) + p.velY;
+	if(game.getObjectsByType(Acid).length !== 0) {
+		this.velY = Math.min(this.velY, -2);
+	}
+	this.hitbox = { top: -2, bottom: 2, left: -2, right: 2 };
+	this.isOnGround = false;
+};
+PlayerDisintegrationParticle.prototype.display = function() {
+	c.fillStyle = "rgb(0, 0, 0)";
+	c.fillRect(this.x - 2, this.y + p.worldY - 2, 4, 4);
+	if(this.isOnGround) {
+		c.fillRect(this.x - 3, this.y + p.worldY - 2, 6, 4);
+	}
+};
+PlayerDisintegrationParticle.prototype.update = function() {
+	if(!this.isOnGround) {
+		this.x += this.velX;
+		this.y += this.velY;
+		this.velY += 0.1;
+		this.velX *= 0.99;
+		if(this.y > canvas.height + 50) {
+			this.splicing = true;
+			this.checkForAnimationEnd();
+		}
+		if(game.getObjectsByType(Acid)[0] !== undefined) {
+			if(this.y > game.getObjectsByType(Acid)[0].y) {
+				this.velY = Math.randomInRange(-3, -5);
+				this.hasTouchedAcid = true;
+			}
+		}
+	}
+};
+PlayerDisintegrationParticle.prototype.handleCollision = function(direction, platform) {
+	if(direction === "floor") {
+		if(!this.isOnGround) {
+			this.splicing = (Math.random()) < 0.5;
+			this.checkForAnimationEnd();
+		}
+		this.isOnGround = true;
+		this.hitbox = null; // no more collisions necessary for this one
+		if(platform instanceof PlayerDisintegrationParticle) {
+			this.x = platform.x;
+		}
+	}
+};
+PlayerDisintegrationParticle.prototype.collide = function() {
+	if(this.isOnGround) {
+		utilities.collisionRect(
+			this.x - 1, this.y - 1, 2, 2,
+			{
+				includedTypes: [PlayerDisintegrationParticle],
+				caller: this,
+				collisionRequirements: function(obj) {
+					if(obj.isOnGround) {
+						return false;
+					}
+					return true;
+				},
+			}
+		);
+	}
+};
+PlayerDisintegrationParticle.prototype.checkForAnimationEnd = function() {
+	var particles = game.getObjectsByType(PlayerDisintegrationParticle);
+	var stillPlayingAnimation = false;
+	for(var i = 0; i < particles.length; i ++) {
+		if(!particles[i].splicing && !particles[i].isOnGround && !particles[i].hasTouchedAcid) {
+			stillPlayingAnimation = true;
+			break;
+		}
+	}
+	if(!stillPlayingAnimation) {
+		game.transitionToScreen("death");
+	}
+};
+function PlayerBodyPart(type, location) {
+	/* Used in the death animation where the player's limbs fall off. */
+	this.type = type; // "player-head" or "line-segment" (for arms / legs)
+	if(this.type === "line-segment") {
+		this.location = {
+			x: location.x1,
+			y: location.y1,
+			length: Math.dist(location.x1, location.y1, location.x2, location.y2),
+			rotation: Math.toDegrees(Math.atan2((location.y2 - location.y1), (location.x2 - location.x1)))
+		};
+	}
+	else {
+		this.location = {
+			x: location.x,
+			y: location.y,
+			rotation: location.rotation || 0
+		};
+		this.facing = p.facing;
+	}
+	this.velX = Math.randomInRange(-3, 3);
+	this.velY = Math.randomInRange(-3, 3);
+};
+PlayerBodyPart.prototype.display = function() {
+	c.save(); {
+		c.lineCap = "round";
+		c.translate(this.location.x, this.location.y);
+		c.rotate(Math.toRadians(this.location.rotation));
+		if(this.type === "player-head") {
+			c.fillStyle = "rgb(0, 0, 0)";
+			c.fillEllipse(0, 0, 10, 10 * 1.2);
+			/* eyes */
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
+			if(this.facing === "left" || this.facing === "forward") {
+				c.fillCircle(-4, 0 + 10 - (12 * 1.2), 3);
+			}
+			if(this.facing === "right" || this.facing === "forward") {
+				c.fillCircle(4, 0 + 10 - (12 * 1.2), 3);
+			}
+		}
+		else {
+			c.strokeStyle = "rgb(0, 0, 0)";
+			c.strokeLine(0, 0, 0, this.location.length);
+		}
+	} c.restore();
+};
+PlayerBodyPart.prototype.update = function() {
+	this.location.x += this.velX;
+	this.location.y += this.velY;
+	this.location.rotation += this.velX;
+	this.velY += 0.1;
+	this.velX *= 0.96;
+
+	this.age = this.age || 0;
+	this.age ++;
+};
+PlayerBodyPart.prototype.checkForAnimationEnd = function() {
+	if(this.age > FPS) {
+		game.transitionToScreen("death");
+	}
 };
 
 var p = new Player();
@@ -2687,6 +3046,10 @@ Acid.prototype.stopRising = function() {
 	this.y += 700;
 	/* delete platforms from acid rise */
 	for(var i = 0; i < game.objects.length; i ++) {
+		if(game.objects[i] instanceof PlayerDisintegrationParticle) {
+			game.objects[i].y += 700;
+			continue;
+		}
 		if(game.objects[i].y < 200) {
 			game.objects[i].splicing = true;
 		}
@@ -2959,6 +3322,7 @@ function Pacman(x, y, velX) {
 	this.velX = velX;
 	this.mouth = 0;
 	this.mouthVel = -1;
+	this.rotation = 0;
 };
 Pacman.prototype.display = function() {
 	c.fillStyle = "rgb(255, 255, 0)";
@@ -2967,31 +3331,49 @@ Pacman.prototype.display = function() {
 		if(this.velX < 0) {
 			c.scale(-1, 1); // reflect for pacmans going left
 		}
-		c.fillArc(0, 0, 200, Math.toRadians(this.mouth), Math.toRadians(-this.mouth));
+		c.fillArc(0, 0, 200, Math.toRadians(this.rotation + this.mouth), Math.toRadians(this.rotation - this.mouth));
 	} c.restore();
 };
 Pacman.prototype.update = function() {
-	this.x += this.velX;
-	this.mouth += this.mouthVel;
 	const MOUTH_ANIMATION_SPEED = 0.5;
-	if(this.mouth >= 45) {
-		this.mouthVel = -MOUTH_ANIMATION_SPEED;
+	if(this.hasEatenPlayer) {
+		this.mouth += 3 * MOUTH_ANIMATION_SPEED;
+		this.mouth = Math.constrain(this.mouth, 0, 45);
+		if(this.rotating) {
+			this.rotateTowardPlayer();
+		}
+		else if(!p.isDead) {
+			this.eatPlayer();
+		}
+		else {
+			this.returnToDefaultRotation();
+		}
 	}
-	else if(this.mouth <= 0) {
-		this.mouthVel = MOUTH_ANIMATION_SPEED;
+	else {
+		this.x += this.velX;
+		this.mouth += this.mouthVel;
+		if(this.mouth >= 45) {
+			this.mouthVel = -MOUTH_ANIMATION_SPEED;
+		}
+		else if(this.mouth <= 0) {
+			this.mouthVel = MOUTH_ANIMATION_SPEED;
+		}
 	}
 	/* player collisions */
-	if(!p.isIntangible()) {
+	if(!p.isIntangible() && !this.hasEatenPlayer && !p.isDead) {
 		c.save(); {
 			c.translate(this.x, this.y);
 			if(this.velX < 0) {
 				c.scale(-1, 1); // reflect for pacmans going left
 			}
+			c.beginPath();
 			c.moveTo(0, 0);
 			c.arc(0, 0, 200, Math.toRadians(this.mouth), Math.toRadians(-this.mouth));
 			c.lineTo(0, 0);
 			if(p.isInPath()) {
 				p.die("pacmans");
+				this.hasEatenPlayer = true;
+				this.rotating = true;
 			}
 		} c.restore();
 	}
@@ -3011,6 +3393,56 @@ Pacman.prototype.update = function() {
 			game.endEvent(-1);
 			p.surviveEvent("pacmans");
 		}
+	}
+};
+Pacman.prototype.rotateTowardPlayer = function() {
+	/*
+	Rotates the pacman so the pacman's mouth is pointing at the player. Returns whether it is done moving it's mouth.
+	*/
+	var desiredRotation = Math.toDegrees(Math.atan2(p.y - this.y, p.x - this.x));
+	if(this.velX < 0) {
+		desiredRotation *= -1;
+		desiredRotation += 180;
+		if(Math.dist(this.rotation + 360, desiredRotation) < Math.dist(this.rotation, desiredRotation)) {
+			this.rotation += 360;
+		}
+		if(Math.dist(this.rotation - 360, desiredRotation) < Math.dist(this.rotation, desiredRotation)) {
+			this.rotation -= 360;
+		}
+	}
+	this.rotation += (desiredRotation - this.rotation) / 4;
+	if(Math.dist(this.rotation, desiredRotation) < 10) {
+		this.rotating = false;
+	}
+};
+Pacman.prototype.returnToDefaultRotation = function() {
+	var desiredRotation = 0;
+	if(Math.dist(this.rotation + 360, desiredRotation) < Math.dist(this.rotation, desiredRotation)) {
+		this.rotation += 360;
+	}
+	if(Math.dist(this.rotation - 360, desiredRotation) < Math.dist(this.rotation, desiredRotation)) {
+		this.rotation -= 360;
+	}
+	this.rotation += (0 - this.rotation) / 4;
+	if(Math.dist(this.rotation, 0) <= 2) {
+		this.hasEatenPlayer = false;
+		p.timeToDeath = FPS * 2;
+	}
+};
+Pacman.prototype.eatPlayer = function() {
+	/*
+	Moves the player toward the back of the pacman's mouth.
+	*/
+	var point = Math.rotateDegrees(100 * (this.velX < 0 ? 1 : -1), 0, this.rotation * (this.velX < 0 ? -1 : 1));
+	// p.x += (p.x > this.x + point.x) ? -5 : 5;
+	// p.y += (p.y > this.y + point.y) ? -5 : 5;
+	p.x += (this.x + point.x - p.x) / 10;
+	p.y += (this.y + point.y - p.y) / 10;
+	p.velX = 0;
+	p.velY = 0;
+	p.noCollisions = true;
+	if(Math.dist(this.x + point.x, this.y + point.y, p.x, p.y) <= 10) {
+		p.isDead = true;
 	}
 };
 /* rocket event */
@@ -3683,7 +4115,8 @@ LaserBot.prototype.collide = function() {
 			sides: ["left", "right", "top"],
 			caller: this,
 			velX: this.velX,
-			velY: this.velY - (this.springVelY * 30)
+			velY: this.velY - (this.springVelY * 30),
+			excludedTypes: [PlayerDisintegrationParticle]
 		}
 	);
 };
@@ -4681,7 +5114,7 @@ var game = {
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("spikewall")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("pirhanas")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
@@ -4698,6 +5131,22 @@ var debugging = {
 		else if(SHOW_HITBOXES) {
 			c.fillText("hitboxes are on", 10, 20);
 		}
+	},
+
+	drawPoint: function(x, y) {
+		/*
+		Displays a red circle on the point. (Useful for visualizing graphic function calls)
+		*/
+		c.save(); {
+			c.fillStyle = "rgb(255, 0, 0)";
+			var size = Math.sin(utilities.frameCount / 10) * 5 + 10;
+			if(typeof arguments[0] === "number") {
+				c.fillCircle(arguments[0], arguments[1], size);
+			}
+			else {
+				c.fillCircle(arguments[0].x, arguments[0].y, size);
+			}
+		} c.restore();
 	}
 };
 var ui = {
