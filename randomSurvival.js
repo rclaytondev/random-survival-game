@@ -1135,7 +1135,7 @@ Player.prototype.die = function(cause) {
 			this.deathCause = cause;
 			var deathAnimations = {
 				"disintegration": ["laser", "acid", "laserbots"],
-				"limbs-fall-off": ["boulder", "spinnyblades", "rocket", "spikeballs", "spikewall", "pirhanas"],
+				"limbs-fall-off": ["boulder", "spinnyblades", "rocket", "spikeballs", "spikewall", "pirhanas", "bad guys"],
 				"other-death-animation": ["pacmans"], // more complex animations defined somewhere else
 				"no-death-animation": ["aliens", "fall"]
 			};
@@ -5114,7 +5114,7 @@ var game = {
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("pirhanas")] : game.events;
+game.events = TESTING_MODE ? [game.events[15]] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
