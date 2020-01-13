@@ -277,6 +277,17 @@ var utilities = {
 			obj1.y + obj1.hitbox.bottom > obj2.y + obj2.hitbox.top &&
 			obj1.y + obj1.hitbox.top < obj2.y + obj2.hitbox.bottom
 		);
+	},
+	isObjectInRect: function(obj, x, y, w, h) {
+		if(typeof obj.hitbox !== "object" || obj.hitbox === null) {
+			return false;
+		}
+		return (
+			obj.x + obj.hitbox.left > x &&
+			obj.x + obj.hitbox.right < x + w &&
+			obj.y + obj.hitbox.bottom > y &&
+			obj.y + obj.hitbox.top < y + h
+		);
 	}
 };
 var input = {
@@ -351,6 +362,13 @@ CanvasRenderingContext2D.prototype.strokeArc = function(x, y, r, start, end, ant
 	this.beginPath();
 	this.arc(x, y, r, start, end, antiClockwise);
 	this.stroke();
+};
+CanvasRenderingContext2D.prototype.clipArc = function(x, y, radius, startAngle, endAngle, antiClockwise) {
+	this.beginPath();
+	this.moveTo(x, y);
+	this.arc(x, y, radius, startAngle, endAngle);
+	this.lineTo(x, y);
+	this.clip();
 };
 CanvasRenderingContext2D.prototype.circle = function(x, y, r) {
 	this.arc(x, y, r, 0, Math.toRadians(360));
@@ -3546,9 +3564,9 @@ Rocket.prototype.update = function() {
 	}
 };
 /* spikeball event */
-function Spikeball(velX, velY) {
-	this.x = 400;
-	this.y = 400;
+function Spikeball(x, y, velX, velY) {
+	this.x = x;
+	this.y = y;
 	this.velX = velX;
 	this.velY = velY;
 	this.r = 0;
@@ -3559,6 +3577,7 @@ function Spikeball(velX, velY) {
 	this.collideWithBorders = true;
 
 	this.ROTATION_SPEED = 5;
+	this.MAXIMUM_AGE = 500;
 };
 Spikeball.prototype.display = function() {
 	const NUM_SPIKES = 10;
@@ -3573,8 +3592,14 @@ Spikeball.prototype.display = function() {
 		}
 	}
 	c.save(); {
+		c.beginPath();
+		c.moveTo(this.x, this.y);
+		c.arc(this.x, this.y, 15, Math.toRadians(-90), Math.toRadians((this.age / this.MAXIMUM_AGE) * 360 - 90));
+		c.lineTo(this.x, this.y);
+		c.invertPath();
+		c.clip("evenodd");
+
 		c.fillStyle = "rgb(150, 150, 155)";
-		c.globalAlpha = this.opacity;
 		c.translate(this.x, this.y);
 		c.rotate(Math.toRadians(this.r));
 		c.fillPoly(points);
@@ -3582,25 +3607,16 @@ Spikeball.prototype.display = function() {
 };
 Spikeball.prototype.update = function() {
 	this.r += this.ROTATION_SPEED;
-	/* fading in */
-	if(!this.fadedIn) {
-		this.opacity += 0.05;
-	}
-	if(this.opacity >= 1) {
-		this.fadedIn = true;
-	}
-	if(this.fadedIn) {
-		this.x += this.velX;
-		this.y += this.velY;
-		this.age ++;
-		this.opacity -= 0.002;
-	}
+	this.x += this.velX;
+	this.y += this.velY;
+	this.age ++;
 	/* player collisions */
-	if(this.age > 20 && !p.isIntangible()) {
+	if(!p.isIntangible()) {
 		utilities.killCollisionCircle(this.x, this.y, 30, "spikeballs");
 	}
-	/* remove self if faded out */
-	if(this.opacity <= 0) {
+	/* remove self if off screen */
+	this.collideWithBorders = (this.age < this.MAXIMUM_AGE);
+	if(!this.collideWithBorders && !utilities.isObjectInRect(this, -100, -100, canvas.width + 200, canvas.height + 200)) {
 		this.splicing = true;
 		if(game.numObjects(Spikeball) === 0) {
 			game.endEvent();
@@ -3621,6 +3637,29 @@ Spikeball.prototype.handleCollision = function(direction, platform) {
 	else if(direction === "wall-to-right") {
 		this.velX = -Math.abs(this.velX);
 	}
+	if(platform instanceof Spikeball) {
+		var spikeball = platform;
+		if(direction === "floor") {
+			spikeball.handleCollision("ceiling");
+		}
+		else if(direction === "ceiling") {
+			spikeball.handleCollision("floor");
+		}
+		else if(direction === "wall-to-left") {
+			spikeball.handleCollision("wall-to-right");
+		}
+		else if(direction === "wall-to-right") {
+			spikeball.handleCollision("wall-to-left");
+		}
+	}
+};
+Spikeball.prototype.collide = function() {
+	utilities.collisionRect(this.x - 30, this.y - 30, 60, 60, {
+		includedTypes: [Spikeball],
+		velX: this.velX,
+		velY: this.velY,
+		caller: this
+	});
 };
 /* spike wall event */
 function Spikewall(x) {
@@ -4595,30 +4634,53 @@ var game = {
 			id: "spikeballs",
 			begin: function() {
 				game.chatMessages.push(new ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
+				const NUM_SPIKEBALLS = 3;
+				this.addSpikeballs(NUM_SPIKEBALLS / 2, "left");
+				this.addSpikeballs(NUM_SPIKEBALLS / 2, "right");
+			},
+			addSpikeballs: function(numSpikeballs, direction) {
+				/* initialize array of possible spikeball angles */
 				var angles = [];
-				var buffer = 30;
-				for(var i = 0; i < 360; i ++) {
-					if((i > 90 - buffer && i < 90 + buffer) || (i > 270 - buffer && i < 270 + buffer)) {
-						continue;
-					}
+				for(var i = -this.POSSIBLE_SPIKEBALL_ANGLES; i < this.POSSIBLE_SPIKEBALL_ANGLES; i ++) {
 					angles.push(i);
 				}
-				for(var i = 0; i < 3; i ++) {
-					var index = Math.floor(Math.random() * (angles.length - 1));
-					var angle = angles[index];
-					for(var j = 0; j < angles.length; j ++) {
-						var distanceBetweenAngles = Math.min(Math.abs(angle - angles[j]), Math.abs((angle + 360) - angles[j]), Math.abs((angle - 360) - angles[j]));
-						if(distanceBetweenAngles < buffer) {
-							angles.splice(j, 1);
-							j --;
-							continue;
+				/* add spikeballs, at separate angles so they don't end up taking the exact same path */
+				while(numSpikeballs > 0) {
+					console.log(angles.length);
+					var angle = angles.randomItem();
+					/* remove nearby angles */
+					for(var i = 0; i < angles.length; i ++) {
+						var distanceBetweenAngles = Math.min(
+							Math.dist(angle + 360, angles[i]),
+							Math.dist(angle      , angles[i]),
+							Math.dist(angle - 360, angles[i])
+						);
+						if(distanceBetweenAngles < this.MIN_ANGLE_BETWEEN_SPIKEBALLS) {
+							angles.splice(i, 1);
+							i --;
 						}
 					}
-					var angleRadians = angle / 180 * Math.PI;
-					var velocity = Math.rotateDegrees(0, -5, angle);
-					game.objects.push(new Spikeball(velocity.x, velocity.y));
+					/* add spikeball at angle */
+					var velocity = Math.rotateDegrees(this.SPIKEBALL_VELOCITY, 0, angle);
+					if(direction === "right") {
+						velocity.x *= -1;
+					}
+					game.objects.push(new Spikeball(
+						(direction === "right" ?
+							canvas.width + this.SPIKEBALL_DISTANCE_FROM_BORDERS :
+							-this.SPIKEBALL_DISTANCE_FROM_BORDERS
+						),
+						canvas.height / 2,
+						velocity.x * (direction === "right" ? -1 : 1),
+						velocity.y
+					));
+					numSpikeballs --;
 				}
-			}
+			},
+			SPIKEBALL_VELOCITY: 5,
+			MIN_ANGLE_BETWEEN_SPIKEBALLS: 30,
+			POSSIBLE_SPIKEBALL_ANGLES: 75,
+			SPIKEBALL_DISTANCE_FROM_BORDERS: 50
 		},
 		{
 			id: "block shuffle",
@@ -5118,7 +5180,7 @@ var game = {
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("laser")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("spikeballs")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
