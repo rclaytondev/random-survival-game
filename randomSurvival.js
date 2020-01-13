@@ -1081,6 +1081,7 @@ Player.prototype.reset = function() {
 	this.noCollisions = false;
 	game.timeToEvent = 2 * FPS;
 	this.isDead = false;
+	this.diedThisGame = false;
 	this.timeToDeath = -1;
 	game.objects = [];
 	game.initializePlatforms();
@@ -1132,6 +1133,10 @@ Player.prototype.die = function(cause) {
 			this.invincible = (shop.secondLife.numUpgrades >= 2) ? FPS * 2 : FPS;
 		}
 		else {
+			if(!this.diedThisGame) {
+				this.diedThisGame = true;
+				this.totalCoins += this.coins;
+			}
 			this.deathCause = cause;
 			var deathAnimations = {
 				"disintegration": ["laser", "acid", "laserbots"],
@@ -1152,7 +1157,6 @@ Player.prototype.die = function(cause) {
 					}
 				}
 			}
-			this.totalCoins += this.coins;
 		}
 	}
 	else if(this.y + 46 > 800) {
@@ -5114,7 +5118,7 @@ var game = {
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.events[15]] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("laser")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
