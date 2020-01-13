@@ -1484,22 +1484,12 @@ function Platform(x, y, w, h) {
 	this.origY = y;
 	this.velX = 0;
 	this.velY = 0;
-	this.destX = x;
-	this.destY = y;
 	this.destinations = [];
 	this.opacity = 1;
 };
 Platform.prototype.calculateVelocity = function() {
-	if(typeof this.destX !== "number" || typeof this.destY !== "number") {
-		var nextDestination = this.destinations[0];
-		if(typeof nextDestination !== "object") {
-			return;
-		}
-		this.destX = nextDestination.x;
-		this.destY = nextDestination.y;
-	}
-	this.velX = (this.x - this.destX) / -120;
-	this.velY = (this.y - this.destY) / -120;
+	this.velX = (this.x - this.destinations[0].x) / -120;
+	this.velY = (this.y - this.destinations[0].y) / -120;
 };
 Platform.prototype.update = function() {
 	this.opacity += (this.opacity < 1) ? 0.05 : 0;
@@ -1511,14 +1501,19 @@ Platform.prototype.update = function() {
 	}
 
 	/* stop moving for block shuffle event */
-	if(this.x + 2 > this.destX && this.x - 2 < this.destX && this.y + 2 > this.destY && this.y - 2 < this.destY && (this.velX !== 0 || this.velY !== 0)) {
+	if(Math.dist(this.x, this.destinations[0].x) < 2 && Math.dist(this.y, this.destinations[0].y) < 2 && (this.velX !== 0 || this.velY !== 0)) {
 		this.velX = 0;
 		this.velY = 0;
-		this.x = this.origX;
-		this.y = this.origY;
+		if(this.destinations.length > 0) {
+			this.calculateVelocity();
+		}
+		else {
+			this.x = this.origX;
+			this.y = this.origY;
+		}
 		var numMoving = 0;
 		for(var i = 0; i < game.objects.length; i ++) {
-			if(game.objects[i] instanceof Platform && (game.objects[i].velX !== 0 || game.objects[i].velY !== 0)) {
+			if(game.objects[i] instanceof Platform && (game.objects[i].velX !== 0 || game.objects[i].velY !== 0 || game.objects[i].destinations.length !== 0)) {
 				numMoving ++;
 			}
 		}
@@ -1544,6 +1539,14 @@ Platform.prototype.display = function() {
 	c.fillRect(this.x, this.y, this.w, this.h);
 	this.y -= p.worldY;
 	c.globalAlpha = 1;
+
+	/* debug */
+	c.fillStyle = "rgb(0, 255, 0)";
+	c.fillText(this.destinations.length, this.x + (this.w / 2), this.y + (this.h / 2));
+
+	if(this.destinations.length !== 0) {
+		debugging.drawPoint(this.destinations[0].x, this.destinations[0].y);
+	}
 };
 Platform.prototype.locationToString = function() {
 	/*
@@ -4702,42 +4705,15 @@ var game = {
 			id: "block shuffle",
 			begin: function() {
 				game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
-				this.cycleBlocks([
-					game.getPlatformByLocation("top-left"),
-					game.getPlatformByLocation("bottom-left"),
-					game.getPlatformByLocation("center"),
-					game.getPlatformByLocation("bottom-right"),
-					game.getPlatformByLocation("top-right")
-				]);
-				return;
-				var platforms = game.getObjectsByType(Platform);
-				for(var i = 0; i < platforms.length; i ++) {
-					if(platforms[i].y < 300) {
-						if(platforms[i].x < 400) {
-							platforms[i].destX = 0;
-							platforms[i].destY = 565;
-						}
-						else {
-							platforms[i].destX = 0;
-							platforms[i].destY = 215;
-						}
-					}
-					if(platforms[i].y > 400) {
-						if(platforms[i].x < 400) {
-							platforms[i].destX = 320;
-							platforms[i].destY = 390;
-						}
-						else {
-							platforms[i].destX = 640;
-							platforms[i].destY = 215;
-						}
-					}
-					if(platforms[i].y > 300 && platforms[i].y < 400) {
-						platforms[i].destX = 640;
-						platforms[i].destY = 565;
-					}
-					platforms[i].calculateVelocity();
-				}
+				// this.cycleBlocks([
+				// 	game.getPlatformByLocation("top-left"),
+				// 	game.getPlatformByLocation("bottom-left"),
+				// 	game.getPlatformByLocation("center"),
+				// 	game.getPlatformByLocation("bottom-right"),
+				// 	game.getPlatformByLocation("top-right")
+				// ]);
+				// this.swapCornerAndCenter();
+				this.swapTopOrBottom();
 			},
 
 			cycleBlocks: function(blocks, isBackwards) {
@@ -4773,7 +4749,59 @@ var game = {
 				);
 				var center = game.getPlatformByLocation("center");
 				if(Math.random() < 0.5) {
-
+					corner.destinations = [
+						{ x: corner.x, y: center.y },
+						{ x: center.x, y: center.y }
+					];
+					center.destinations = [
+						{ x: center.x, y: corner.y },
+						{ x: corner.x, y: corner.y }
+					];
+				}
+				else {
+					corner.destinations = [
+						{ x: center.x, y: corner.y },
+						{ x: center.x, y: center.y }
+					];
+					center.destinations = [
+						{ x: corner.x, y: center.y },
+						{ x: corner.x, y: corner.y }
+					];
+				}
+				// corner.calculateVelocity();
+				// center.calculateVelocity();
+			},
+			swapTopOrBottom: function(location) {
+				/*
+				Swaps either the top two platforms with each other, or the bottom two platforms with each other.
+				*/
+				if(location === "top" || location === "bottom") {
+					console.log("swapping the " + location + " platforms");
+					const CYCLE_HEIGHT = 50;
+					var left = game.getPlatformByLocation(location + "-left");
+					var right = game.getPlatformByLocation(location + "-right");
+					if(Math.random() < 0.5 && false) {
+						/* Swap left and right to make them move the other way */
+						var temporary = left;
+						left = right;
+						right = temporary;
+					}
+					console.log(left, right);
+					left.destinations = [
+						{ x: left.x, y: left.y - CYCLE_HEIGHT },
+						{ x: right.x, y: right.y - CYCLE_HEIGHT },
+						{ x: right.x, y: right.y }
+					];
+					right.destinations = [
+						{ x: right.x, y: right.y + CYCLE_HEIGHT },
+						{ x: left.x, y: right.y + CYCLE_HEIGHT },
+						{ x: left.x, y: right.y }
+					];
+					left.calculateVelocity();
+					right.calculateVelocity();
+				}
+				else {
+					this.swapTopOrBottom(["top", "bottom"].randomItem());
 				}
 			}
 		},
