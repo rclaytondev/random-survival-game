@@ -145,6 +145,7 @@ var utilities = {
 		settings.sides = settings.sides || ["top", "bottom", "left", "right"];
 		settings.includedTypes = settings.includedTypes || null; // if provided, this parameter will exclude all types of objects other than those given.
 		settings.excludedTypes = settings.excludedTypes || null; // if provided, this parameter will exclude the types of objects given.
+		settings.collisionRequirements = settings.collisionRequirements || function(obj) { return true; };
 
 		if(!p.isIntangible()) {
 			game.objects.push(p);
@@ -153,13 +154,13 @@ var utilities = {
 			var obj = game.objects[i];
 
 			if(Array.isArray(settings.excludedTypes)) {
-				for(var j = 0; j < settings.excludedTypes; j ++) {
+				for(var j = 0; j < settings.excludedTypes.length; j ++) {
 					if(obj instanceof settings.excludedTypes[j]) {
 						continue objectLoop;
 					}
 				}
 			}
-			else if(Array.isArray(settings.includedTypes)) {
+			if(Array.isArray(settings.includedTypes)) {
 				var isIncluded = false;
 				innerLoop: for(var j = 0; j < settings.includedTypes.length; j ++) {
 					if(obj instanceof settings.includedTypes[j]) {
@@ -172,7 +173,17 @@ var utilities = {
 				}
 			}
 
-			if(game.objects[i].hitbox !== undefined && game.objects[i].hitbox !== null && typeof game.objects[i].hitbox === "object" && typeof game.objects[i].handleCollision === "function") {
+			if(settings.collisionRequirements(obj) !== true) {
+				continue;
+			}
+
+			if(
+				game.objects[i].hitbox !== undefined && game.objects[i].hitbox !== null &&
+				typeof game.objects[i].hitbox === "object" &&
+				typeof game.objects[i].handleCollision === "function" &&
+				game.objects[i] !== settings.caller &&
+				!game.objects[i].noCollisions
+			) {
 				var collisionBuffer = { top: 5, bottom: 5, left: 5, right: 5 };
 				if(obj.hasOwnProperty("velY")) {
 					collisionBuffer.top = obj.velY - settings.velY + 2;
@@ -266,6 +277,17 @@ var utilities = {
 			obj1.y + obj1.hitbox.bottom > obj2.y + obj2.hitbox.top &&
 			obj1.y + obj1.hitbox.top < obj2.y + obj2.hitbox.bottom
 		);
+	},
+	isObjectInRect: function(obj, x, y, w, h) {
+		if(typeof obj.hitbox !== "object" || obj.hitbox === null) {
+			return false;
+		}
+		return (
+			obj.x + obj.hitbox.left > x &&
+			obj.x + obj.hitbox.right < x + w &&
+			obj.y + obj.hitbox.bottom > y &&
+			obj.y + obj.hitbox.top < y + h
+		);
 	}
 };
 var input = {
@@ -341,6 +363,13 @@ CanvasRenderingContext2D.prototype.strokeArc = function(x, y, r, start, end, ant
 	this.arc(x, y, r, start, end, antiClockwise);
 	this.stroke();
 };
+CanvasRenderingContext2D.prototype.clipArc = function(x, y, radius, startAngle, endAngle, antiClockwise) {
+	this.beginPath();
+	this.moveTo(x, y);
+	this.arc(x, y, radius, startAngle, endAngle);
+	this.lineTo(x, y);
+	this.clip();
+};
 CanvasRenderingContext2D.prototype.circle = function(x, y, r) {
 	this.arc(x, y, r, 0, Math.toRadians(360));
 };
@@ -358,6 +387,16 @@ CanvasRenderingContext2D.prototype.clipCircle = function(x, y, r) {
 	this.beginPath();
 	this.arc(x, y, r, Math.toRadians(0), Math.toRadians(360));
 	this.clip();
+};
+CanvasRenderingContext2D.prototype.fillEllipse = function(x, y, w, h) {
+	/*
+	This does NOT create a real ellipse! It just stretches a circle to make a kind of oval.
+	*/
+	this.save(); {
+		this.translate(x, y);
+		this.scale(w, h);
+		this.fillCircle(0, 0, 1);
+	} this.restore();
 };
 CanvasRenderingContext2D.prototype.line = function() {
 	/*
@@ -468,7 +507,19 @@ CanvasRenderingContext2D.prototype.displayTextOverLines = function(text, x, y, w
 		this.fillText(lines[i], x, lineY);
 		lineY += lineHeight;
 	}
-}
+};
+CanvasRenderingContext2D.prototype.fillCanvas = function() {
+	/*
+	Fills the entire canvas with the current fillStyle.
+	*/
+	this.save(); {
+		this.resetTransform();
+		this.fillRect(0, 0, this.canvas.width, this.canvas.height);
+	} this.restore();
+};
+CanvasRenderingContext2D.prototype.resetTransform = function() {
+	this.setTransform(1, 0, 0, 1, 0, 0);
+};
 Object.prototype.clone = function() {
 	var clone = new this.constructor();
 	for(var i in this) {
@@ -572,6 +623,15 @@ Array.prototype.removeItemsWithProperty = function(propertyName, propertyValue) 
 Array.prototype.includesItemsWithProperty = function(propertyName, propertyValue) {
 	return (this.getItemsWithProperty(propertyName, propertyValue).length !== 0);
 };
+Number.prototype.mod = function(divisor) {
+	/*
+	This is used instead of the % operator because % returns negatives for negative numbers. (ex: -5 % 10 === -5)
+
+	This is on the number prototype instead of Math since it seems more like an arithmetic operation than the Math functions.
+	*/
+
+	return ((this % divisor) + divisor) % divisor;
+};
 Math.average = function(values) {
 	if(Array.isArray(arguments[0])) {
 		return Math.average.apply(Math, arguments);
@@ -620,8 +680,47 @@ Math.rotate = function(x, y, rad) {
 		y: x * Math.sin(rad) + y * Math.cos(rad)
 	};
 };
-Math.findPointsCircular = function(x, y, r) {
+Math.rotateAboutPoint = function(x, y, pointX, pointY, degrees) {
+	x -= pointX;
+	y -= pointY;
+	var rotated = Math.rotateDegrees(x, y, degrees);
+	return {
+		x: rotated.x + pointX,
+		y: rotated.y + pointY
+	};
+};
+Math.scale = function(x, y, scaleFactorX, scaleFactorY) {
+	/*
+	Returns ('x', 'y') scaled by 'scaleFactorX' and 'scaleFactorY' about the origin.
+	*/
+	scaleFactorY = scaleFactorY || scaleFactorX;
+	return {
+		x: x * scaleFactorX,
+		y: y * scaleFactorY
+	}
+};
+Math.scaleAboutPoint = function(x, y, pointX, pointY, scaleFactorX, scaleFactorY) {
+	scaleFactorY = scaleFactorY || scaleFactorX;
+	var scaledPoint = { x: x, y: y };
+	scaledPoint.x -= pointX;
+	scaledPoint.y -= pointY;
+	scaledPoint = Math.scale(scaledPoint.x, scaledPoint.y, scaleFactorX, scaleFactorY);
+	scaledPoint.x += pointX;
+	scaledPoint.y += pointY;
+	return scaledPoint;
+};
+Math.findPointsCircular = function(x, y, r, includeInsideCircle) {
 	var circularPoints = [];
+	if(includeInsideCircle) {
+		for(var X = x - r; X < x + r; X ++) {
+			for(var Y = y - r; Y < y + r; Y ++) {
+				if(Math.distSq(x, y, X, Y) <= r * r) {
+					circularPoints.push({ x: X, y: Y });
+				}
+			}
+		}
+		return circularPoints;
+	}
 	/* top right quadrant */
 	for(var X = x; X < x + r; X ++) {
 		for(var Y = y - r; Y < y; Y ++) {
@@ -798,22 +897,20 @@ function Player() {
 	/* Other properties */
 	this.standingOnPlatform = null;
 	this.beingAbductedBy = null; // used for UFO enemies
+	this.isDead = false;
+	this.timeToDeath = -1;
 };
 Player.prototype.display = function() {
 	c.globalAlpha = 1;
 	/*
 	The player is a rectangle. 10 wide, 46 tall. (this.x, this.y) is at the middle of the top of the rectangle.
 	*/
-	if(this.invincible < 0 || utilities.frameCount % 2 === 0) {
+	if((this.invincible < 0 || utilities.frameCount % 2 === 0) && !this.isDead) {
 		c.lineWidth = 5;
 		c.lineCap = "round";
 		/* head */
 		c.fillStyle = "rgb(0, 0, 0)";
-		c.save(); {
-			c.translate(this.x, this.y);
-			c.scale(1, 1.2);
-			c.fillCircle(0, 12, 10);
-		} c.restore();
+		c.fillEllipse(this.x, this.y + 12 * 1.2, 10, 10 * 1.2);
 		/* eyes */
 		if(this.facing === "left" || this.facing === "forward") {
 			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
@@ -836,6 +933,10 @@ Player.prototype.display = function() {
 	}
 };
 Player.prototype.update = function() {
+	if(this.isDead) {
+		this.updateAnimations();
+		return;
+	}
 	this.timeConfused --;
 	this.timeBlinded --;
 	this.timeNauseated --;
@@ -875,26 +976,28 @@ Player.prototype.update = function() {
 	/* gravity */
 	this.velY += 0.1;
 	/* Collisions */
-	const SCREEN_BORDERS = (!this.isIntangible() || shop.intangibilityTalisman.numUpgrades < 2);
-	if(!SCREEN_BORDERS) {
-		if(this.x > 800) {
-			this.x = 0;
+	if(!this.noCollisions) {
+		const SCREEN_BORDERS = (!this.isIntangible() || shop.intangibilityTalisman.numUpgrades < 2);
+		if(!SCREEN_BORDERS) {
+			if(this.x > 800) {
+				this.x = 0;
+			}
+			else if(this.x < 0) {
+				this.x = 800;
+			}
+			if(this.usedRevive) {
+				this.beenGhost = true;
+			}
 		}
-		else if(this.x < 0) {
-			this.x = 800;
-		}
-		if(this.usedRevive) {
-			this.beenGhost = true;
-		}
-	}
-	else {
-		if(this.x < 10) {
-			this.velX = 0;
-			this.x = Math.max(this.x, 10);
-		}
-		if(this.x > 790) {
-			this.velX = 0;
-			this.x = Math.min(this.x, 790);
+		else {
+			if(this.x < 10) {
+				this.velX = 0;
+				this.x = Math.max(this.x, 10);
+			}
+			if(this.x > 790) {
+				this.velX = 0;
+				this.x = Math.min(this.x, 790);
+			}
 		}
 	}
 	/* movement cap */
@@ -970,6 +1073,17 @@ Player.prototype.updateAnimations = function() {
 	else {
 		this.armHeight += (this.armHeight > -5) ? -1 : 0;
 	}
+	/* death animations */
+	if(game.numObjects(PlayerDisintegrationParticle) !== 0) {
+		game.getObjectsByType(PlayerDisintegrationParticle)[0].checkForAnimationEnd();
+	}
+	if(game.numObjects(PlayerBodyPart) !== 0) {
+		game.getObjectsByType(PlayerBodyPart)[0].checkForAnimationEnd();
+	}
+	this.timeToDeath --;
+	if(this.isDead && this.timeToDeath === 0) {
+		game.transitionToScreen("death");
+	}
 };
 Player.prototype.reset = function() {
 	this.score = 0;
@@ -981,7 +1095,12 @@ Player.prototype.reset = function() {
 	this.facing = "forward";
 	this.armHeight = 10;
 	this.worldY = 0;
-	game.timeToEvent = FPS;
+	this.hitbox = new Player().hitbox;
+	this.noCollisions = false;
+	game.timeToEvent = 2 * FPS;
+	this.isDead = false;
+	this.diedThisGame = false;
+	this.timeToDeath = -1;
 	game.objects = [];
 	game.initializePlatforms();
 	game.chatMessages = [];
@@ -1030,12 +1149,32 @@ Player.prototype.die = function(cause) {
 		if(shop.secondLife.equipped && this.numRevives > 0) {
 			this.numRevives --;
 			this.invincible = (shop.secondLife.numUpgrades >= 2) ? FPS * 2 : FPS;
-			console.log("becoming invincible for " + this.invincible + " frames");
 		}
 		else {
-			game.screen = "death";
+			if(!this.diedThisGame) {
+				this.diedThisGame = true;
+				this.totalCoins += this.coins;
+			}
 			this.deathCause = cause;
-			this.totalCoins += this.coins;
+			var deathAnimations = {
+				"disintegration": ["laser", "acid", "laserbots"],
+				"limbs-fall-off": ["boulder", "spinnyblades", "rocket", "spikeballs", "spikewall", "pirhanas", "bad guys"],
+				"other-death-animation": ["pacmans"], // more complex animations defined somewhere else
+				"no-death-animation": ["aliens", "fall"]
+			};
+			for(var i in deathAnimations) {
+				if(deathAnimations.hasOwnProperty(i) && deathAnimations[i].contains(cause)) {
+					if(i === "no-death-animation") {
+						game.transitionToScreen("death");
+					}
+					else if(i === "other-death-animation") {
+						/* Do nothing. The animation will be handled somewhere else. */
+					}
+					else {
+						this.beginDeathAnimation(i);
+					}
+				}
+			}
 		}
 	}
 	else if(this.y + 46 > 800) {
@@ -1070,6 +1209,269 @@ Player.prototype.isInPath = function() {
 		c.isPointInPath(this.x + this.hitbox.right, this.y + this.hitbox.bottom)
 	)
 };
+Player.prototype.beginDeathAnimation = function(deathAnimation) {
+	/*
+	Possible values for deathAnimation: "disintegration", "limbs-fall-off"
+	*/
+	if(this.isDead) {
+		return;
+	}
+	this.isDead = true;
+	if(deathAnimation === "disintegration") {
+		function disintegrateLine(x1, y1, x2, y2) {
+			var points = Math.findPointsLinear(x1, y1, x2, y2);
+			for(var i = 0; i < points.length; i ++) {
+				game.objects.push(new PlayerDisintegrationParticle(points[i].x, points[i].y - p.worldY));
+			}
+		};
+		function disintegrateEllipse(x, y, radiusX, radiusY) {
+			var points = Math.findPointsCircular(x, y, Math.min(radiusX, radiusY), true);
+			if(radiusX < radiusY) {
+				for(var i = 0; i < points.length; i ++) {
+					points[i].y = Math.scaleAboutPoint(points[i].x, points[i].y, x, y, 1, (radiusY / radiusX)).y;
+				}
+			}
+			else {
+				for(var i = 0; i < points.length; i ++) {
+					points[i].x = Math.scaleAboutPoint(points[i].x, points[i].y, x, y, (radiusX / radiusY), 1).x;
+				}
+			}
+			for(var i = 0; i < points.length; i ++) {
+				game.objects.push(new PlayerDisintegrationParticle(points[i].x, points[i].y - p.worldY));
+			}
+		};
+		function removeParticlesInCircle(x, y, r) {
+			for(var i = 0; i < game.objects.length; i ++) {
+				if(game.objects[i] instanceof PlayerDisintegrationParticle && Math.dist(game.objects[i].x, game.objects[i].y + p.worldY, x, y) < r) {
+					game.objects.splice(i, 1);
+					i --;
+				}
+			}
+		};
+		/* head */
+		disintegrateEllipse(this.x, this.y + 12, 10, 12);
+		/* body */
+		disintegrateLine(this.x, this.y + 15, this.x, this.y + 36);
+		/* legs */
+		disintegrateLine(this.x, this.y + 36, this.x - this.legs, this.y + 46);
+		disintegrateLine(this.x, this.y + 36, this.x + this.legs, this.y + 46);
+		/* arms */
+		disintegrateLine(this.x, this.y + 26, this.x + 10, this.y + 26 + this.armHeight);
+		disintegrateLine(this.x, this.y + 26, this.x - 10, this.y + 26 + this.armHeight);
+		/* remove particles where player's eyes are */
+		if(this.facing === "left" || this.facing === "forward") {
+			removeParticlesInCircle(this.x - 4, this.y + 10, 4);
+		}
+		if(this.facing === "right" || this.facing === "forward") {
+			removeParticlesInCircle(this.x + 4, this.y + 10, 4);
+		}
+	}
+	else if(deathAnimation === "limbs-fall-off") {
+		game.objects.push(new PlayerBodyPart("player-head", { x: this.x, y: this.y + 12 * 1.2 }));
+		/* body */
+		c.strokeStyle = "rgb(0, 0, 0)";
+		c.strokeLine(this.x, this.y + 15, this.x, this.y + 36);
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 15,
+					x2: this.x,
+					y2: this.y + 36
+				}
+			)
+		);
+		/* legs */
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 36,
+					x2: this.x - this.legs,
+					y2: this.y + 46
+				}
+			)
+		);
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 36,
+					x2: this.x + this.legs,
+					y2: this.y + 46
+				}
+			)
+		);
+		/* arms */
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 26,
+					x2: this.x + 10,
+					y2: this.y + 26 + this.armHeight
+				}
+			)
+		);
+		game.objects.push(
+			new PlayerBodyPart(
+				"line-segment",
+				{
+					x1: this.x,
+					y1: this.y + 26,
+					x2: this.x - 10,
+					y2: this.y + 26 + this.armHeight
+				}
+			)
+		);
+	}
+};
+
+function PlayerDisintegrationParticle(x, y) {
+	this.x = x;
+	this.y = y;
+	var maximumXVelocity = Math.max(0, 2 - Math.abs(p.velY));
+	maximumXVelocity = 0.4;
+	this.velX = Math.randomInRange(-maximumXVelocity, maximumXVelocity);
+	this.velY = Math.randomInRange(-2, -1.5) + p.velY;
+	if(game.getObjectsByType(Acid).length !== 0) {
+		this.velY = Math.min(this.velY, -2);
+	}
+	this.hitbox = { top: -2, bottom: 2, left: -2, right: 2 };
+	this.isOnGround = false;
+};
+PlayerDisintegrationParticle.prototype.display = function() {
+	c.fillStyle = "rgb(0, 0, 0)";
+	c.fillRect(this.x - 2, this.y + p.worldY - 2, 4, 4);
+	if(this.isOnGround) {
+		c.fillRect(this.x - 3, this.y + p.worldY - 2, 6, 4);
+	}
+};
+PlayerDisintegrationParticle.prototype.update = function() {
+	if(!this.isOnGround) {
+		this.x += this.velX;
+		this.y += this.velY;
+		this.velY += 0.1;
+		this.velX *= 0.99;
+		if(this.y > canvas.height + 50) {
+			this.splicing = true;
+			this.checkForAnimationEnd();
+		}
+		if(game.getObjectsByType(Acid)[0] !== undefined) {
+			if(this.y > game.getObjectsByType(Acid)[0].y) {
+				this.velY = Math.randomInRange(-3, -5);
+				this.hasTouchedAcid = true;
+			}
+		}
+	}
+};
+PlayerDisintegrationParticle.prototype.handleCollision = function(direction, platform) {
+	if(direction === "floor") {
+		if(!this.isOnGround) {
+			this.splicing = (Math.random()) < 0.5;
+			this.checkForAnimationEnd();
+		}
+		this.isOnGround = true;
+		this.hitbox = null; // no more collisions necessary for this one
+		if(platform instanceof PlayerDisintegrationParticle) {
+			this.x = platform.x;
+		}
+	}
+};
+PlayerDisintegrationParticle.prototype.collide = function() {
+	if(this.isOnGround) {
+		utilities.collisionRect(
+			this.x - 1, this.y - 1, 2, 2,
+			{
+				includedTypes: [PlayerDisintegrationParticle],
+				caller: this,
+				collisionRequirements: function(obj) {
+					if(obj.isOnGround) {
+						return false;
+					}
+					return true;
+				},
+			}
+		);
+	}
+};
+PlayerDisintegrationParticle.prototype.checkForAnimationEnd = function() {
+	var particles = game.getObjectsByType(PlayerDisintegrationParticle);
+	var stillPlayingAnimation = false;
+	for(var i = 0; i < particles.length; i ++) {
+		if(!particles[i].splicing && !particles[i].isOnGround && !particles[i].hasTouchedAcid) {
+			stillPlayingAnimation = true;
+			break;
+		}
+	}
+	if(!stillPlayingAnimation) {
+		game.transitionToScreen("death");
+	}
+};
+function PlayerBodyPart(type, location) {
+	/* Used in the death animation where the player's limbs fall off. */
+	this.type = type; // "player-head" or "line-segment" (for arms / legs)
+	if(this.type === "line-segment") {
+		this.location = {
+			x: location.x1,
+			y: location.y1,
+			length: Math.dist(location.x1, location.y1, location.x2, location.y2),
+			rotation: Math.toDegrees(Math.atan2((location.y2 - location.y1), (location.x2 - location.x1)))
+		};
+	}
+	else {
+		this.location = {
+			x: location.x,
+			y: location.y,
+			rotation: location.rotation || 0
+		};
+		this.facing = p.facing;
+	}
+	this.velX = Math.randomInRange(-3, 3);
+	this.velY = Math.randomInRange(-3, 3);
+};
+PlayerBodyPart.prototype.display = function() {
+	c.save(); {
+		c.lineCap = "round";
+		c.translate(this.location.x, this.location.y);
+		c.rotate(Math.toRadians(this.location.rotation));
+		if(this.type === "player-head") {
+			c.fillStyle = "rgb(0, 0, 0)";
+			c.fillEllipse(0, 0, 10, 10 * 1.2);
+			/* eyes */
+			c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
+			if(this.facing === "left" || this.facing === "forward") {
+				c.fillCircle(-4, 0 + 10 - (12 * 1.2), 3);
+			}
+			if(this.facing === "right" || this.facing === "forward") {
+				c.fillCircle(4, 0 + 10 - (12 * 1.2), 3);
+			}
+		}
+		else {
+			c.strokeStyle = "rgb(0, 0, 0)";
+			c.strokeLine(0, 0, 0, this.location.length);
+		}
+	} c.restore();
+};
+PlayerBodyPart.prototype.update = function() {
+	this.location.x += this.velX;
+	this.location.y += this.velY;
+	this.location.rotation += this.velX;
+	this.velY += 0.1;
+	this.velX *= 0.96;
+
+	this.age = this.age || 0;
+	this.age ++;
+};
+PlayerBodyPart.prototype.checkForAnimationEnd = function() {
+	if(this.age > FPS) {
+		game.transitionToScreen("death");
+	}
+};
 
 var p = new Player();
 
@@ -1084,9 +1486,18 @@ function Platform(x, y, w, h) {
 	this.velY = 0;
 	this.destX = x;
 	this.destY = y;
+	this.destinations = [];
 	this.opacity = 1;
 };
 Platform.prototype.calculateVelocity = function() {
+	if(typeof this.destX !== "number" || typeof this.destY !== "number") {
+		var nextDestination = this.destinations[0];
+		if(typeof nextDestination !== "object") {
+			return;
+		}
+		this.destX = nextDestination.x;
+		this.destY = nextDestination.y;
+	}
 	this.velX = (this.x - this.destX) / -120;
 	this.velY = (this.y - this.destY) / -120;
 };
@@ -1398,19 +1809,16 @@ Button.prototype.display = function() {
 	}
 };
 Button.prototype.hasMouseOver = function() {
+	if(game.transitionOpacity !== 0 && game.transitioningToScreen === this.whereTo) {
+		return true;
+	}
 	return Math.hypot(input.mouse.x - this.x, input.mouse.y - this.y) < ((this.icon === "play") ? 75 : 50);
 };
 Button.prototype.checkForClick = function() {
 	if(this.mouseOver && input.mouse.pressed && !utilities.pastInputs.mouse.pressed) {
-		game.screen = this.whereTo;
+		game.transitionToScreen(this.whereTo);
 		if(this.icon === "retry" || this.icon === "play") {
 			p.reset();
-		}
-		for(var i = 0; i < buttons.length; i ++) {
-			buttons[i].mouseOver = false;
-			if(typeof buttons[i].resetAnimation === "function") {
-				buttons[i].resetAnimation();
-			}
 		}
 	}
 };
@@ -2669,6 +3077,10 @@ Acid.prototype.stopRising = function() {
 	this.y += 700;
 	/* delete platforms from acid rise */
 	for(var i = 0; i < game.objects.length; i ++) {
+		if(game.objects[i] instanceof PlayerDisintegrationParticle) {
+			game.objects[i].y += 700;
+			continue;
+		}
 		if(game.objects[i].y < 200) {
 			game.objects[i].splicing = true;
 		}
@@ -2796,18 +3208,14 @@ RockParticle.prototype.update = function() {
 };
 /* spinny blades event */
 function SpinnyBlade(x, y) {
-	console.log("calling the constructor");
 	this.x = x;
 	this.y = y;
-	// this.r = 0.5 * Math.PI;
 	this.r = 90;
 	this.numRevolutions = 0;
 	this.opacity = 0;
 
-	this.ROTATION_SPEED = 1;
-	if(Math.random() < 0.5) {
-		this.ROTATION_SPEED *= -1;
-	}
+	this.ROTATION_SPEED = 1 * (Math.random() < 0.5 ? 1 : -1);
+	this.MAX_NUM_REVOLUTIONS = 3;
 };
 SpinnyBlade.prototype.display = function() {
 	c.fillStyle = "rgb(215, 215, 215)";
@@ -2830,15 +3238,17 @@ SpinnyBlade.prototype.display = function() {
 };
 SpinnyBlade.prototype.update = function() {
 	if(this.opacity >= 1) {
-		this.r += 0.02;
+		this.r += this.ROTATION_SPEED;
 	}
-	this.r -= this.ROTATION_SPEED;
 	this.r = this.r.mod(360);
-	if(Math.dist(this.r, 90) <= Math.abs(this.ROTATION_SPEED)) {
-		console.log("spinnyblade is spinning");
+	if(
+		(Math.dist(this.r, 90) < Math.abs(this.ROTATION_SPEED) ||
+		Math.dist(this.r, 270) < Math.abs(this.ROTATION_SPEED)) &&
+		this.opacity >= 1 && this.age > FPS
+	) {
 		this.numRevolutions ++;
 	}
-	if(this.numRevolutions < 2) {
+	if(this.numRevolutions < this.MAX_NUM_REVOLUTIONS) {
 		this.opacity += 0.05;
 	}
 	else {
@@ -2851,29 +3261,34 @@ SpinnyBlade.prototype.update = function() {
 	endPoint1.x += this.x; endPoint2.x += this.x;
 	endPoint1.y += this.y; endPoint2.y += this.y;
 	if(!p.isIntangible()) {
-		utilities.killCollisionLine(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y);
+		utilities.killCollisionLine(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y, "spinnyblades");
 	}
 	/* remove self when faded out */
 	if(this.opacity <= 0 && this.numRevolutions >= 2) {
 		this.splicing = true;
-		p.surviveEvent("spinnyblades");
 		if(game.numObjects(SpinnyBlade) === 0) {
 			/* This is the last spinnyblade, so end the event */
 			p.surviveEvent("spinnyblades");
 			game.endEvent();
 		}
 	}
+
+	this.age = this.age || 0;
+	this.age ++;
 };
 /* jumping pirhanas event */
 function Pirhana(x) {
 	this.x = x;
 	this.y = 850;
 	this.velY = -10;
+	this.velY = Math.randomInRange(-8, -12);
 	this.scaleY = 1;
 	this.mouth = 1; // 1 = open, 0 = closed
 	this.mouthAngle = 45;
 	this.mouthVel = 0;
+	this.age = 0;
 
+	this.TIME_TO_APPEAR = Math.randomInRange(0, FPS * 2);
 	this.BITE_SPEED = 3;
 };
 Pirhana.prototype.display = function() {
@@ -2890,6 +3305,10 @@ Pirhana.prototype.display = function() {
 	} c.restore();
 };
 Pirhana.prototype.update = function() {
+	this.age ++;
+	if(this.age < this.TIME_TO_APPEAR) {
+		return;
+	}
 	this.y += this.velY;
 	this.velY += 0.1;
 	if(this.velY > 0) {
@@ -2941,6 +3360,7 @@ function Pacman(x, y, velX) {
 	this.velX = velX;
 	this.mouth = 0;
 	this.mouthVel = -1;
+	this.rotation = 0;
 };
 Pacman.prototype.display = function() {
 	c.fillStyle = "rgb(255, 255, 0)";
@@ -2949,31 +3369,49 @@ Pacman.prototype.display = function() {
 		if(this.velX < 0) {
 			c.scale(-1, 1); // reflect for pacmans going left
 		}
-		c.fillArc(0, 0, 200, Math.toRadians(this.mouth), Math.toRadians(-this.mouth));
+		c.fillArc(0, 0, 200, Math.toRadians(this.rotation + this.mouth), Math.toRadians(this.rotation - this.mouth));
 	} c.restore();
 };
 Pacman.prototype.update = function() {
-	this.x += this.velX;
-	this.mouth += this.mouthVel;
 	const MOUTH_ANIMATION_SPEED = 0.5;
-	if(this.mouth >= 45) {
-		this.mouthVel = -MOUTH_ANIMATION_SPEED;
+	if(this.hasEatenPlayer) {
+		this.mouth += 3 * MOUTH_ANIMATION_SPEED;
+		this.mouth = Math.constrain(this.mouth, 0, 45);
+		if(this.rotating) {
+			this.rotateTowardPlayer();
+		}
+		else if(!p.isDead) {
+			this.eatPlayer();
+		}
+		else {
+			this.returnToDefaultRotation();
+		}
 	}
-	else if(this.mouth <= 0) {
-		this.mouthVel = MOUTH_ANIMATION_SPEED;
+	else {
+		this.x += this.velX;
+		this.mouth += this.mouthVel;
+		if(this.mouth >= 45) {
+			this.mouthVel = -MOUTH_ANIMATION_SPEED;
+		}
+		else if(this.mouth <= 0) {
+			this.mouthVel = MOUTH_ANIMATION_SPEED;
+		}
 	}
 	/* player collisions */
-	if(!p.isIntangible()) {
+	if(!p.isIntangible() && !this.hasEatenPlayer && !p.isDead) {
 		c.save(); {
 			c.translate(this.x, this.y);
 			if(this.velX < 0) {
 				c.scale(-1, 1); // reflect for pacmans going left
 			}
+			c.beginPath();
 			c.moveTo(0, 0);
 			c.arc(0, 0, 200, Math.toRadians(this.mouth), Math.toRadians(-this.mouth));
 			c.lineTo(0, 0);
 			if(p.isInPath()) {
 				p.die("pacmans");
+				this.hasEatenPlayer = true;
+				this.rotating = true;
 			}
 		} c.restore();
 	}
@@ -2990,9 +3428,59 @@ Pacman.prototype.update = function() {
 	if((this.x > 1000 && this.velX > 0) || (this.x < -200 && this.velX < 0)) {
 		this.splicing = true;
 		if(game.numObjects(Pacman) === 0) {
-			game.endEvent();
+			game.endEvent(-1);
 			p.surviveEvent("pacmans");
 		}
+	}
+};
+Pacman.prototype.rotateTowardPlayer = function() {
+	/*
+	Rotates the pacman so the pacman's mouth is pointing at the player. Returns whether it is done moving it's mouth.
+	*/
+	var desiredRotation = Math.toDegrees(Math.atan2(p.y - this.y, p.x - this.x));
+	if(this.velX < 0) {
+		desiredRotation *= -1;
+		desiredRotation += 180;
+		if(Math.dist(this.rotation + 360, desiredRotation) < Math.dist(this.rotation, desiredRotation)) {
+			this.rotation += 360;
+		}
+		if(Math.dist(this.rotation - 360, desiredRotation) < Math.dist(this.rotation, desiredRotation)) {
+			this.rotation -= 360;
+		}
+	}
+	this.rotation += (desiredRotation - this.rotation) / 4;
+	if(Math.dist(this.rotation, desiredRotation) < 10) {
+		this.rotating = false;
+	}
+};
+Pacman.prototype.returnToDefaultRotation = function() {
+	var desiredRotation = 0;
+	if(Math.dist(this.rotation + 360, desiredRotation) < Math.dist(this.rotation, desiredRotation)) {
+		this.rotation += 360;
+	}
+	if(Math.dist(this.rotation - 360, desiredRotation) < Math.dist(this.rotation, desiredRotation)) {
+		this.rotation -= 360;
+	}
+	this.rotation += (0 - this.rotation) / 4;
+	if(Math.dist(this.rotation, 0) <= 2) {
+		this.hasEatenPlayer = false;
+		p.timeToDeath = FPS * 2;
+	}
+};
+Pacman.prototype.eatPlayer = function() {
+	/*
+	Moves the player toward the back of the pacman's mouth.
+	*/
+	var point = Math.rotateDegrees(100 * (this.velX < 0 ? 1 : -1), 0, this.rotation * (this.velX < 0 ? -1 : 1));
+	// p.x += (p.x > this.x + point.x) ? -5 : 5;
+	// p.y += (p.y > this.y + point.y) ? -5 : 5;
+	p.x += (this.x + point.x - p.x) / 10;
+	p.y += (this.y + point.y - p.y) / 10;
+	p.velX = 0;
+	p.velY = 0;
+	p.noCollisions = true;
+	if(Math.dist(this.x + point.x, this.y + point.y, p.x, p.y) <= 10) {
+		p.isDead = true;
 	}
 };
 /* rocket event */
@@ -3069,7 +3557,7 @@ Rocket.prototype.display = function() {
 Rocket.prototype.update = function() {
 	this.x += this.velX;
 	if(utilities.frameCount % 1 === 0) {
-		game.objects.push(new FireParticle(this.x, this.y + 10));
+		game.objects.push(new FireParticle(this.x, this.y));
 	}
 	if(!p.isIntangible()) {
 		if(this.velX > 0) {
@@ -3083,7 +3571,7 @@ Rocket.prototype.update = function() {
 	const OFFSCREEN_BUFFER = 100;
 	if(this.x < -OFFSCREEN_BUFFER || this.x > canvas.width + OFFSCREEN_BUFFER) {
 		this.splicing = true;
-		game.endEvent();
+		game.endEvent(-1);
 		p.surviveEvent("rocket");
 	}
 	/* add coin if in middle of screen */
@@ -3092,9 +3580,9 @@ Rocket.prototype.update = function() {
 	}
 };
 /* spikeball event */
-function Spikeball(velX, velY) {
-	this.x = 400;
-	this.y = 400;
+function Spikeball(x, y, velX, velY) {
+	this.x = x;
+	this.y = y;
 	this.velX = velX;
 	this.velY = velY;
 	this.r = 0;
@@ -3105,6 +3593,7 @@ function Spikeball(velX, velY) {
 	this.collideWithBorders = true;
 
 	this.ROTATION_SPEED = 5;
+	this.MAXIMUM_AGE = 500;
 };
 Spikeball.prototype.display = function() {
 	const NUM_SPIKES = 10;
@@ -3119,8 +3608,14 @@ Spikeball.prototype.display = function() {
 		}
 	}
 	c.save(); {
+		c.beginPath();
+		c.moveTo(this.x, this.y);
+		c.arc(this.x, this.y, 15, Math.toRadians(-90), Math.toRadians((this.age / this.MAXIMUM_AGE) * 360 - 90));
+		c.lineTo(this.x, this.y);
+		c.invertPath();
+		c.clip("evenodd");
+
 		c.fillStyle = "rgb(150, 150, 155)";
-		c.globalAlpha = this.opacity;
 		c.translate(this.x, this.y);
 		c.rotate(Math.toRadians(this.r));
 		c.fillPoly(points);
@@ -3128,25 +3623,16 @@ Spikeball.prototype.display = function() {
 };
 Spikeball.prototype.update = function() {
 	this.r += this.ROTATION_SPEED;
-	/* fading in */
-	if(!this.fadedIn) {
-		this.opacity += 0.05;
-	}
-	if(this.opacity >= 1) {
-		this.fadedIn = true;
-	}
-	if(this.fadedIn) {
-		this.x += this.velX;
-		this.y += this.velY;
-		this.age ++;
-		this.opacity -= 0.002;
-	}
+	this.x += this.velX;
+	this.y += this.velY;
+	this.age ++;
 	/* player collisions */
-	if(this.age > 20 && !p.isIntangible()) {
+	if(!p.isIntangible()) {
 		utilities.killCollisionCircle(this.x, this.y, 30, "spikeballs");
 	}
-	/* remove self if faded out */
-	if(this.opacity <= 0) {
+	/* remove self if off screen */
+	this.collideWithBorders = (this.age < this.MAXIMUM_AGE);
+	if(!this.collideWithBorders && !utilities.isObjectInRect(this, -100, -100, canvas.width + 200, canvas.height + 200)) {
 		this.splicing = true;
 		if(game.numObjects(Spikeball) === 0) {
 			game.endEvent();
@@ -3167,6 +3653,29 @@ Spikeball.prototype.handleCollision = function(direction, platform) {
 	else if(direction === "wall-to-right") {
 		this.velX = -Math.abs(this.velX);
 	}
+	if(platform instanceof Spikeball) {
+		var spikeball = platform;
+		if(direction === "floor") {
+			spikeball.handleCollision("ceiling");
+		}
+		else if(direction === "ceiling") {
+			spikeball.handleCollision("floor");
+		}
+		else if(direction === "wall-to-left") {
+			spikeball.handleCollision("wall-to-right");
+		}
+		else if(direction === "wall-to-right") {
+			spikeball.handleCollision("wall-to-left");
+		}
+	}
+};
+Spikeball.prototype.collide = function() {
+	utilities.collisionRect(this.x - 30, this.y - 30, 60, 60, {
+		includedTypes: [Spikeball],
+		velX: this.velX,
+		velY: this.velY,
+		caller: this
+	});
 };
 /* spike wall event */
 function Spikewall(x) {
@@ -3207,16 +3716,18 @@ Spikewall.prototype.update = function() {
 	this.x += this.velX;
 	if(this.direction === "right" && this.x > 250) {
 		this.velX = -this.SLOW_SPEED;
+		this.x = Math.min(this.x, 250);
 		game.objects.push(new Coin(80, (Math.random() < 0.5) ? 175 : 525));
 	}
 	if(this.direction === "left" && this.x < canvas.width - 250) {
 		this.velX = this.SLOW_SPEED;
+		this.x = Math.max(this.x, canvas.width - 250);
 		game.objects.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
 	}
 	utilities.killCollisionRect(this.x - 5, 0, 10, canvas.height, "spikewall");
 	if((this.velX < 0 && this.x < -50) || (this.velX > 0 && this.x > 850)) {
 		this.splicing = true;
-		game.endEvent();
+		game.endEvent(-1);
 		p.surviveEvent("spikewall");
 	}
 };
@@ -3447,7 +3958,7 @@ LaserBot.prototype.update = function() {
 		this.splicing = true;
 		if(game.numObjects(LaserBot) === 0) {
 			/* this is the final LaserBot; end the event */
-			game.endEvent();
+			game.endEvent(FPS * 2);
 			p.surviveEvent("laserbots");
 		}
 	}
@@ -3663,7 +4174,8 @@ LaserBot.prototype.collide = function() {
 			sides: ["left", "right", "top"],
 			caller: this,
 			velX: this.velX,
-			velY: this.velY - (this.springVelY * 30)
+			velY: this.velY - (this.springVelY * 30),
+			excludedTypes: [PlayerDisintegrationParticle]
 		}
 	);
 };
@@ -3783,7 +4295,7 @@ BadGuy.prototype.update = function() {
 	if(this.y > 850) {
 		this.splicing = true;
 		if(game.numObjects(BadGuy) === 0) {
-			game.endEvent();
+			game.endEvent(FPS * 2.5);
 			p.surviveEvent("bad guys");
 		}
 	}
@@ -3996,7 +4508,7 @@ Alien.prototype.update = function() {
 			}
 			if(game.numObjects(Alien) === 0) {
 				p.surviveEvent("aliens");
-				game.endEvent();
+				game.endEvent(FPS * 2);
 			}
 			/* create explosion */
 			var laser = new Crosshair();
@@ -4127,10 +4639,10 @@ var game = {
 			begin: function() {
 				game.chatMessages.push(new ChatMessage("Rocket incoming!", "rgb(255, 128, 0)"));
 				if(p.x > 400) {
-					game.objects.push(new Rocket(-50, p.y, 6));
+					game.objects.push(new Rocket(-100, p.y, 6));
 				}
 				else {
-					game.objects.push(new Rocket(850, p.y, -6));
+					game.objects.push(new Rocket(900, p.y, -6));
 				}
 			}
 		},
@@ -4138,35 +4650,66 @@ var game = {
 			id: "spikeballs",
 			begin: function() {
 				game.chatMessages.push(new ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
+				const NUM_SPIKEBALLS = 3;
+				this.addSpikeballs(NUM_SPIKEBALLS / 2, "left");
+				this.addSpikeballs(NUM_SPIKEBALLS / 2, "right");
+			},
+			addSpikeballs: function(numSpikeballs, direction) {
+				/* initialize array of possible spikeball angles */
 				var angles = [];
-				var buffer = 30;
-				for(var i = 0; i < 360; i ++) {
-					if((i > 90 - buffer && i < 90 + buffer) || (i > 270 - buffer && i < 270 + buffer)) {
-						continue;
-					}
+				for(var i = -this.POSSIBLE_SPIKEBALL_ANGLES; i < this.POSSIBLE_SPIKEBALL_ANGLES; i ++) {
 					angles.push(i);
 				}
-				for(var i = 0; i < 3; i ++) {
-					var index = Math.floor(Math.random() * (angles.length - 1));
-					var angle = angles[index];
-					for(var j = 0; j < angles.length; j ++) {
-						var distanceBetweenAngles = Math.min(Math.abs(angle - angles[j]), Math.abs((angle + 360) - angles[j]), Math.abs((angle - 360) - angles[j]));
-						if(distanceBetweenAngles < buffer) {
-							angles.splice(j, 1);
-							j --;
-							continue;
+				/* add spikeballs, at separate angles so they don't end up taking the exact same path */
+				while(numSpikeballs > 0) {
+					console.log(angles.length);
+					var angle = angles.randomItem();
+					/* remove nearby angles */
+					for(var i = 0; i < angles.length; i ++) {
+						var distanceBetweenAngles = Math.min(
+							Math.dist(angle + 360, angles[i]),
+							Math.dist(angle      , angles[i]),
+							Math.dist(angle - 360, angles[i])
+						);
+						if(distanceBetweenAngles < this.MIN_ANGLE_BETWEEN_SPIKEBALLS) {
+							angles.splice(i, 1);
+							i --;
 						}
 					}
-					var angleRadians = angle / 180 * Math.PI;
-					var velocity = Math.rotateDegrees(0, -5, angle);
-					game.objects.push(new Spikeball(velocity.x, velocity.y));
+					/* add spikeball at angle */
+					var velocity = Math.rotateDegrees(this.SPIKEBALL_VELOCITY, 0, angle);
+					if(direction === "right") {
+						velocity.x *= -1;
+					}
+					game.objects.push(new Spikeball(
+						(direction === "right" ?
+							canvas.width + this.SPIKEBALL_DISTANCE_FROM_BORDERS :
+							-this.SPIKEBALL_DISTANCE_FROM_BORDERS
+						),
+						canvas.height / 2,
+						velocity.x * (direction === "right" ? -1 : 1),
+						velocity.y
+					));
+					numSpikeballs --;
 				}
-			}
+			},
+			SPIKEBALL_VELOCITY: 5,
+			MIN_ANGLE_BETWEEN_SPIKEBALLS: 30,
+			POSSIBLE_SPIKEBALL_ANGLES: 75,
+			SPIKEBALL_DISTANCE_FROM_BORDERS: 50
 		},
 		{
 			id: "block shuffle",
 			begin: function() {
 				game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
+				this.cycleBlocks([
+					game.getPlatformByLocation("top-left"),
+					game.getPlatformByLocation("bottom-left"),
+					game.getPlatformByLocation("center"),
+					game.getPlatformByLocation("bottom-right"),
+					game.getPlatformByLocation("top-right")
+				]);
+				return;
 				var platforms = game.getObjectsByType(Platform);
 				for(var i = 0; i < platforms.length; i ++) {
 					if(platforms[i].y < 300) {
@@ -4195,6 +4738,43 @@ var game = {
 					}
 					platforms[i].calculateVelocity();
 				}
+			},
+
+			cycleBlocks: function(blocks, isBackwards) {
+				if(typeof isBackwards !== "boolean") {
+					this.cycleBlocks(blocks, Math.random() < 0.5);
+				}
+				else if(isBackwards) {
+					for(var i = blocks.length - 1; i >= 0; i --) {
+						var previousIndex = (i - 1 >= 0) ? i - 1 : blocks.length - 1;
+						var block = blocks[i];
+						var previousBlock = blocks[previousIndex];
+						block.destX = previousBlock.x;
+						block.destY = previousBlock.y;
+						block.calculateVelocity();
+					}
+				}
+				else {
+					for(var i = 0; i < blocks.length; i ++) {
+						var nextIndex = (i + 1 < blocks.length) ? i + 1 : 0;
+						var block = blocks[i];
+						var nextBlock = blocks[nextIndex];
+						block.destX = nextBlock.x;
+						block.destY = nextBlock.y;
+						block.calculateVelocity();
+					}
+				}
+			},
+
+			swapCornerAndCenter: function() {
+				var corner = game.getPlatformByLocation(
+					["top", "bottom"].randomItem() + "-" +
+					["left", "right"].randomItem()
+				);
+				var center = game.getPlatformByLocation("center");
+				if(Math.random() < 0.5) {
+
+				}
 			}
 		},
 		{
@@ -4214,31 +4794,28 @@ var game = {
 		{
 			id: "confusion",
 			begin: function() {
-				game.timeToEvent = FPS * 3;
 				p.timeConfused = FPS * 15;
 				game.chatMessages.push(new ChatMessage("You have been confused", "rgb(0, 255, 0)"));
 				effects.remove();
-				game.currentEvent = null;
+				game.endEvent();
 			}
 		},
 		{
 			id: "blindness",
 			begin: function() {
-				game.timeToEvent = FPS * 3;
 				p.timeBlinded = FPS * 15;
 				game.chatMessages.push(new ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
 				effects.remove();
-				game.currentEvent = null;
+				game.endEvent();
 			}
 		},
 		{
 			id: "nausea",
 			begin: function() {
-				game.timeToEvent = FPS * 3;
 				p.timeNauseated = FPS * 15;
 				game.chatMessages.push(new ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
 				effects.remove();
-				game.currentEvent = null;
+				game.endEvent();
 			}
 		},
 		{
@@ -4282,6 +4859,37 @@ var game = {
 	chatMessages: [],
 	hitboxes: [], // debugging only. for showing hitboxes if SHOW_HITBOXES is true
 	screen: "home",
+
+	transitioningToScreen: null,
+	transitionOpacity: 0,
+	transitionOpacityDirection: 0,
+	TRANSITION_SPEED: 0.1,
+	transitionToScreen: function(screen) {
+		this.transitionOpacityDirection = this.TRANSITION_SPEED;
+		this.transitioningToScreen = screen;
+	},
+	displayTransitions: function() {
+		c.save(); {
+			c.globalAlpha = this.transitionOpacity;
+			c.fillStyle = "rgb(255, 255, 255)";
+			c.fillCanvas();
+		} c.restore();
+		this.transitionOpacity += this.transitionOpacityDirection;
+		if(this.transitionOpacity > 1) {
+			this.screen = this.transitioningToScreen;
+			this.transitionOpacityDirection = -this.TRANSITION_SPEED;
+			for(var i = 0; i < buttons.length; i ++) {
+				buttons[i].mouseOver = false;
+				if(typeof buttons[i].resetAnimation === "function") {
+					buttons[i].resetAnimation();
+				}
+			}
+		}
+		else if(this.transitionOpacity < 0) {
+			this.transitionOpacityDirection = 0;
+		}
+		this.transitionOpacity = Math.constrain(this.transitionOpacity, 0, 1);
+	},
 
 	exist: function() {
 		game.hitboxes = [];
@@ -4475,6 +5083,15 @@ var game = {
 			positions.splice(index, 1);
 		}
 	},
+	getPlatformByLocation: function(location) {
+		var platforms = game.getObjectsByType(Platform);
+		for(var i = 0; i < platforms.length; i ++) {
+			if(platforms[i].locationToString().replace("platform in the ", "") === location) {
+				return platforms[i];
+			}
+		}
+		return null;
+	},
 
 	sortObjects: function() {
 		var inverted = false;
@@ -4561,7 +5178,6 @@ var game = {
 	},
 	addEvent: function() {
 		p.score ++;
-		console.log("adding an event");
 		var theEvent = game.events.randomItem();
 		game.currentEvent = theEvent.id;
 		theEvent.begin();
@@ -4634,7 +5250,7 @@ var game = {
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.events[3]] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("block shuffle")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
@@ -4651,6 +5267,22 @@ var debugging = {
 		else if(SHOW_HITBOXES) {
 			c.fillText("hitboxes are on", 10, 20);
 		}
+	},
+
+	drawPoint: function(x, y) {
+		/*
+		Displays a red circle on the point. (Useful for visualizing graphic function calls)
+		*/
+		c.save(); {
+			c.fillStyle = "rgb(255, 0, 0)";
+			var size = Math.sin(utilities.frameCount / 10) * 5 + 10;
+			if(typeof arguments[0] === "number") {
+				c.fillCircle(arguments[0], arguments[1], size);
+			}
+			else {
+				c.fillCircle(arguments[0].x, arguments[0].y, size);
+			}
+		} c.restore();
 	}
 };
 var ui = {
@@ -4815,6 +5447,7 @@ function doByTime() {
 	utilities.pastInputs.update();
 
 	debugging.displayTestingModeWarning();
+	game.displayTransitions();
 
 	document.body.style.cursor = input.mouse.cursor;
 	input.mouse.cursor = "default";
