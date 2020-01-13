@@ -3272,11 +3272,14 @@ function Pirhana(x) {
 	this.x = x;
 	this.y = 850;
 	this.velY = -10;
+	this.velY = Math.randomInRange(-8, -12);
 	this.scaleY = 1;
 	this.mouth = 1; // 1 = open, 0 = closed
 	this.mouthAngle = 45;
 	this.mouthVel = 0;
+	this.age = 0;
 
+	this.TIME_TO_APPEAR = Math.randomInRange(0, FPS * 2);
 	this.BITE_SPEED = 3;
 };
 Pirhana.prototype.display = function() {
@@ -3293,6 +3296,10 @@ Pirhana.prototype.display = function() {
 	} c.restore();
 };
 Pirhana.prototype.update = function() {
+	this.age ++;
+	if(this.age < this.TIME_TO_APPEAR) {
+		return;
+	}
 	this.y += this.velY;
 	this.velY += 0.1;
 	if(this.velY > 0) {
@@ -5180,7 +5187,7 @@ var game = {
 	}
 };
 game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("spikeballs")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("pirhanas")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
