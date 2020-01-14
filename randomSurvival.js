@@ -1497,6 +1497,9 @@ Platform.prototype.calculateVelocity = function() {
 	var distanceY = -(this.y - this.destinations[0].y);
 	var velocity = Math.normalize(distanceX, distanceY);
 	var speed = this.destinations[0].speed || (Math.dist(0, 0, distanceX, distanceY) / FPS);
+	if(!game.getEventByID("block shuffle").CONSTANT_MOVEMENT_SPEED) {
+		speed = Math.dist(0, 0, distanceX, distanceY) / FPS + 1;
+	}
 	this.velX = velocity.x * speed;
 	this.velY = velocity.y * speed;
 };
@@ -1504,7 +1507,7 @@ Platform.prototype.update = function() {
 	this.opacity += (this.opacity < 1) ? 0.05 : 0;
 	this.x += this.velX;
 	this.y += this.velY;
-	if(p.standingOnPlatform === this) {
+	if(p.standingOnPlatform === this && false) {
 		p.x += this.velX;
 		p.y += this.velY;
 	}
@@ -1562,10 +1565,10 @@ Platform.prototype.display = function() {
 	/* debug */
 	c.fillStyle = "rgb(0, 128, 255)";
 	c.textAlign = "center";
-	c.fillText(this.locationToString(), this.x + (this.w / 2), this.y + (this.h / 2) + 20);
+	// c.fillText(this.locationToString(), this.x + (this.w / 2), this.y + (this.h / 2) + 20);
 
 	if(this.destinations.length !== 0) {
-		debugging.drawPoint(this.destinations[0].x, this.destinations[0].y);
+		// debugging.drawPoint(this.destinations[0].x, this.destinations[0].y);
 	}
 };
 Platform.prototype.locationToString = function() {
@@ -4734,11 +4737,19 @@ var game = {
 			id: "block shuffle",
 			begin: function() {
 				game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
-				this.swapCornerAndCenter();
-				this.swapTopOrBottom();
-				this.moveCornerBlocks();
-				this.moveAllBlocks();
-
+				var numBlocks = 5;
+				while(numBlocks > 1) {
+					var numberOfBlocksEachSequenceMoves = {
+						"swapCornerAndCenter": 2,
+						"swapTopOrBottom": 2,
+						"move3Blocks": 3,
+						"moveCornerBlocks": 4,
+						"moveAllBlocks": 5
+					};
+					var randomSequence = ["swapCornerAndCenter", "swapTopOrBottom", "move3Blocks", "moveCornerBlocks", "moveAllBlocks"].randomItem();
+					this[randomSequence]();
+					numBlocks -= numberOfBlocksEachSequenceMoves[randomSequence];
+				}
 				this.nextSequence();
 			},
 
@@ -4871,6 +4882,26 @@ var game = {
 				}
 			},
 
+			move3Blocks: function() {
+				/*
+				This function cycles around 3 blocks total - 1 in the middle, and two on the left / right / top / bottom.
+				*/
+				var direction = ["left", "right", "top", "bottom"].randomItem();
+				if(direction === "left" || direction === "right") {
+					this.cycleBlocks([
+						game.getPlatformByLocation("top-" + direction),
+						game.getPlatformByLocation("bottom-" + direction),
+						game.getPlatformByLocation("center")
+					]);
+				}
+				else {
+					this.cycleBlocks([
+						game.getPlatformByLocation(direction + "-left"),
+						game.getPlatformByLocation(direction + "-right"),
+						game.getPlatformByLocation("center")
+					]);
+				}
+			},
 			moveCornerBlocks: function() {
 				/*
 				Moves the corner blocks around in a circle.
