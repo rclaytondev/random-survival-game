@@ -1488,8 +1488,17 @@ function Platform(x, y, w, h) {
 	this.opacity = 1;
 };
 Platform.prototype.calculateVelocity = function() {
-	this.velX = (this.x - this.destinations[0].x) / -120;
-	this.velY = (this.y - this.destinations[0].y) / -120;
+	if(this.destinations.length === 0) {
+		this.velX = 0;
+		this.velY = 0;
+		return;
+	}
+	var distanceX = -(this.x - this.destinations[0].x);
+	var distanceY = -(this.y - this.destinations[0].y);
+	var velocity = Math.normalize(distanceX, distanceY);
+	var speed = this.destinations[0].speed || (Math.dist(0, 0, distanceX, distanceY) / FPS);
+	this.velX = velocity.x * speed;
+	this.velY = velocity.y * speed;
 };
 Platform.prototype.update = function() {
 	this.opacity += (this.opacity < 1) ? 0.05 : 0;
@@ -1501,25 +1510,35 @@ Platform.prototype.update = function() {
 	}
 
 	/* stop moving for block shuffle event */
-	if(Math.dist(this.x, this.destinations[0].x) < 2 && Math.dist(this.y, this.destinations[0].y) < 2 && (this.velX !== 0 || this.velY !== 0)) {
-		this.velX = 0;
-		this.velY = 0;
-		if(this.destinations.length > 0) {
-			this.calculateVelocity();
-		}
-		else {
-			this.x = this.origX;
-			this.y = this.origY;
-		}
-		var numMoving = 0;
-		for(var i = 0; i < game.objects.length; i ++) {
-			if(game.objects[i] instanceof Platform && (game.objects[i].velX !== 0 || game.objects[i].velY !== 0 || game.objects[i].destinations.length !== 0)) {
-				numMoving ++;
+	if(!game.getEventByID("block shuffle").CONSTANT_MOVEMENT_SPEED) {
+		this.calculateVelocity();
+	}
+	if(this.isMoving()) {
+		if(Math.dist(this.x, this.destinations[0].x) < 2 && Math.dist(this.y, this.destinations[0].y) < 2 && (this.velX !== 0 || this.velY !== 0)) {
+			if(this.destinations.length > 0) {
+				this.destinations.splice(0, 1);
+				this.calculateVelocity();
 			}
-		}
-		if(numMoving === 0) {
-			game.endEvent();
-			p.surviveEvent("block shuffle");
+			else {
+				this.x = this.origX;
+				this.y = this.origY;
+				this.velX = 0;
+				this.velY = 0;
+			}
+			var numMoving = 0;
+			var platforms = game.getObjectsByType(Platform);
+			for(var i = 0; i < platforms.length; i ++) {
+				if(platforms[i].isMoving()) {
+					numMoving ++;
+				}
+			}
+			if(numMoving === 0) {
+				var platforms = game.getObjectsByType(Platform);
+				for(var i = 0; i < platforms.length; i ++) {
+					platforms[i].resetPosition();
+				}
+				game.getEventByID("block shuffle").nextSequence();
+			}
 		}
 	}
 };
@@ -1541,8 +1560,9 @@ Platform.prototype.display = function() {
 	c.globalAlpha = 1;
 
 	/* debug */
-	c.fillStyle = "rgb(0, 255, 0)";
-	c.fillText(this.destinations.length, this.x + (this.w / 2), this.y + (this.h / 2));
+	c.fillStyle = "rgb(0, 128, 255)";
+	c.textAlign = "center";
+	c.fillText(this.locationToString(), this.x + (this.w / 2), this.y + (this.h / 2) + 20);
 
 	if(this.destinations.length !== 0) {
 		debugging.drawPoint(this.destinations[0].x, this.destinations[0].y);
@@ -1582,6 +1602,16 @@ Platform.prototype.locationToString = function() {
 	else {
 		return "platform in the " + yLocation + "-" + xLocation;
 	}
+};
+Platform.prototype.isMoving = function() {
+	return (this.velX !== 0 || this.velY !== 0 || this.destinations.length !== 0);
+};
+Platform.prototype.resetPosition = function() {
+	this.x = this.origX;
+	this.y = this.origY;
+	this.velX = 0;
+	this.velY = 0;
+	this.destinations = [];
 };
 
 function Button(x, y, whereTo, icon) {
@@ -4665,7 +4695,6 @@ var game = {
 				}
 				/* add spikeballs, at separate angles so they don't end up taking the exact same path */
 				while(numSpikeballs > 0) {
-					console.log(angles.length);
 					var angle = angles.randomItem();
 					/* remove nearby angles */
 					for(var i = 0; i < angles.length; i ++) {
@@ -4705,15 +4734,12 @@ var game = {
 			id: "block shuffle",
 			begin: function() {
 				game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
-				// this.cycleBlocks([
-				// 	game.getPlatformByLocation("top-left"),
-				// 	game.getPlatformByLocation("bottom-left"),
-				// 	game.getPlatformByLocation("center"),
-				// 	game.getPlatformByLocation("bottom-right"),
-				// 	game.getPlatformByLocation("top-right")
-				// ]);
-				// this.swapCornerAndCenter();
+				this.swapCornerAndCenter();
 				this.swapTopOrBottom();
+				this.moveCornerBlocks();
+				this.moveAllBlocks();
+
+				this.nextSequence();
 			},
 
 			cycleBlocks: function(blocks, isBackwards) {
@@ -4721,24 +4747,49 @@ var game = {
 					this.cycleBlocks(blocks, Math.random() < 0.5);
 				}
 				else if(isBackwards) {
-					for(var i = blocks.length - 1; i >= 0; i --) {
-						var previousIndex = (i - 1 >= 0) ? i - 1 : blocks.length - 1;
-						var block = blocks[i];
-						var previousBlock = blocks[previousIndex];
-						block.destX = previousBlock.x;
-						block.destY = previousBlock.y;
-						block.calculateVelocity();
-					}
+					this.sequences.push(
+						function() {
+							for(var i = blocks.length - 1; i >= 0; i --) {
+								var previousIndex = (i - 1 >= 0) ? i - 1 : blocks.length - 1;
+								var block = blocks[i];
+								var previousBlock = blocks[previousIndex];
+								block.destinations = [{
+									x: previousBlock.x,
+									y: previousBlock.y
+								}];
+								block.calculateVelocity();
+							}
+						}
+					)
 				}
 				else {
-					for(var i = 0; i < blocks.length; i ++) {
-						var nextIndex = (i + 1 < blocks.length) ? i + 1 : 0;
-						var block = blocks[i];
-						var nextBlock = blocks[nextIndex];
-						block.destX = nextBlock.x;
-						block.destY = nextBlock.y;
-						block.calculateVelocity();
-					}
+					this.sequences.push(
+						function() {
+							for(var i = 0; i < blocks.length; i ++) {
+								var nextIndex = (i + 1 < blocks.length) ? i + 1 : 0;
+								var block = blocks[i];
+								var nextBlock = blocks[nextIndex];
+								block.destinations = [{
+									x: nextBlock.x,
+									y: nextBlock.y
+								}];
+								block.calculateVelocity();
+							}
+						}
+					);
+				}
+			},
+			sequences: [],
+			blocksMoved: 0,
+			CONSTANT_MOVEMENT_SPEED: false,
+			nextSequence: function() {
+				if(this.sequences.length === 0) {
+					game.endEvent();
+					p.surviveEvent("block shuffle");
+				}
+				else {
+					this.sequences[0]();
+					this.sequences.splice(0, 1);
 				}
 			},
 
@@ -4748,36 +4799,48 @@ var game = {
 					["left", "right"].randomItem()
 				);
 				var center = game.getPlatformByLocation("center");
+				const SPEED = 3;
 				if(Math.random() < 0.5) {
-					corner.destinations = [
-						{ x: corner.x, y: center.y },
-						{ x: center.x, y: center.y }
-					];
-					center.destinations = [
-						{ x: center.x, y: corner.y },
-						{ x: corner.x, y: corner.y }
-					];
+					this.sequences.push(
+						function() {
+							corner.destinations = [
+								{ x: corner.x, y: center.y, speed: SPEED },
+								{ x: center.x, y: center.y, speed: SPEED }
+							];
+							center.destinations = [
+								{ x: center.x, y: corner.y, speed: SPEED },
+								{ x: corner.x, y: corner.y, speed: SPEED }
+							];
+							corner.calculateVelocity();
+							center.calculateVelocity();
+						}
+					)
 				}
 				else {
-					corner.destinations = [
-						{ x: center.x, y: corner.y },
-						{ x: center.x, y: center.y }
-					];
-					center.destinations = [
-						{ x: corner.x, y: center.y },
-						{ x: corner.x, y: corner.y }
-					];
+					this.sequences.push(
+						function() {
+							corner.destinations = [
+								{ x: center.x, y: corner.y, speed: SPEED },
+								{ x: center.x, y: center.y, speed: SPEED }
+							];
+							center.destinations = [
+								{ x: corner.x, y: center.y, speed: SPEED },
+								{ x: corner.x, y: corner.y, speed: SPEED }
+							];
+							corner.calculateVelocity();
+							center.calculateVelocity();
+						}
+					);
 				}
-				// corner.calculateVelocity();
-				// center.calculateVelocity();
 			},
 			swapTopOrBottom: function(location) {
 				/*
 				Swaps either the top two platforms with each other, or the bottom two platforms with each other.
 				*/
 				if(location === "top" || location === "bottom") {
-					console.log("swapping the " + location + " platforms");
-					const CYCLE_HEIGHT = 50;
+					const CYCLE_HEIGHT = 125;
+					const VERTICAL_SPEED = 2;
+					const HORIZONTAL_SPEED = 5;
 					var left = game.getPlatformByLocation(location + "-left");
 					var right = game.getPlatformByLocation(location + "-right");
 					if(Math.random() < 0.5 && false) {
@@ -4786,23 +4849,60 @@ var game = {
 						left = right;
 						right = temporary;
 					}
-					console.log(left, right);
-					left.destinations = [
-						{ x: left.x, y: left.y - CYCLE_HEIGHT },
-						{ x: right.x, y: right.y - CYCLE_HEIGHT },
-						{ x: right.x, y: right.y }
-					];
-					right.destinations = [
-						{ x: right.x, y: right.y + CYCLE_HEIGHT },
-						{ x: left.x, y: right.y + CYCLE_HEIGHT },
-						{ x: left.x, y: right.y }
-					];
-					left.calculateVelocity();
-					right.calculateVelocity();
+					this.sequences.push(
+						function() {
+							left.destinations = [
+								{ x: left.x, y: left.y - CYCLE_HEIGHT, speed: VERTICAL_SPEED },
+								{ x: right.x, y: right.y - CYCLE_HEIGHT, speed: HORIZONTAL_SPEED },
+								{ x: right.x, y: right.y, speed: VERTICAL_SPEED }
+							];
+							right.destinations = [
+								{ x: right.x, y: right.y + CYCLE_HEIGHT, speed: VERTICAL_SPEED },
+								{ x: left.x, y: right.y + CYCLE_HEIGHT, speed: HORIZONTAL_SPEED },
+								{ x: left.x, y: right.y, speed: VERTICAL_SPEED }
+							];
+							left.calculateVelocity();
+							right.calculateVelocity();
+						}
+					);
 				}
 				else {
 					this.swapTopOrBottom(["top", "bottom"].randomItem());
 				}
+			},
+
+			moveCornerBlocks: function() {
+				/*
+				Moves the corner blocks around in a circle.
+				*/
+				this.cycleBlocks([
+					game.getPlatformByLocation("top-left"),
+					game.getPlatformByLocation("bottom-left"),
+					game.getPlatformByLocation("bottom-right"),
+					game.getPlatformByLocation("top-right")
+				]);
+			},
+			moveAllBlocks: function() {
+				/*
+				Moves all blocks in a somewhat circular pattern. Basically just moveCornerBlocks() but it includes the middle one in the cycle.
+				*/
+				var blocks = [
+					game.getPlatformByLocation("top-left"),
+					game.getPlatformByLocation("bottom-left"),
+					game.getPlatformByLocation("bottom-right"),
+					game.getPlatformByLocation("top-right")
+				];
+				var insertAfter = Math.round(Math.random() * blocks.length);
+				blocks.splice(insertAfter, 0, game.getPlatformByLocation("center"));
+				this.cycleBlocks(blocks);
+			},
+
+			reset: function() {
+				var platforms = game.getObjectsByType(Platform);
+				for(var i = 0; i < platforms.length; i ++) {
+					platforms[i].resetPosition();
+				}
+				this.sequences = [];
 			}
 		},
 		{
