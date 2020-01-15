@@ -909,7 +909,7 @@ Player.prototype.display = function() {
 		c.lineWidth = 5;
 		c.lineCap = "round";
 		/* head */
-		c.fillStyle = "rgb(0, 0, 0)";
+		c.fillStyle = (this.isIntangible() ? "rgb(80, 80, 80)" : "rgb(0, 0, 0)");
 		c.fillEllipse(this.x, this.y + 12 * 1.2, 10, 10 * 1.2);
 		/* eyes */
 		if(this.facing === "left" || this.facing === "forward") {
@@ -921,7 +921,7 @@ Player.prototype.display = function() {
 			c.fillCircle(this.x + 4, this.y + 10, 3);
 		}
 		/* body */
-		c.strokeStyle = "rgb(0, 0, 0)";
+		c.strokeStyle = (this.isIntangible() ? "rgb(80, 80, 80)" : "rgb(0, 0, 0)");
 		c.strokeLine(this.x, this.y + 15, this.x, this.y + 36);
 		/* legs */
 		c.strokeLine(this.x, this.y + 36, this.x - this.legs, this.y + 46);
@@ -1038,6 +1038,10 @@ Player.prototype.update = function() {
 			}
 			game.objects.push(new DoubleJumpParticle(this.x, this.y + 46 - this.worldY));
 		}
+	}
+	/* coin magnets */
+	if(shop.coinDoubler.equipped && shop.coinDoubler.numUpgrades > 1) {
+
 	}
 };
 Player.prototype.input = function() {
@@ -1507,7 +1511,7 @@ Platform.prototype.update = function() {
 	this.opacity += (this.opacity < 1) ? 0.05 : 0;
 	this.x += this.velX;
 	this.y += this.velY;
-	if(p.standingOnPlatform === this && false) {
+	if(p.standingOnPlatform === this && game.getEventByID("block shuffle").MOVE_PLAYER_WITH_PLATFORMS) {
 		p.x += this.velX;
 		p.y += this.velY;
 	}
@@ -1561,15 +1565,6 @@ Platform.prototype.display = function() {
 	c.fillRect(this.x, this.y, this.w, this.h);
 	this.y -= p.worldY;
 	c.globalAlpha = 1;
-
-	/* debug */
-	c.fillStyle = "rgb(0, 128, 255)";
-	c.textAlign = "center";
-	// c.fillText(this.locationToString(), this.x + (this.w / 2), this.y + (this.h / 2) + 20);
-
-	if(this.destinations.length !== 0) {
-		// debugging.drawPoint(this.destinations[0].x, this.destinations[0].y);
-	}
 };
 Platform.prototype.locationToString = function() {
 	/*
@@ -1888,6 +1883,21 @@ DoubleJumpParticle.prototype.display = function() {
 };
 DoubleJumpParticle.prototype.update = function() {
 	if(this.op <= 0) {
+		this.splicing = true;
+	}
+};
+function MagnetRing(x, y, size) {
+	this.x = x;
+	this.y = y;
+	this.size = size;
+};
+MagnetRing.prototype.display = function() {
+	c.strokeStyle = "rgb(125, 125, 125)";
+	c.strokeCircle(this.x, this.y + p.worldY, this.size);
+};
+MagnetRing.prototype.update = function() {
+	this.size --;
+	if(this.size < 0) {
 		this.splicing = true;
 	}
 };
@@ -3812,13 +3822,13 @@ var effects = {
 	},
 	add: function() {
 		if(!game.events.includesItemsWithProperty("id", "blindness")) {
-			game.events.push(game.originalEvents.getItemsWithProperty("id", "blindness")[0]);
+			game.events.push(game.ORIGINAL_EVENTS.getItemsWithProperty("id", "blindness")[0]);
 		}
 		if(!game.events.includesItemsWithProperty("id", "nausea")) {
-			game.events.push(game.originalEvents.getItemsWithProperty("id", "nausea")[0]);
+			game.events.push(game.ORIGINAL_EVENTS.getItemsWithProperty("id", "nausea")[0]);
 		}
 		if(!game.events.includesItemsWithProperty("id", "confusion")) {
-			game.events.push(game.originalEvents.getItemsWithProperty("id", "confusion")[0]);
+			game.events.push(game.ORIGINAL_EVENTS.getItemsWithProperty("id", "confusion")[0]);
 		}
 	},
 	displayNauseaEffect: function(obj) {
@@ -4737,8 +4747,48 @@ var game = {
 			id: "block shuffle",
 			begin: function() {
 				game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
-				var numBlocks = 5;
-				while(numBlocks > 1) {
+				this.blocksMoved = 0;
+				this.nextSequence();
+			},
+
+			cycleBlocks: function(blocks, isBackwards) {
+				if(typeof isBackwards !== "boolean") {
+					this.cycleBlocks(blocks, Math.random() < 0.5);
+				}
+				else if(isBackwards) {
+					for(var i = blocks.length - 1; i >= 0; i --) {
+						var previousIndex = (i - 1 >= 0) ? i - 1 : blocks.length - 1;
+						var block = blocks[i];
+						var previousBlock = blocks[previousIndex];
+						block.destinations = [{
+							x: previousBlock.x,
+							y: previousBlock.y
+						}];
+						block.calculateVelocity();
+					}
+				}
+				else {
+					for(var i = 0; i < blocks.length; i ++) {
+						var nextIndex = (i + 1 < blocks.length) ? i + 1 : 0;
+						var block = blocks[i];
+						var nextBlock = blocks[nextIndex];
+						block.destinations = [{
+							x: nextBlock.x,
+							y: nextBlock.y
+						}];
+						block.calculateVelocity();
+					}
+				}
+			},
+			blocksMoved: 0,
+			CONSTANT_MOVEMENT_SPEED: false,
+			MOVE_PLAYER_WITH_PLATFORMS: false,
+			nextSequence: function() {
+				if(this.blocksMoved > 5) {
+					game.endEvent();
+					p.surviveEvent("block shuffle");
+				}
+				else {
 					var numberOfBlocksEachSequenceMoves = {
 						"swapCornerAndCenter": 2,
 						"swapTopOrBottom": 2,
@@ -4748,100 +4798,44 @@ var game = {
 					};
 					var randomSequence = ["swapCornerAndCenter", "swapTopOrBottom", "move3Blocks", "moveCornerBlocks", "moveAllBlocks"].randomItem();
 					this[randomSequence]();
-					numBlocks -= numberOfBlocksEachSequenceMoves[randomSequence];
+					this.blocksMoved += numberOfBlocksEachSequenceMoves[randomSequence];
 				}
-				this.nextSequence();
 			},
 
-			cycleBlocks: function(blocks, isBackwards) {
-				if(typeof isBackwards !== "boolean") {
-					this.cycleBlocks(blocks, Math.random() < 0.5);
-				}
-				else if(isBackwards) {
-					this.sequences.push(
-						function() {
-							for(var i = blocks.length - 1; i >= 0; i --) {
-								var previousIndex = (i - 1 >= 0) ? i - 1 : blocks.length - 1;
-								var block = blocks[i];
-								var previousBlock = blocks[previousIndex];
-								block.destinations = [{
-									x: previousBlock.x,
-									y: previousBlock.y
-								}];
-								block.calculateVelocity();
-							}
-						}
-					)
-				}
-				else {
-					this.sequences.push(
-						function() {
-							for(var i = 0; i < blocks.length; i ++) {
-								var nextIndex = (i + 1 < blocks.length) ? i + 1 : 0;
-								var block = blocks[i];
-								var nextBlock = blocks[nextIndex];
-								block.destinations = [{
-									x: nextBlock.x,
-									y: nextBlock.y
-								}];
-								block.calculateVelocity();
-							}
-						}
+			swapCornerAndCenter: function(whichCorner) {
+				if(typeof whichCorner !== "string") {
+					this.swapCornerAndCenter(
+						["top", "bottom"].randomItem() + "-" +
+						["left", "right"].randomItem()
 					);
+					return;
 				}
-			},
-			sequences: [],
-			blocksMoved: 0,
-			CONSTANT_MOVEMENT_SPEED: false,
-			nextSequence: function() {
-				if(this.sequences.length === 0) {
-					game.endEvent();
-					p.surviveEvent("block shuffle");
-				}
-				else {
-					this.sequences[0]();
-					this.sequences.splice(0, 1);
-				}
-			},
-
-			swapCornerAndCenter: function() {
-				var corner = game.getPlatformByLocation(
-					["top", "bottom"].randomItem() + "-" +
-					["left", "right"].randomItem()
-				);
+				var corner = game.getPlatformByLocation(whichCorner);
 				var center = game.getPlatformByLocation("center");
 				const SPEED = 3;
 				if(Math.random() < 0.5) {
-					this.sequences.push(
-						function() {
-							corner.destinations = [
-								{ x: corner.x, y: center.y, speed: SPEED },
-								{ x: center.x, y: center.y, speed: SPEED }
-							];
-							center.destinations = [
-								{ x: center.x, y: corner.y, speed: SPEED },
-								{ x: corner.x, y: corner.y, speed: SPEED }
-							];
-							corner.calculateVelocity();
-							center.calculateVelocity();
-						}
-					)
+					corner.destinations = [
+						{ x: corner.x, y: center.y, speed: SPEED },
+						{ x: center.x, y: center.y, speed: SPEED }
+					];
+					center.destinations = [
+						{ x: center.x, y: corner.y, speed: SPEED },
+						{ x: corner.x, y: corner.y, speed: SPEED }
+					];
+					corner.calculateVelocity();
+					center.calculateVelocity();
 				}
 				else {
-					this.sequences.push(
-						function() {
-							corner.destinations = [
-								{ x: center.x, y: corner.y, speed: SPEED },
-								{ x: center.x, y: center.y, speed: SPEED }
-							];
-							center.destinations = [
-								{ x: corner.x, y: center.y, speed: SPEED },
-								{ x: corner.x, y: corner.y, speed: SPEED }
-							];
-							corner.calculateVelocity();
-							center.calculateVelocity();
-						}
-					);
+					corner.destinations = [
+						{ x: center.x, y: corner.y, speed: SPEED },
+						{ x: center.x, y: center.y, speed: SPEED }
+					];
+					center.destinations = [
+						{ x: corner.x, y: center.y, speed: SPEED },
+						{ x: corner.x, y: corner.y, speed: SPEED }
+					];
+					corner.calculateVelocity();
+					center.calculateVelocity();
 				}
 			},
 			swapTopOrBottom: function(location) {
@@ -4860,22 +4854,18 @@ var game = {
 						left = right;
 						right = temporary;
 					}
-					this.sequences.push(
-						function() {
-							left.destinations = [
-								{ x: left.x, y: left.y - CYCLE_HEIGHT, speed: VERTICAL_SPEED },
-								{ x: right.x, y: right.y - CYCLE_HEIGHT, speed: HORIZONTAL_SPEED },
-								{ x: right.x, y: right.y, speed: VERTICAL_SPEED }
-							];
-							right.destinations = [
-								{ x: right.x, y: right.y + CYCLE_HEIGHT, speed: VERTICAL_SPEED },
-								{ x: left.x, y: right.y + CYCLE_HEIGHT, speed: HORIZONTAL_SPEED },
-								{ x: left.x, y: right.y, speed: VERTICAL_SPEED }
-							];
-							left.calculateVelocity();
-							right.calculateVelocity();
-						}
-					);
+					left.destinations = [
+						{ x: left.x, y: left.y - CYCLE_HEIGHT, speed: VERTICAL_SPEED },
+						{ x: right.x, y: right.y - CYCLE_HEIGHT, speed: HORIZONTAL_SPEED },
+						{ x: right.x, y: right.y, speed: VERTICAL_SPEED }
+					];
+					right.destinations = [
+						{ x: right.x, y: right.y + CYCLE_HEIGHT, speed: VERTICAL_SPEED },
+						{ x: left.x, y: right.y + CYCLE_HEIGHT, speed: HORIZONTAL_SPEED },
+						{ x: left.x, y: right.y, speed: VERTICAL_SPEED }
+					];
+					left.calculateVelocity();
+					right.calculateVelocity();
 				}
 				else {
 					this.swapTopOrBottom(["top", "bottom"].randomItem());
@@ -4933,7 +4923,6 @@ var game = {
 				for(var i = 0; i < platforms.length; i ++) {
 					platforms[i].resetPosition();
 				}
-				this.sequences = [];
 			}
 		},
 		{
@@ -5110,7 +5099,7 @@ var game = {
 		return arr;
 	},
 	getEventByID: function(id) {
-		return this.events.getItemsWithProperty("id", id)[0];
+		return this.events.getItemsWithProperty("id", id)[0] || this.ORIGINAL_EVENTS.getItemsWithProperty("id", id)[0];
 	},
 	removeEventByID: function(id) {
 		this.events.removeItemsWithProperty("id", id)[0];
@@ -5408,8 +5397,8 @@ var game = {
 		game.currentEvent = null;
 	}
 };
-game.originalEvents = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("block shuffle")] : game.events;
+game.ORIGINAL_EVENTS = game.events.clone();
+game.events = TESTING_MODE ? [game.getEventByID("laser")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
