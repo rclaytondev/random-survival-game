@@ -521,7 +521,14 @@ CanvasRenderingContext2D.prototype.resetTransform = function() {
 	this.setTransform(1, 0, 0, 1, 0, 0);
 };
 Object.prototype.clone = function() {
-	var clone = new this.constructor();
+	try {
+		var clone = new this.constructor();
+	}
+	catch(error) {
+		var clone = {};
+		clone.prototype = Object.create(this.constructor.prototype);
+		clone.prototype.constructor = this;
+	}
 	for(var i in this) {
 		if(this.hasOwnProperty(i)) {
 			if(typeof this[i] === "object" && this[i] !== null) {
@@ -1432,6 +1439,9 @@ PlayerDisintegrationParticle.prototype.checkForAnimationEnd = function() {
 	}
 };
 function PlayerBodyPart(type, location) {
+	if(type === undefined || location === undefined) {
+		return;
+	}
 	/* Used in the death animation where the player's limbs fall off. */
 	this.type = type; // "player-head" or "line-segment" (for arms / legs)
 	if(this.type === "line-segment") {
@@ -1923,6 +1933,19 @@ MagnetRing.prototype.update = function() {
 	if(this.size < 0) {
 		this.splicing = true;
 	}
+};
+function SpeedParticle(x, y) {
+	this.x = x;
+	this.y = y;
+	this.velX = p.velX;
+	this.velY = p.velY;
+};
+SpeedParticle.prototype.display = function() {
+	c.strokeStyle = "rgb(0, 255, 0)";
+	c.strokeLine(this.x - this.velX, this.y - this.velY, this.x, this.y);
+};
+SpeedParticle.prototype.update = function() {
+	this.
 };
 function ShopItem(x, y, name, display, upgrades) {
 	this.x = x;
@@ -5420,7 +5443,7 @@ var game = {
 	}
 };
 game.ORIGINAL_EVENTS = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("laser")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("rocket")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
