@@ -930,6 +930,21 @@ Player.prototype.display = function() {
 		c.strokeLine(this.x, this.y + 26, this.x + 10, this.y + 26 + this.armHeight);
 		c.strokeLine(this.x, this.y + 26, this.x - 10, this.y + 26 + this.armHeight);
 		c.lineCap = "butt";
+		/* indicators for shop item effects */
+		if(Math.dist(this.velX, 0) > 3) {
+			c.save(); {
+				c.strokeStyle = "rgb(0, 255, 0)";
+				c.globalAlpha = 0.5;
+				for(var y = 10; y < 46; y += 46 / 3) {
+					if(this.velX > 0) {
+						c.strokeLine(this.x - 15, this.y + y, this.x - 15 - ((this.velX - 3) * 20), this.y + y - (this.velY * 3));
+					}
+					else {
+						c.strokeLine(this.x + 15, this.y + y, this.x + 15 - ((this.velX + 3) * 20), this.y + y - (this.velY * 3));
+					}
+				}
+			} c.restore();
+		}
 	}
 };
 Player.prototype.update = function() {
@@ -1040,8 +1055,8 @@ Player.prototype.update = function() {
 		}
 	}
 	/* coin magnets */
-	if(shop.coinDoubler.equipped && shop.coinDoubler.numUpgrades > 1) {
-
+	if(shop.coinDoubler.equipped && shop.coinDoubler.numUpgrades > 1 && utilities.frameCount % 40 === 0) {
+		game.objects.push(new MagnetRing(75));
 	}
 };
 Player.prototype.input = function() {
@@ -1886,17 +1901,25 @@ DoubleJumpParticle.prototype.update = function() {
 		this.splicing = true;
 	}
 };
-function MagnetRing(x, y, size) {
-	this.x = x;
-	this.y = y;
+function MagnetRing(size) {
+	this.x = p.x;
+	this.y = p.y + p.worldY + (46 / 2);
 	this.size = size;
+	this.opacity = 0;
 };
 MagnetRing.prototype.display = function() {
-	c.strokeStyle = "rgb(125, 125, 125)";
-	c.strokeCircle(this.x, this.y + p.worldY, this.size);
+	c.save(); {
+		c.globalAlpha = Math.constrain(this.opacity, 0, 1);
+		c.strokeStyle = "rgb(125, 125, 125)";
+		c.lineWidth = 1;
+		c.strokeCircle(this.x, this.y + p.worldY, this.size);
+	} c.restore();
 };
 MagnetRing.prototype.update = function() {
-	this.size --;
+	this.size -= 0.5;
+	this.opacity += 0.025;
+	this.x = p.x;
+	this.y = p.y + p.worldY + (46 / 2);
 	if(this.size < 0) {
 		this.splicing = true;
 	}
@@ -5044,11 +5067,10 @@ var game = {
 
 		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
-		/* player */
-		p.update();
-		p.display();
 		/* random events */
+		game.objects.push(p);
 		game.runEvent();
+		game.objects.removeAllInstances(Player);
 		if(p.y + 46 >= 800 && (game.numObjects(Acid) === 0 || game.getObjectsByType(Acid)[0].y + p.worldY > 820)) {
 			p.die("fall");
 		}
@@ -5254,7 +5276,7 @@ var game = {
 				b = b.image;
 			}
 			/* things that are rendered behind everything else */
-			if(a instanceof Coin || a instanceof Dot) {
+			if(a instanceof Coin || a instanceof Dot || a instanceof MagnetRing) {
 				return A_FIRST;
 			}
 			/* things that are rendered in front of everything else */
