@@ -1,5 +1,5 @@
 const FPS = 60;
-const TESTING_MODE = true;
+const TESTING_MODE = false;
 const SHOW_HITBOXES = false;
 
 var canvas = document.getElementById("canvas");
@@ -909,7 +909,7 @@ Player.prototype.display = function() {
 		c.lineWidth = 5;
 		c.lineCap = "round";
 		/* head */
-		c.fillStyle = "rgb(0, 0, 0)";
+		c.fillStyle = (this.isIntangible() ? "rgb(80, 80, 80)" : "rgb(0, 0, 0)");
 		c.fillEllipse(this.x, this.y + 12 * 1.2, 10, 10 * 1.2);
 		/* eyes */
 		if(this.facing === "left" || this.facing === "forward") {
@@ -921,7 +921,7 @@ Player.prototype.display = function() {
 			c.fillCircle(this.x + 4, this.y + 10, 3);
 		}
 		/* body */
-		c.strokeStyle = "rgb(0, 0, 0)";
+		c.strokeStyle = (this.isIntangible() ? "rgb(80, 80, 80)" : "rgb(0, 0, 0)");
 		c.strokeLine(this.x, this.y + 15, this.x, this.y + 36);
 		/* legs */
 		c.strokeLine(this.x, this.y + 36, this.x - this.legs, this.y + 46);
@@ -1016,6 +1016,7 @@ Player.prototype.update = function() {
 	if(this.canExtendJump && input.keys[38] && this.timeExtended < 40 && shop.doubleJumper.equipped) {
 		this.velY = -6;
 		this.timeExtended ++;
+		shop.doubleJumper.glowOpacity += 0.1;
 	}
 	if(!input.keys[38]) {
 		this.canExtendJump = false;
@@ -1024,7 +1025,7 @@ Player.prototype.update = function() {
 	if(!input.keys[37] && !input.keys[39]) {
 		this.velX *= 0.93;
 	}
-	/* double jumping */
+	/* shop items */
 	if(shop.doubleJumper.equipped && shop.doubleJumper.numUpgrades >= 2) {
 		if(this.velY !== 0 && !this.hasDoubleJumped && input.keys[38] && !utilities.pastInputs.keys[38] && !jumpedThisFrame) {
 			this.velY = -6;
@@ -1037,7 +1038,26 @@ Player.prototype.update = function() {
 				this.gonePlaces = true;
 			}
 			game.objects.push(new DoubleJumpParticle(this.x, this.y + 46 - this.worldY));
+			shop.doubleJumper.glowOpacity = 1;
 		}
+	}
+	if(shop.coinDoubler.equipped && shop.coinDoubler.numUpgrades > 1 && utilities.frameCount % 40 === 0) {
+		game.objects.push(new MagnetParticle(75));
+	}
+	if(shop.speedIncreaser.equipped && Math.dist(this.velX, 0) > DEFAULT_MAX_VELOCITY / 2) {
+		shop.speedIncreaser.glowOpacity += 0.1;
+		if(this.velY === 0.1) {
+			game.objects.push(new SpeedParticle(
+				this.x,
+				this.y + 46
+			));
+		}
+	}
+	if(this.isIntangible()) {
+		shop.intangibilityTalisman.glowOpacity += 0.1;
+	}
+	if(this.invincible > 0) {
+		shop.secondLife.glowOpacity += 0.1;
 	}
 };
 Player.prototype.input = function() {
@@ -1196,6 +1216,9 @@ Player.prototype.surviveEvent = function(event) {
 	this.eventsSurvived.push(event);
 };
 Player.prototype.isIntangible = function() {
+	if(this !== p) {
+		return false; // for the Bad Guys that use the Player's methods
+	}
 	return (input.keys[40] && shop.intangibilityTalisman.equipped);
 };
 Player.prototype.isInPath = function() {
@@ -1885,7 +1908,54 @@ DoubleJumpParticle.prototype.update = function() {
 		this.splicing = true;
 	}
 };
-function ShopItem(x, y, name, display, upgrades) {
+function MagnetParticle(size) {
+	this.x = p.x;
+	this.y = p.y + p.worldY + (46 / 2);
+	this.size = size;
+	this.opacity = 0;
+};
+MagnetParticle.prototype.display = function() {
+	c.save(); {
+		c.globalAlpha = Math.constrain(this.opacity, 0, 1);
+		c.strokeStyle = "rgb(125, 125, 125)";
+		c.lineWidth = 1;
+		c.strokeCircle(this.x, this.y + p.worldY, this.size);
+	} c.restore();
+};
+MagnetParticle.prototype.update = function() {
+	this.size -= 0.5;
+	this.opacity += 0.025;
+	this.x = p.x;
+	this.y = p.y + p.worldY + (46 / 2);
+	if(this.size < 0) {
+		this.splicing = true;
+	}
+};
+function SpeedParticle(x, y) {
+	this.x = x;
+	this.y = y;
+	this.velX = Math.randomInRange(-1, 1);
+	this.velY = Math.randomInRange(-1, 1);
+	this.size = Math.randomInRange(5, 10);
+	this.opacity = 0.75;
+};
+SpeedParticle.prototype.display = function() {
+	c.save(); {
+		c.fillStyle = "rgb(0, 255, 0)";
+		c.globalAlpha = Math.constrain(this.opacity, 0, 1);
+		c.fillCircle(this.x, this.y, this.size);
+	} c.restore();
+};
+SpeedParticle.prototype.update = function() {
+	this.x += this.velX;
+	this.y += this.velY;
+	this.opacity -= 1 / 100;
+	this.size -= 0.25;
+	if(this.size <= 0 || this.opacity <= 0) {
+		this.splicing = true;
+	}
+};
+function ShopItem(x, y, name, display, upgrades, color) {
 	this.x = x;
 	this.y = y;
 	this.origX = x;
@@ -1893,12 +1963,14 @@ function ShopItem(x, y, name, display, upgrades) {
 	this.name = name;
 	this.display = display; // a function called to display graphics
 	this.upgrades = upgrades;
+	this.color = color;
 	this.bought = false;
 	this.equipped = false;
 	this.description = upgrades[0].text;
 	this.infoOp = 0;
 	this.numUpgrades = 0;
 	this.showingPopup = false;
+	this.glowOpacity = 0;
 };
 ShopItem.prototype.displayLogo = function(size) {
 	if(size === 1) {
@@ -1908,6 +1980,20 @@ ShopItem.prototype.displayLogo = function(size) {
 	c.save(); {
 		c.translate(this.x, this.y);
 		c.scale(size, size);
+		if(size !== 1) {
+			const GLOW_EFFECT_SIZE = 75 + 25;
+			c.save(); {
+				var gradient = c.createRadialGradient(0, 0, 75, 0, 0, GLOW_EFFECT_SIZE);
+				var colors = this.color.match(/\d+/g);
+				gradient.addColorStop(0, "rgba(" + colors[0] + ", " + colors[1] + ", " + colors[2] + ", 1)");
+				gradient.addColorStop(1, "rgba(" + colors[0] + ", " + colors[1] + ", " + colors[2] + ", 0)");
+				this.glowOpacity -= 0.05;
+				this.glowOpacity = Math.constrain(this.glowOpacity, 0, 1);
+				c.globalAlpha = this.glowOpacity;
+				c.fillStyle = gradient;
+				c.fillCircle(0, 0, GLOW_EFFECT_SIZE);
+			} c.restore();
+		}
 		c.strokeStyle = COLORS.UI_DARK_GRAY;
 		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.lineWidth = 5;
@@ -2230,7 +2316,8 @@ var shop = {
 					],
 					price: 15
 				},
-			]
+			],
+		"rgb(223, 160, 171)"
 	),
 	speedIncreaser: new ShopItem(
 		800 / 4 * 2, 800 / 3,
@@ -2293,7 +2380,8 @@ var shop = {
 				],
 				price: 10
 			},
-		]
+		],
+		"rgb(0, 255, 0)"
 	),
 	doubleJumper: new ShopItem(
 		800 / 4 * 3, 800 / 3,
@@ -2348,7 +2436,8 @@ var shop = {
 				],
 				price: 10
 			},
-		]
+		],
+		"rgb(255, 255, 0)"
 	),
 	intangibilityTalisman: new ShopItem(
 		800 / 4, 800 / 3 * 2,
@@ -2409,7 +2498,8 @@ var shop = {
 				],
 				price: 15
 			},
-		]
+		],
+		"rgb(0, 0, 128)"
 	),
 	secondLife: new ShopItem(
 		800 / 4 * 2, 800 / 3 * 2,
@@ -2459,7 +2549,8 @@ var shop = {
 				],
 				price: 15
 			},
-		]
+		],
+		"rgb(255, 255, 255)"
 	),
 	secondItem: new ShopItem(
 		800 / 4 * 3, 800 / 3 * 2,
@@ -2930,15 +3021,20 @@ Coin.prototype.update = function() {
 	if(p.x + 5 > this.x - 20 && p.x - 5 < this.x + 20 && p.y + 46 > this.y + p.worldY - 20 && p.y < this.y + 20 + p.worldY && this.age > this.timeToAppear && !(p.isIntangible() && shop.intangibilityTalisman.numUpgrades < 3)) {
 		this.splicing = true;
 		p.coins += (shop.coinDoubler.equipped) ? 2 : 1;
+		if(shop.coinDoubler.equipped) {
+			shop.coinDoubler.glowOpacity = 1;
+		}
 	}
 	if(this.age > this.timeToAppear && shop.coinDoubler.equipped) {
 		if(shop.coinDoubler.numUpgrades === 2 && Math.dist(this.x, this.y, p.x, p.y) < 200) {
 			this.x += (p.x - this.x) / 10;
 			this.y += (p.y - this.y) / 10;
+			shop.coinDoubler.glowOpacity += 0.1;
 		}
 		if(shop.coinDoubler.numUpgrades === 3) {
 			this.x += (p.x - this.x) / 10;
 			this.y += (p.y - this.y) / 10;
+			shop.coinDoubler.glowOpacity += 0.1;
 		}
 	}
 };
@@ -5028,11 +5124,10 @@ var game = {
 
 		c.fillStyle = COLORS.BACKGROUND_LIGHT_GRAY;
 		c.fillRect(0, 0, 800, 800);
-		/* player */
-		p.update();
-		p.display();
 		/* random events */
+		game.objects.push(p);
 		game.runEvent();
+		game.objects.removeAllInstances(Player);
 		if(p.y + 46 >= 800 && (game.numObjects(Acid) === 0 || game.getObjectsByType(Acid)[0].y + p.worldY > 820)) {
 			p.die("fall");
 		}
@@ -5238,11 +5333,11 @@ var game = {
 				b = b.image;
 			}
 			/* things that are rendered behind everything else */
-			if(a instanceof Coin || a instanceof Dot) {
+			if(a instanceof Coin || a instanceof Dot || a instanceof MagnetParticle) {
 				return A_FIRST;
 			}
 			/* things that are rendered in front of everything else */
-			if(a instanceof Spikewall || a instanceof Acid || a instanceof Pacman || a instanceof Player) {
+			if(a instanceof Spikewall || a instanceof Acid || a instanceof Pacman || a instanceof Player || a instanceof SpeedParticle) {
 				return B_FIRST;
 			}
 			/* special cases */
@@ -5382,7 +5477,7 @@ var game = {
 	}
 };
 game.ORIGINAL_EVENTS = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("block shuffle")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("laser")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
