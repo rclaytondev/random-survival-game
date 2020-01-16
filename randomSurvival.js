@@ -1413,6 +1413,9 @@ PlayerDisintegrationParticle.prototype.checkForAnimationEnd = function() {
 	}
 };
 function PlayerBodyPart(type, location) {
+	if(type === undefined || location === undefined) {
+		return;
+	}
 	/* Used in the death animation where the player's limbs fall off. */
 	this.type = type; // "player-head" or "line-segment" (for arms / legs)
 	if(this.type === "line-segment") {
