@@ -1,5 +1,5 @@
 const FPS = 60;
-const TESTING_MODE = false;
+const TESTING_MODE = true;
 const SHOW_HITBOXES = false;
 
 var canvas = document.getElementById("canvas");
@@ -65,6 +65,33 @@ var utilities = {
 			numSorted ++;
 		}
 		return array;
+	},
+	sortByType: function(array, types) {
+		/*
+		Uses bucket sort to sort the array by the types of objects in it. "types" parameter is a nested array of the form:
+		[ [Foo, Bar], [Baz, Qux] ]
+		to sort objects of type Foo and Bar before objects of type Baz and Qux. Objects that aren't specified by "types" will go to the end of the list.
+		*/
+		var buckets = [];
+		for(var i = 0; i < types.length + 1; i ++) {
+			buckets[i] = [];
+		}
+		/* place objects in buckets */
+		outerLoop: for(var i = 0; i < array.length; i ++) {
+			var obj = array[i];
+			for(var j = 0; j < types.length; j ++) {
+				for(var k = 0; k < types[j].length; k ++) {
+					if(obj instanceof types[j][k]) {
+						buckets[j].push(obj);
+						continue outerLoop;
+					}
+				}
+			}
+			/* object is not in "types" - place at end of array */
+			buckets[buckets.length - 1].push(obj);
+		}
+		/* put objects in buckets back into original array */
+		return Array.prototype.concat.apply([], buckets);
 	},
 	mouseInRect: function(x, y, w, h) {
 		return (input.mouse.x > x && input.mouse.x < x + w && input.mouse.y > y && input.mouse.y < y + h);
@@ -147,9 +174,6 @@ var utilities = {
 		settings.excludedTypes = settings.excludedTypes || null; // if provided, this parameter will exclude the types of objects given.
 		settings.collisionRequirements = settings.collisionRequirements || function(obj) { return true; };
 
-		if(!p.isIntangible()) {
-			game.objects.push(p);
-		}
 		objectLoop: for(var i = 0; i < game.objects.length; i ++) {
 			var obj = game.objects[i];
 
@@ -246,7 +270,6 @@ var utilities = {
 				}
 			}
 		}
-		game.objects.removeAllInstances(Player);
 
 		game.hitboxes.push({
 			type: "rect",
@@ -3207,7 +3230,7 @@ Acid.prototype.stopRising = function() {
 			game.objects[i].y += 700;
 			continue;
 		}
-		if(game.objects[i].y < 200) {
+		if(game.objects[i].y < 200 && !(game.objects[i] instanceof Player)) {
 			game.objects[i].splicing = true;
 		}
 		/* remove platform afterimages if the player has the confusion effect */
@@ -3656,6 +3679,7 @@ function Rocket(x, y, velX) {
 };
 Rocket.prototype.display = function() {
 	c.save(); {
+		c.fillStyle = "rgb(150, 150, 155)";
 		c.translate(this.x, this.y);
 		if(this.velX < 0) {
 			c.scale(-1, 1);
@@ -5321,62 +5345,16 @@ var game = {
 	},
 
 	sortObjects: function() {
-		var inverted = false;
-		var sorter = function(a, b) {
-			const A_FIRST = -1;
-			const B_FIRST = 1;
-			/* afterimages */
-			if(a instanceof AfterImage) {
-				a = a.image;
-			}
-			if(b instanceof AfterImage) {
-				b = b.image;
-			}
-			/* things that are rendered behind everything else */
-			if(a instanceof Coin || a instanceof Dot || a instanceof MagnetParticle) {
-				return A_FIRST;
-			}
-			/* things that are rendered in front of everything else */
-			if(a instanceof Spikewall || a instanceof Acid || a instanceof Pacman || a instanceof Player || a instanceof SpeedParticle) {
-				return B_FIRST;
-			}
-			/* special cases */
-			if(a instanceof FireParticle && b instanceof Rocket) {
-				return A_FIRST;
-			}
-			if(a instanceof LaserBot && b instanceof Laser) {
-				return B_FIRST;
-			}
-			if(a instanceof Platform && b instanceof SpinnyBlade) {
-				return A_FIRST;
-			}
-			if(a instanceof Platform && b instanceof Dot) {
-				return A_FIRST;
-			}
-			if(a instanceof Platform && b instanceof Spikeball) {
-				return A_FIRST;
-			}
-			if(a instanceof Platform && b instanceof Crosshair) {
-				return A_FIRST;
-			}
-			if(a instanceof Platform && b instanceof Enemy) {
-				return B_FIRST;
-			}
-			if(a instanceof Platform && b instanceof Laser) {
-				return A_FIRST;
-			}
-			/* inverse cases */
-			if(!inverted) {
-				/* Variable 'inverted' is used to prevent infinite recursion */
-				inverted = true;
-				var invertedOrder = sorter(b, a);
-				inverted = false;
-				return invertedOrder * -1;
-			}
-			/* default case */
-			return A_FIRST;
-		};
-		game.objects = utilities.sort(game.objects, sorter);
+		var order = [
+			[Coin, MagnetParticle],
+			[Platform],
+			[FireParticle, Dot, Laser, Player],
+			[Crosshair, Boulder, RockParticle, SpinnyBlade, Pirhana, Pacman, Rocket, Spikeball, LaserBot, BadGuy, Alien],
+			[SpeedParticle, DoubleJumpParticle, PlayerDisintegrationParticle, PlayerBodyPart],
+			[Acid, Spikewall]
+		];
+		/* sort the objects (bucket sort). */
+		game.objects = utilities.sortByType(game.objects, order);
 	},
 	loadCollisions: function() {
 		p.standingOnPlatform = null;
@@ -5477,7 +5455,7 @@ var game = {
 	}
 };
 game.ORIGINAL_EVENTS = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("laser")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("rocket")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
