@@ -176,6 +176,9 @@ var utilities = {
 
 		objectLoop: for(var i = 0; i < game.objects.length; i ++) {
 			var obj = game.objects[i];
+			if(obj instanceof Player && p.isIntangible()) {
+				continue;
+			}
 
 			if(Array.isArray(settings.excludedTypes)) {
 				for(var j = 0; j < settings.excludedTypes.length; j ++) {
