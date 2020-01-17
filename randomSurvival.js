@@ -100,13 +100,6 @@ var utilities = {
 		return Math.distSq(input.mouse.x, input.mouse.y, x, y) <= (r * r);
 	},
 
-	sortAscending: function(a, b) {
-		return a - b;
-	},
-	sortDescending: function(a, b) {
-		return b - a;
-	},
-
 	killCollisionCircle: function(x, y, radius, deathCause) {
 		/*
 		Kills the player if the player is inside the circular region.
@@ -183,6 +176,9 @@ var utilities = {
 
 		objectLoop: for(var i = 0; i < game.objects.length; i ++) {
 			var obj = game.objects[i];
+			if(obj instanceof Player && p.isIntangible()) {
+				continue;
+			}
 
 			if(Array.isArray(settings.excludedTypes)) {
 				for(var j = 0; j < settings.excludedTypes.length; j ++) {
@@ -318,6 +314,19 @@ var utilities = {
 			obj.y + obj.hitbox.bottom > y &&
 			obj.y + obj.hitbox.top < y + h
 		);
+	},
+
+	createEmptyMultidimensionalArray: function(dimensions) {
+		/*
+		Arguments are each a number specifying how large to make that dimension. So for example calling createEmptyMultidimensionalArray(400, 800) would create an array containing 400 arrays, each containing 800 null items.
+		*/
+		if(typeof arguments[0] !== "number") {
+			return null;
+		}
+		var returnValue = [];
+		for(var i = 0; i < arguments[0]; i ++) {
+			
+		}
 	}
 };
 var input = {
@@ -3687,7 +3696,6 @@ function Rocket(x, y, velX) {
 Rocket.prototype.display = function() {
 	c.save(); {
 		c.fillStyle = "rgb(150, 150, 155)";
-		c.fillStyle = "rgb(170, 169, 173)";
 		c.translate(this.x, this.y);
 		if(this.velX < 0) {
 			c.scale(-1, 1);
@@ -5460,10 +5468,35 @@ var game = {
 		timeToNextEvent = timeToNextEvent || FPS * 1;
 		game.timeToEvent = timeToNextEvent;
 		game.currentEvent = null;
+	},
+
+	background: {
+		vertices: [],
+		polygons: [],
+		initialized: false,
+		display: function() {
+			c.lineWidth = 1;
+			for(var i = 0; i < this.vertices.length; i ++) {
+				for(var j = i; j < this.vertices.length; j ++) {
+					// c.strokeLine(this.vertices[i], this.vertices[j]);
+				}
+			}
+		},
+		initialize: function() {
+			// for(var x = 0; x < canvas.width; x += 50) {
+			// 	for(var y = 0; y < canvas.height; y += 30) {
+			//
+			// 	}
+			// }
+			this.initialized = true;
+		},
+
+
+		NUMBER_OF_VERTICES: 200
 	}
 };
 game.ORIGINAL_EVENTS = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("acid")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("rocket")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
@@ -5664,5 +5697,13 @@ function doByTime() {
 
 	document.body.style.cursor = input.mouse.cursor;
 	input.mouse.cursor = "default";
+
+	/* debug (TEMPORARY) */
+	c.fillStyle = "rgb(200, 200, 200)";
+	c.fillCanvas();
+	game.background.display();
+	if(!game.background.initialized) {
+		game.background.initialize();
+	}
 };
 window.setInterval(doByTime, 1000 / FPS);
