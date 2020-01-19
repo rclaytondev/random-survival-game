@@ -3671,7 +3671,7 @@ FireParticle.prototype.update = function() {
 			p.surviveEvent("laser");
 		}
 	}
-	if(this.KILLS_PLAYER && this.opacity > 0.15) {
+	if(this.KILLS_PLAYER && this.opacity > 0.15 && !p.isIntangible()) {
 		utilities.killCollisionRect(this.x - this.size, this.y - this.size, this.size * 2, this.size * 2, "laser");
 	}
 };
@@ -3877,7 +3877,14 @@ Spikewall.prototype.update = function() {
 		this.x = Math.max(this.x, canvas.width - 250);
 		game.objects.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
 	}
-	utilities.killCollisionRect(this.x - 5, 0, 10, canvas.height, "spikewall");
+	if(!p.isIntangible()) {
+		if(this.direction === "right" && p.x + p.hitbox.left < this.x + 5) {
+			p.die("spikewall");
+		}
+		else if(this.direction === "left" && p.x + p.hitbox.right > this.x - 5) {
+			p.die("spikewall");
+		}
+	}
 	if((this.velX < 0 && this.x < -50) || (this.velX > 0 && this.x > 850)) {
 		this.splicing = true;
 		game.endEvent(-1);
@@ -4453,7 +4460,9 @@ BadGuy.prototype.update = function() {
 		}
 	}
 	/* kill player */
-	utilities.killCollisionRect(this.x - 5, this.y, 10, 46, "bad guys");
+	if(!p.isIntangible()) {
+		utilities.killCollisionRect(this.x - 5, this.y, 10, 46, "bad guys");
+	}
 	/* border collisions */
 	if(this.x + this.hitbox.right > canvas.width) {
 		this.velX = Math.min(this.velX, -5);
@@ -4632,7 +4641,7 @@ Alien.prototype.update = function() {
 			p.beingAbductedBy = null;
 		}
 	}
-	if(p.beingAbductedBy === this) {
+	if(p.beingAbductedBy === this && !p.isIntangible()) {
 		if((this.velX < 0 && p.x > this.x) || (this.velX > 0 && p.x < this.x)) {
 			p.velX = this.velX;
 		}
@@ -5458,7 +5467,7 @@ var game = {
 	}
 };
 game.ORIGINAL_EVENTS = game.events.clone();
-game.events = TESTING_MODE ? [game.getEventByID("rocket")] : game.events;
+game.events = TESTING_MODE ? [game.getEventByID("aliens")] : game.events;
 p.totalCoins = TESTING_MODE ? 1000 : p.totalCoins;
 var debugging = {
 	displayTestingModeWarning: function() {
