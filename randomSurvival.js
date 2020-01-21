@@ -2266,18 +2266,17 @@ randomSurvivalGame = {
 						this.velY = 0;
 					}
 					var numMoving = 0;
-					var platforms = game.getObjectsByType(Platform);
+					var platforms = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.game.Platform);
 					for(var i = 0; i < platforms.length; i ++) {
 						if(platforms[i].isMoving()) {
 							numMoving ++;
 						}
 					}
 					if(numMoving === 0) {
-						var platforms = game.getObjectsByType(Platform);
 						for(var i = 0; i < platforms.length; i ++) {
 							platforms[i].resetPosition();
 						}
-						game.getEventByID("block shuffle").nextSequence();
+						randomSurvivalGame.events.blockShuffle.nextSequence();
 					}
 				}
 			}
@@ -2291,9 +2290,9 @@ randomSurvivalGame = {
 			var distanceX = -(this.x - this.destinations[0].x);
 			var distanceY = -(this.y - this.destinations[0].y);
 			var velocity = Math.normalize(distanceX, distanceY);
-			var speed = this.destinations[0].speed || (Math.dist(0, 0, distanceX, distanceY) / FPS);
-			if(!game.getEventByID("block shuffle").CONSTANT_MOVEMENT_SPEED) {
-				speed = Math.dist(0, 0, distanceX, distanceY) / FPS + 1;
+			var speed = this.destinations[0].speed || (Math.dist(0, 0, distanceX, distanceY) / randomSurvivalGame.FPS);
+			if(!randomSurvivalGame.events.blockShuffle.CONSTANT_MOVEMENT_SPEED) {
+				speed = Math.dist(0, 0, distanceX, distanceY) / randomSurvivalGame.FPS + 1;
 			}
 			this.velX = velocity.x * speed;
 			this.velY = velocity.y * speed;
@@ -3337,16 +3336,16 @@ randomSurvivalGame = {
 				this.y += this.velY;
 				this.age ++;
 				/* player collisions */
-				if(!p.isIntangible()) {
-					utilities.killCollisionCircle(this.x, this.y, 30, "spikeballs");
+				if(!randomSurvivalGame.game.player.isIntangible()) {
+					randomSurvivalGame.utils.killCollisions.circle(this.x, this.y, 30, "spikeballs");
 				}
 				/* remove self if off screen */
 				this.collideWithBorders = (this.age < this.MAXIMUM_AGE);
-				if(!this.collideWithBorders && !utilities.isObjectInRect(this, -100, -100, canvas.width + 200, canvas.height + 200)) {
+				if(!this.collideWithBorders && !randomSurvivalGame.utils.isObjectInRect(this, -100, -100, canvas.width + 200, canvas.height + 200)) {
 					this.splicing = true;
-					if(game.numObjects(Spikeball) === 0) {
-						game.endEvent();
-						p.surviveEvent("spikeballs");
+					if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.spikeballs.Spikeball) === 0) {
+						randomSurvivalGame.events.endEvent();
+						randomSurvivalGame.game.player.surviveEvent("spikeballs");
 					}
 				}
 			})
@@ -3363,7 +3362,7 @@ randomSurvivalGame = {
 				else if(direction === "wall-to-right") {
 					this.velX = -Math.abs(this.velX);
 				}
-				if(platform instanceof Spikeball) {
+				if(platform instanceof randomSurvivalGame.events.spikeballs.Spikeball) {
 					var spikeball = platform;
 					if(direction === "floor") {
 						spikeball.handleCollision("ceiling");
@@ -3381,7 +3380,7 @@ randomSurvivalGame = {
 			})
 			.method("collide", function() {
 				randomSurvivalGame.utils.collisions.rect(this.x - 30, this.y - 30, 60, 60, {
-					includedTypes: [Spikeball],
+					includedTypes: [randomSurvivalGame.events.spikeballs.Spikeball],
 					velX: this.velX,
 					velY: this.velY,
 					caller: this
@@ -3389,12 +3388,14 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				game.chatMessages.push(new ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
 				const NUM_SPIKEBALLS = 3;
 				this.addSpikeballs(NUM_SPIKEBALLS / 2, "left");
 				this.addSpikeballs(NUM_SPIKEBALLS / 2, "right");
 			},
 			addSpikeballs: function(numSpikeballs, direction) {
+				var objects = randomSurvivalGame.game.objects;
+				var Spikeball = randomSurvivalGame.events.spikeballs.Spikeball;
 				/* initialize array of possible spikeball angles */
 				var angles = [];
 				for(var i = -this.POSSIBLE_SPIKEBALL_ANGLES; i < this.POSSIBLE_SPIKEBALL_ANGLES; i ++) {
@@ -3420,7 +3421,7 @@ randomSurvivalGame = {
 					if(direction === "right") {
 						velocity.x *= -1;
 					}
-					game.objects.push(new Spikeball(
+					objects.push(new Spikeball(
 						(direction === "right" ?
 							canvas.width + this.SPIKEBALL_DISTANCE_FROM_BORDERS :
 							-this.SPIKEBALL_DISTANCE_FROM_BORDERS
@@ -3440,7 +3441,7 @@ randomSurvivalGame = {
 		},
 		blockShuffle: {
 			begin: function() {
-				game.chatMessages.push(new ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
 				this.blocksMoved = 0;
 				this.nextSequence();
 			},
@@ -3476,8 +3477,8 @@ randomSurvivalGame = {
 			},
 			nextSequence: function() {
 				if(this.blocksMoved > 5) {
-					game.endEvent();
-					p.surviveEvent("block shuffle");
+					randomSurvivalGame.events.endEvent();
+					randomSurvivalGame.game.player.surviveEvent("block shuffle");
 				}
 				else {
 					var numberOfBlocksEachSequenceMoves = {
@@ -3493,7 +3494,7 @@ randomSurvivalGame = {
 				}
 			},
 			getPlatformByLocation: function(location) {
-				var platforms = game.getObjectsByType(Platform);
+				var platforms = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.game.Platform);
 				for(var i = 0; i < platforms.length; i ++) {
 					if(platforms[i].locationToString().replace("platform in the ", "") === location) {
 						return platforms[i];
@@ -3665,16 +3666,19 @@ randomSurvivalGame = {
 			})
 			.method("update", function() {
 				this.x += this.velX;
-				if(this.direction === "right" && this.x > 250) {
+				const DISTANCE_FROM_SCREEN_EDGE = 250;
+				if(this.direction === "right" && this.x > DISTANCE_FROM_SCREEN_EDGE) {
 					this.velX = -this.SLOW_SPEED;
-					this.x = Math.min(this.x, 250);
-					game.objects.push(new Coin(80, (Math.random() < 0.5) ? 175 : 525));
+					this.x = Math.min(this.x, DISTANCE_FROM_SCREEN_EDGE);
+					randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.Coin(80, [175, 525].randomItem()));
 				}
-				if(this.direction === "left" && this.x < canvas.width - 250) {
+				if(this.direction === "left" && this.x < canvas.width - DISTANCE_FROM_SCREEN_EDGE) {
 					this.velX = this.SLOW_SPEED;
-					this.x = Math.max(this.x, canvas.width - 250);
-					game.objects.push(new Coin(720, (Math.random() < 0.5) ? 175 : 525));
+					this.x = Math.max(this.x, canvas.width - DISTANCE_FROM_SCREEN_EDGE);
+					randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.Coin(720, [175, 525].randomItem()));
 				}
+
+				var p = randomSurvivalGame.game.player;
 				if(!p.isIntangible()) {
 					if(this.direction === "right" && p.x + p.hitbox.left < this.x + 5) {
 						p.die("spikewall");
@@ -3683,59 +3687,64 @@ randomSurvivalGame = {
 						p.die("spikewall");
 					}
 				}
-				if((this.velX < 0 && this.x < -50) || (this.velX > 0 && this.x > 850)) {
+
+				const DISTANCE_OFFSCREEN = 50;
+				if((this.velX < 0 && this.x < -DISTANCE_OFFSCREEN) || (this.velX > 0 && this.x > canvas.width + DISTANCE_OFFSCREEN)) {
 					this.splicing = true;
-					game.endEvent(-1);
+					randomSurvivalGame.events.endEvent(-1);
 					p.surviveEvent("spikewall");
 				}
 			}),
 
 			begin: function() {
-				var spikeWallDistance = 1500;
+				var SpikeWall = randomSurvivalGame.events.spikeWall.SpikeWall;
+				var ChatMessage = randomSurvivalGame.events.ChatMessage;
+
+				const SPIKEWALL_DISTANCE = 1500;
 				if(Math.random() < 0.5) {
-					game.objects.push(new SpikeWall(-spikeWallDistance));
-					game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "rgb(255, 128, 0)"));
+					randomSurvivalGame.game.objects.push(new SpikeWall(-SPIKEWALL_DISTANCE));
+					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "rgb(255, 128, 0)"));
 				}
 				else {
-					game.objects.push(new SpikeWall(800 + spikeWallDistance));
-					game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "rgb(255, 128, 0)"));
+					randomSurvivalGame.game.objects.push(new SpikeWall(canvas.width + SPIKEWALL_DISTANCE));
+					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "rgb(255, 128, 0)"));
 				}
 			}
 		},
 
 		effects: {
 			add: function() {
-				if(!game.events.includesItemsWithProperty("id", "blindness")) {
-					game.events.push(game.ORIGINAL_EVENTS.getItemsWithProperty("id", "blindness")[0]);
+				if(!randomSurvivalGame.events.listOfEvents.contains("blindness")) {
+					randomSurvivalGame.events.listOfEvents.push("blindness");
 				}
-				if(!game.events.includesItemsWithProperty("id", "nausea")) {
-					game.events.push(game.ORIGINAL_EVENTS.getItemsWithProperty("id", "nausea")[0]);
+				if(!randomSurvivalGame.events.listOfEvents.contains("nausea")) {
+					randomSurvivalGame.events.listOfEvents.push("nausea");
 				}
-				if(!game.events.includesItemsWithProperty("id", "confusion")) {
-					game.events.push(game.ORIGINAL_EVENTS.getItemsWithProperty("id", "confusion")[0]);
+				if(!randomSurvivalGame.events.listOfEvents.contains("confusion")) {
+					randomSurvivalGame.events.listOfEvents.push("confusion");
 				}
 			},
 			remove: function() {
-				game.removeEventByID("blindness");
-				game.removeEventByID("nausea");
-				game.removeEventByID("confusion");
+				randomSurvivalGame.events.listOfEvents.removeAll("blindness");
+				randomSurvivalGame.events.listOfEvents.removeAll("nausea");
+				randomSurvivalGame.events.listOfEvents.removeAll("confusion");
 			}
 		},
 		confusion: {
 			AfterImage: function(image) {
 				this.image = image;
-				var timeElapsed = (FPS * 15) - p.timeConfused;
-				if(timeElapsed < FPS * 14) {
+				var timeElapsed = (randomSurvivalGame.FPS * 15) - randomSurvivalGame.game.player.timeConfused;
+				if(timeElapsed < randomSurvivalGame.FPS * 14) {
 					this.timeLeft = Math.map(
 						timeElapsed,
-						0, FPS * 15,
+						0, randomSurvivalGame.FPS * 15,
 						30, 20
 					);
 				}
 				else {
 					this.timeLeft = Math.map(
 						timeElapsed,
-						FPS * 14, FPS * 15,
+						randomSurvivalGame.FPS * 14, randomSurvivalGame.FPS * 15,
 						20, 0
 					);
 				}
@@ -3745,8 +3754,8 @@ randomSurvivalGame = {
 				var opacity = this.timeLeft / this.timeToExist;
 				opacity = Math.constrain(opacity, 0, 1);
 				c.save(); {
-					if(this.image instanceof Player) {
-						c.translate(0, p.worldY);
+					if(this.image instanceof randomSurvivalGame.game.Player) {
+						c.translate(0, randomSurvivalGame.game.player.worldY);
 					}
 					c.globalAlpha = opacity;
 					this.image.display();
@@ -3763,38 +3772,39 @@ randomSurvivalGame = {
 				/*
 				Creates afterimages of all the objects in the game.
 				*/
-				if(utilities.frameCount % 3 !== 0) {
+				if(randomSurvivalGame.utils.frameCount % 3 !== 0) {
 					return;
 				}
 				var skippedObjects = [
-					AfterImage, // to prevent infinite recursion
-					FireParticle, // to reduce lag
-					Acid, // to reduce lag + isn't really that noticeable
-					SpikeWall, // not really that noticeable
-					Coin, // to make the coins not look strange
-					Dot, // not visible at all since dots don't move
+					randomSurvivalGame.events.confusion.AfterImage, // to prevent infinite recursion
+					randomSurvivalGame.events.rocket.FireParticle, // to reduce lag
+					randomSurvivalGame.events.acid.Acid, // to reduce lag + isn't really that noticeable
+					randomSurvivalGame.events.spikeWall.SpikeWall, // not really that noticeable
+					randomSurvivalGame.events.Coin, // to make the coins not look strange
+					randomSurvivalGame.events.pacmans.Dot, // not visible at all since dots don't move
 				];
-				outerLoop: for(var i = 0; i < game.objects.length; i ++) {
+				var objects = randomSurvivalGame.game.objects;
+				outerLoop: for(var i = 0; i < objects.length; i ++) {
 					innerLoop: for(var j = 0; j < skippedObjects.length; j ++) {
-						if(game.objects[i] instanceof skippedObjects[j]) {
+						if(objects[i] instanceof skippedObjects[j]) {
 							continue outerLoop;
 						}
 					}
-					if(game.objects[i].splicing) {
+					if(objects[i].splicing) {
 						continue;
 					}
-					game.objects.push(new AfterImage(game.objects[i].clone()));
+					objects.push(new randomSurvivalGame.events.confusion.AfterImage(objects[i].clone()));
 				}
 
-				var playerAfterImage = p.clone();
-				playerAfterImage.y -= p.worldY;
-				game.objects.push(new AfterImage(playerAfterImage.clone()));
+				var playerAfterImage = randomSurvivalGame.game.player.clone();
+				playerAfterImage.y -= randomSurvivalGame.game.player.worldY;
+				randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.confusion.AfterImage(playerAfterImage.clone()));
 			},
 			begin: function() {
-				p.timeConfused = FPS * 15;
-				game.chatMessages.push(new ChatMessage("You have been confused", "rgb(0, 255, 0)"));
-				effects.remove();
-				game.endEvent();
+				randomSurvivalGame.game.player.timeConfused = randomSurvivalGame.FPS * 15;
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been confused", "rgb(0, 255, 0)"));
+				randomSurvivalGame.events.effects.remove();
+				randomSurvivalGame.events.endEvent();
 			}
 		},
 		blindness: {
@@ -3804,44 +3814,44 @@ randomSurvivalGame = {
 				When timeElapsed is FPS * 15, largeRadius and smallRadius are SCREEN_DIAGONAL_LENGTH.
 				*/
 				const SCREEN_DIAGONAL_LENGTH = Math.dist(0, 0, 800, 800);
-				var timeElapsed = (FPS * 15) - p.timeBlinded;
-				if(timeElapsed < FPS * 14) {
+				var timeElapsed = (randomSurvivalGame.FPS * 15) - randomSurvivalGame.game.player.timeBlinded;
+				if(timeElapsed < randomSurvivalGame.FPS * 14) {
 					var largeRadius = Math.map(
 						timeElapsed,
-						0, FPS * 14,
+						0, randomSurvivalGame.FPS * 14,
 						150, 400
 					);
 					var smallRadius = Math.map(
 						timeElapsed,
-						0, FPS * 14,
+						0, randomSurvivalGame.FPS * 14,
 						50, 390
 					);
 				}
 				else {
 					var largeRadius = Math.map(
 						timeElapsed,
-						FPS * 14, FPS * 15,
+						randomSurvivalGame.FPS * 14, randomSurvivalGame.FPS * 15,
 						400, SCREEN_DIAGONAL_LENGTH
 					);
 					var smallRadius = Math.map(
 						timeElapsed,
-						FPS * 14, FPS * 15,
+						randomSurvivalGame.FPS * 14, randomSurvivalGame.FPS * 15,
 						390, SCREEN_DIAGONAL_LENGTH
 					);
 				}
 
 				c.globalAlpha = 1;
-				var gradient = c.createRadialGradient(p.x, p.y, smallRadius, p.x, p.y, largeRadius);
+				var gradient = c.createRadialGradient(randomSurvivalGame.game.player.x, randomSurvivalGame.game.player.y, smallRadius, randomSurvivalGame.game.player.x, randomSurvivalGame.game.player.y, largeRadius);
 				gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
 				gradient.addColorStop(1, "rgba(0, 0, 0, 255)");
 				c.fillStyle = gradient;
-				c.fillRect(0, 0, 800, 800);
+				c.fillCanvas();
 			},
 			begin: function() {
-				p.timeBlinded = FPS * 15;
-				game.chatMessages.push(new ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
-				effects.remove();
-				game.endEvent();
+				randomSurvivalGame.game.player.timeBlinded = randomSurvivalGame.FPS * 15;
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
+				randomSurvivalGame.events.effects.remove();
+				randomSurvivalGame.events.endEvent();
 			}
 		},
 		nausea: {
@@ -3882,10 +3892,10 @@ randomSurvivalGame = {
 				obj.y += offsetY;
 			},
 			begin: function() {
-				p.timeNauseated = FPS * 15;
-				game.chatMessages.push(new ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
-				effects.remove();
-				game.endEvent();
+				randomSurvivalGame.game.player.timeNauseated = randomSurvivalGame.FPS * 15;
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
+				randomSurvivalGame.events.effects.remove();
+				randomSurvivalGame.events.endEvent();
 			}
 		},
 
@@ -5751,7 +5761,7 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["rocket"],
+		INCLUDED_EVENTS: ["nausea"],
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
