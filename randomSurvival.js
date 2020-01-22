@@ -252,8 +252,10 @@ Array.prototype.swap = function(index1, index2) {
 	this[index2] = previousIndex1;
 };
 Array.prototype.randomItem = function() {
-	var index = Math.floor(Math.random() * this.length);
-	return this[index];
+	return this[this.randomIndex()];
+};
+Array.prototype.randomIndex = function() {
+	return Math.floor(Math.random() * this.length);
 };
 Array.prototype.getItemsWithProperty = function(propertyName, propertyValue) {
 	if(propertyValue === undefined) {
@@ -1672,7 +1674,7 @@ randomSurvivalGame = {
 			this.velY += 0.1;
 			/* Collisions */
 			if(!this.noCollisions) {
-				const SCREEN_BORDERS = (!this.isIntangible() || shop.intangibilityTalisman.numUpgrades < 2);
+				const SCREEN_BORDERS = (!this.isIntangible() || randomSurvivalGame.shop.intangibilityTalisman.numUpgrades < 2);
 				if(!SCREEN_BORDERS) {
 					if(this.x > 800) {
 						this.x = 0;
@@ -1889,7 +1891,7 @@ randomSurvivalGame = {
 					for(var i in deathAnimations) {
 						if(deathAnimations.hasOwnProperty(i) && deathAnimations[i].contains(cause)) {
 							if(i === "no-death-animation") {
-								game.transitionToScreen("death");
+								randomSurvivalGame.ui.transitions.transitionToScreen("death");
 							}
 							else if(i === "other-death-animation") {
 								/* Do nothing. The animation will be handled somewhere else. */
@@ -3619,7 +3621,7 @@ randomSurvivalGame = {
 			},
 
 			reset: function() {
-				var platforms = game.getObjectsByType(Platform);
+				var platforms = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.game.Platform);
 				for(var i = 0; i < platforms.length; i ++) {
 					platforms[i].resetPosition();
 				}
@@ -3860,7 +3862,7 @@ randomSurvivalGame = {
 				Displays two copies of 'obj' around it.
 				*/
 				if(obj === undefined || obj === null) {
-					for(var i = 0; i < game.objects.length; i ++) {
+					for(var i = 0; i < randomSurvivalGame.game.objects.length; i ++) {
 						var obj = randomSurvivalGame.game.objects[i];
 						if(obj.splicing) {
 							continue;
@@ -3871,14 +3873,15 @@ randomSurvivalGame = {
 					}
 					return;
 				}
+				var p = randomSurvivalGame.game.player;
 				var offsetX = p.nauseaOffsetArray[p.nauseaOffset].x;
 				var offsetY = p.nauseaOffsetArray[p.nauseaOffset].y;
-				var timeElapsed = (FPS * 15) - p.timeNauseated;
-				if(timeElapsed < FPS * 14) {
-					var intensity = Math.map(timeElapsed, 0, FPS * 14, 1.5, 1);
+				var timeElapsed = (randomSurvivalGame.FPS * 15) - p.timeNauseated;
+				if(timeElapsed < randomSurvivalGame.FPS * 14) {
+					var intensity = Math.map(timeElapsed, 0, randomSurvivalGame.FPS * 14, 1.5, 1);
 				}
 				else {
-					var intensity = Math.map(timeElapsed, FPS * 14, FPS * 15, 1, 0);
+					var intensity = Math.map(timeElapsed, randomSurvivalGame.FPS * 14, randomSurvivalGame.FPS * 15, 1, 0);
 				}
 				offsetX *= intensity;
 				offsetY *= intensity;
@@ -3911,10 +3914,10 @@ randomSurvivalGame = {
 				];
 				noisiness = noisiness || 0;
 				for(var i = 0; i < num; i ++) {
-					var index = Math.floor(Math.random() * positions.length);
+					var index = positions.randomIndex();
 					var pos = positions[index];
-					game.objects.push(new (enemyType)(pos.x, pos.y));
-					var theEnemy = game.objects[game.objects.length - 1];
+					randomSurvivalGame.game.objects.push(new (enemyType)(pos.x, pos.y));
+					var theEnemy = randomSurvivalGame.game.objects[randomSurvivalGame.game.objects.length - 1];
 					theEnemy.x += Math.randomInRange(-noisiness, noisiness);
 					theEnemy.y += Math.randomInRange(-noisiness, noisiness);
 					positions.splice(index, 1);
@@ -3923,7 +3926,7 @@ randomSurvivalGame = {
 		},
 		laserBots: {
 			LaserBot: function(x, y) {
-				Enemy.call(this);
+				randomSurvivalGame.events.Enemy.call(this);
 				this.x = x;
 				this.y = y;
 				this.velY = 0;
@@ -3996,10 +3999,10 @@ randomSurvivalGame = {
 			.method("update", function() {
 				if(this.y > 850) {
 					this.splicing = true;
-					if(game.numObjects(LaserBot) === 0) {
+					if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.laserBots.LaserBot) === 0) {
 						/* this is the final LaserBot; end the event */
-						game.endEvent(FPS * 2);
-						p.surviveEvent("laserbots");
+						randomSurvivalGame.events.endEvent(randomSurvivalGame.FPS * 2);
+						randomSurvivalGame.game.player.surviveEvent("laserbots");
 					}
 				}
 				/* movement */
@@ -4041,9 +4044,10 @@ randomSurvivalGame = {
 					this.springVelY = (this.springY < 1) ? 0.1 : 0;
 				}
 				this.y += this.velY;
+				var p = randomSurvivalGame.game.player;
 				if(p.standingOnPlatform === this) {
 					if(this.isDead) {
-						if(input.keys[38]) {
+						if(randomSurvivalGame.input.keys[38]) {
 							p.velY = -5;
 						}
 						else {
@@ -4068,7 +4072,7 @@ randomSurvivalGame = {
 				}
 				/* off-screen collisions */
 				if(!this.initialized) {
-					var platforms = game.getObjectsByType(Platform);
+					var platforms = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.game.Platform);
 					var closestPlatform = 0;
 					if(this.x < 0) {
 						for(var i = 0; i < platforms.length; i ++) {
@@ -4076,7 +4080,7 @@ randomSurvivalGame = {
 								closestPlatform = i;
 							}
 						}
-						randomSurvivalGame.utils.collisions.rect(-150, platforms[closestPlatform].y, 150, 20, { includedTypes: [LaserBot] });
+						randomSurvivalGame.utils.collisions.rect(-150, platforms[closestPlatform].y, 150, 20, { includedTypes: [randomSurvivalGame.events.laserBots.LaserBot] });
 					}
 					else if(this.x > canvas.width) {
 						for(var i = 0; i < platforms.length; i ++) {
@@ -4084,7 +4088,7 @@ randomSurvivalGame = {
 								closestPlatform = i;
 							}
 						}
-						randomSurvivalGame.utils.collisions.rect(800, platforms[closestPlatform].y, 150, 20, { includedTypes: [LaserBot] });
+						randomSurvivalGame.utils.collisions.rect(800, platforms[closestPlatform].y, 150, 20, { includedTypes: [randomSurvivalGame.events.laserBots.LaserBot] });
 					}
 				}
 			})
@@ -4094,7 +4098,8 @@ randomSurvivalGame = {
 					const LEFT_PLATFORM_X = 0;
 					const MIDDLE_PLATFORM_X = (canvas.width / 2) - (160 / 2);
 					const RIGHT_PLATFORM_X = canvas.width - (160 / 2);
-					var platforms = game.getObjectsByType(Platform);
+					var platforms = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.game.Platform);
+					var p = randomSurvivalGame.game.player;
 					for(var i = 0; i < platforms.length; i ++) {
 						var platform = platforms[i];
 						if(
@@ -4103,7 +4108,7 @@ randomSurvivalGame = {
 							this.standingOnPlatform !== platform
 						) {
 							/* this laserbot now wants to be on this platform */
-							if(!LaserBot.isPlatformOccupied(platform)) {
+							if(!randomSurvivalGame.events.laserBots.isPlatformOccupied(platform)) {
 								this.goToPlatform(platform);
 								if(this.destination !== null) {
 									break;
@@ -4112,7 +4117,7 @@ randomSurvivalGame = {
 							else if(platform.x !== MIDDLE_PLATFORM_X && this.standingOnPlatform.x !== MIDDLE_PLATFORM_X) {
 								/* if it wants to go to a side platform and isn't on the middle platform, go to the middle platform (if unoccupied) */
 								for(var j = 0; j < platforms.length; j ++) {
-									if(Math.dist(platforms[j].x, MIDDLE_PLATFORM_X) <= 1 && !LaserBot.isPlatformOccupied(platforms[j])) {
+									if(Math.dist(platforms[j].x, MIDDLE_PLATFORM_X) <= 1 && !randomSurvivalGame.events.laserBots.isPlatformOccupied(platforms[j])) {
 										this.goToPlatform(platforms[j]);
 									}
 								}
@@ -4156,9 +4161,9 @@ randomSurvivalGame = {
 					}
 					else {
 						/* find middle platform and go to it */
-						var platforms = game.getObjectsByType(Platform);
+						var platforms = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.game.Platform);
 						for(var i = 0; i < platforms.length; i ++) {
-							if(Math.dist(platforms[i].x, MIDDLE_PLATFORM_X) <= 1 && !LaserBot.isPlatformOccupied(platforms[i])) {
+							if(Math.dist(platforms[i].x, MIDDLE_PLATFORM_X) <= 1 && !randomSurvivalGame.events.laserBots.isPlatformOccupied(platforms[i])) {
 								this.goToPlatform(platforms[i]);
 							}
 						}
@@ -4215,18 +4220,19 @@ randomSurvivalGame = {
 						caller: this,
 						velX: this.velX,
 						velY: this.velY - (this.springVelY * 30),
-						excludedTypes: [PlayerDisintegrationParticle]
+						excludedTypes: [randomSurvivalGame.game.playerDeathAnimations.PlayerDisintegrationParticle]
 					}
 				);
 			})
 			.method("shoot", function() {
 				var bodyY = this.y - 20 - (30 * this.springY);
 				this.timeSinceShot = 0;
+				var Laser = randomSurvivalGame.events.laserBots.Laser;
 				if(this.facing === "right") {
-					game.objects.push(new Laser(this.x, bodyY + 3, 4, this));
+					randomSurvivalGame.game.objects.push(new Laser(this.x, bodyY + 3, 4, this));
 				}
 				else {
-					game.objects.push(new Laser(this.x, bodyY + 3, -4, this));
+					randomSurvivalGame.game.objects.push(new Laser(this.x, bodyY + 3, -4, this));
 				}
 			}),
 
@@ -4255,17 +4261,17 @@ randomSurvivalGame = {
 				this.x += this.velX;
 				if(this.length < 50) {
 					this.length += Math.abs(this.velX);
-					if(this.shooter instanceof LaserBot) {
+					if(this.shooter instanceof randomSurvivalGame.events.laserBots.LaserBot) {
 						this.y = this.shooter.y - 20 - (30 * this.shooter.springY) + 3;
 						this.x += this.shooter.velX;
 					}
 				}
-				else if(!p.isIntangible()) {
+				else if(!randomSurvivalGame.game.player.isIntangible()) {
 					if(this.velX < 0) {
-						utilities.killCollisionRect(this.x, this.y, this.length, 1, "laserbots");
+						randomSurvivalGame.utils.killCollisions.rect(this.x, this.y, this.length, 1, "laserbots");
 					}
 					else {
-						utilities.killCollisionRect(this.x - this.length, this.y, this.length, 1, "laserbots");
+						randomSurvivalGame.utils.killCollisions.rect(this.x - this.length, this.y, this.length, 1, "laserbots");
 					}
 				}
 				if(this.x < 0 - 50 || this.x > canvas.width + 50) {
@@ -4273,11 +4279,11 @@ randomSurvivalGame = {
 				}
 			}),
 
-			isPlatformOccupied: function() {
+			isPlatformOccupied: function(platform) {
 				/*
 				Used for the LaserBot's logic. Returns whether the platform has a LaserBot on it, or whether there is a LaserBot going to the platform.
 				*/
-				var laserBots = game.getObjectsByType(LaserBot);
+				var laserBots = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.events.laserBots.LaserBot);
 				for(var i = 0; i < laserBots.length; i ++) {
 					if(laserBots[i].destination === platform || laserBots[i].standingOnPlatform === platform) {
 						return true;
@@ -4287,9 +4293,9 @@ randomSurvivalGame = {
 			},
 
 			begin: function() {
-				game.chatMessages.push(new ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
 				var numEnemies = 2;
-				game.addEnemiesAtPosition(LaserBot, numEnemies, null, 50);
+				randomSurvivalGame.events.enemies.addEnemiesAtPosition(randomSurvivalGame.events.laserBots.LaserBot, numEnemies, null, 50);
 			}
 		},
 		badGuys: {
@@ -4298,7 +4304,7 @@ randomSurvivalGame = {
 				this.y = y;
 				this.velX = 0;
 				this.velY = 0;
-				this.player = new Player();
+				this.player = new randomSurvivalGame.game.Player();
 				this.player.invincible = -1;
 				this.hitbox = this.player.hitbox;
 				/* arm + leg animation properties */
@@ -4317,7 +4323,7 @@ randomSurvivalGame = {
 				/* display red eyes */
 				c.fillStyle = "rgb(255, 0, 0)";
 				c.beginPath();
-				if(this.x > p.x) {
+				if(this.x > randomSurvivalGame.game.player.x) {
 					c.fillCircle(this.player.x - 4, this.player.y + 10, 3);
 				}
 				else {
@@ -4332,6 +4338,7 @@ randomSurvivalGame = {
 				this.y += this.velY;
 				this.velX = Math.constrain(this.velX, -3, 3);
 				const SPEED = 0.1;
+				var p = randomSurvivalGame.game.player;
 				if(this.x < p.x) {
 					this.velX += SPEED;
 				}
@@ -4344,14 +4351,14 @@ randomSurvivalGame = {
 				/* death */
 				if(this.y > 850) {
 					this.splicing = true;
-					if(game.numObjects(BadGuy) === 0) {
-						game.endEvent(FPS * 2.5);
-						p.surviveEvent("bad guys");
+					if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.badGuys.BadGuy) === 0) {
+						randomSurvivalGame.events.endEvent(randomSurvivalGame.FPS * 2.5);
+						randomSurvivalGame.game.player.surviveEvent("bad guys");
 					}
 				}
 				/* kill player */
 				if(!p.isIntangible()) {
-					utilities.killCollisionRect(this.x - 5, this.y, 10, 46, "bad guys");
+					randomSurvivalGame.utils.killCollisions.rect(this.x - 5, this.y, 10, 46, "bad guys");
 				}
 				/* border collisions */
 				if(this.x + this.hitbox.right > canvas.width) {
@@ -4384,7 +4391,7 @@ randomSurvivalGame = {
 				randomSurvivalGame.utils.collisions.rect(
 					this.x - 5, this.y, 10, 46,
 					{
-						includedTypes: [BadGuy],
+						includedTypes: [randomSurvivalGame.events.badGuys.BadGuy],
 						caller: this,
 						velX: this.velX,
 						velY: this.velY
@@ -4410,9 +4417,9 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				game.chatMessages.push(new ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
 				var numEnemies = 2;
-				game.addEnemiesAtPosition(BadGuy, numEnemies, null, 25);
+				randomSurvivalGame.events.enemies.addEnemiesAtPosition(randomSurvivalGame.events.badGuys.BadGuy, numEnemies, null, 25);
 			}
 		},
 		aliens: {
@@ -4463,7 +4470,7 @@ randomSurvivalGame = {
 						c.clipCircle(0, 0, 40);
 						c.strokeStyle = "rgb(120, 120, 125)";
 						for(var r = 0; r <= 360; r += 360 / 8) {
-							var rotation = r + (utilities.frameCount * 4); // for animation
+							var rotation = r + (randomSurvivalGame.utils.frameCount * 4); // for animation
 							var point = Math.rotateDegrees(-50, 0, rotation);
 							c.strokeLine(
 								0, -20,
@@ -4494,6 +4501,7 @@ randomSurvivalGame = {
 			})
 			.method("update", function() {
 				/* movement */
+				var p = randomSurvivalGame.game.player;
 				var destX = p.x;
 				var destY = p.y - 75;
 				if(p.beingAbductedBy !== null && p.beingAbductedBy !== this) {
@@ -4506,7 +4514,7 @@ randomSurvivalGame = {
 					this.velX += (this.x > destX) ? -this.ACCELERATION : this.ACCELERATION;
 					this.velY += (this.y > destY) ? -this.ACCELERATION : this.ACCELERATION;
 				}
-				var aliens = game.getObjectsByType(Alien);
+				var aliens = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.events.aliens.Alien);
 				for(var i = 0; i < aliens.length; i ++) {
 					if(aliens[i] !== this) {
 						var distance = Math.dist(this.x, this.y, aliens[i].x, aliens[i].y);
@@ -4532,7 +4540,7 @@ randomSurvivalGame = {
 				this.tractorBeamOpacity = Math.constrain(this.tractorBeamOpacity, 0, 1);
 				/* tractor beam player abduction */
 				if(this.tractorBeamOpacity > 0.25) {
-					if(utilities.isPlayerInRect(this.x - 30, this.y, 60, this.TRACTOR_BEAM_HEIGHT + 15)) {
+					if(randomSurvivalGame.utils.isPlayerInRect(this.x - 30, this.y, 60, this.TRACTOR_BEAM_HEIGHT + 15)) {
 						p.beingAbductedBy = this;
 					}
 					else if(p.beingAbductedBy === this) {
@@ -4558,20 +4566,19 @@ randomSurvivalGame = {
 					}
 				}
 				/* collide with other UFOs */
-				var aliens = game.getObjectsByType(Alien);
 				for(var i = 0; i < aliens.length; i ++) {
-					if(aliens[i] !== this && utilities.collidesWith(this, aliens[i])) {
+					if(aliens[i] !== this && randomSurvivalGame.utils.collidesWith(this, aliens[i])) {
 						this.splicing = true;
 						aliens[i].splicing = true;
 						if(p.beingAbductedBy === this || p.beingAbductedBy === aliens[i]) {
 							p.beingAbductedBy = null;
 						}
-						if(game.numObjects(Alien) === 0) {
-							p.surviveEvent("aliens");
-							game.endEvent(FPS * 2);
+						if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.aliens.Alien) === 0) {
+							randomSurvivalGame.game.player.surviveEvent("aliens");
+							randomSurvivalGame.events.endEvent(randomSurvivalGame.FPS * 2);
 						}
 						/* create explosion */
-						var laser = new Crosshair();
+						var laser = new randomSurvivalGame.events.laser.Crosshair();
 						laser.x = Math.average(this.x, aliens[i].x);
 						laser.y = Math.average(this.y, aliens[i].y);
 						laser.explode(true);
@@ -4610,12 +4617,12 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				game.chatMessages.push(new ChatMessage("UFOs are invading!", "rgb(255, 0, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("UFOs are invading!", "rgb(255, 0, 0)"));
 				var numEnemies = 2;
 				if(numEnemies === 2) {
 					var xPosition = (Math.random() < 0.5) ? (0 - 50) : (canvas.width + 50);
-					game.addEnemiesAtPosition(
-						Alien, 2,
+					randomSurvivalGame.events.enemies.addEnemiesAtPosition(
+						randomSurvivalGame.events.aliens.Alien, 2,
 						[
 							{ x: xPosition, y: 225 - 75 },
 							{ x: xPosition, y: 575 - 75 }
@@ -5761,7 +5768,7 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["nausea"],
+		INCLUDED_EVENTS: ["aliens"],
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
