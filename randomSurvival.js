@@ -4820,7 +4820,7 @@ randomSurvivalGame = {
 								text: "Buy - " + this.calculatePrice() + " coins",
 								onclick: function() {
 									var p = randomSurvivalGame.game.player;
-									if(!self.bought && p.totalCoins > self.calculatePrice()) {
+									if(!self.bought && p.totalCoins >= self.calculatePrice()) {
 										p.totalCoins -= self.calculatePrice();
 										self.bought = true;
 										self.numUpgrades ++;
@@ -4873,7 +4873,7 @@ randomSurvivalGame = {
 							text: "Upgrade - " + this.calculatePrice() + " coins",
 							onclick: function() {
 								var p = randomSurvivalGame.game.player;
-								if(p.totalCoins > self.calculatePrice()) {
+								if(p.totalCoins >= self.calculatePrice()) {
 									p.totalCoins -= self.calculatePrice();
 									self.numUpgrades ++;
 									self.showingPopup = false;
