@@ -5300,7 +5300,7 @@ randomSurvivalGame = {
 		itemsBought: function() {
 			var itemsBought = [];
 			for(var i = 0; i < this.items.length; i ++) {
-				if(this.items[i].upgrades > 0) {
+				if(this.items[i].bought) {
 					itemsBought.push(this.items[i]);
 				}
 			}
