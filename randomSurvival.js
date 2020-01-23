@@ -1231,6 +1231,12 @@ randomSurvivalGame = {
 				if(this.icon === "retry" || this.icon === "play") {
 					randomSurvivalGame.game.player.reset();
 				}
+				if(this.icon === "dollar") {
+					for(var i = 0; i < randomSurvivalGame.shop.items.length; i ++) {
+						var item = randomSurvivalGame.shop.items[i];
+						item.showingPopup = false;
+					}
+				}
 			}
 		})
 		.method("exist", function() {
