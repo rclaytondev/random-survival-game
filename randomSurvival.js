@@ -1231,6 +1231,12 @@ randomSurvivalGame = {
 				if(this.icon === "retry" || this.icon === "play") {
 					randomSurvivalGame.game.player.reset();
 				}
+				if(this.icon === "dollar") {
+					for(var i = 0; i < randomSurvivalGame.shop.items.length; i ++) {
+						var item = randomSurvivalGame.shop.items[i];
+						item.showingPopup = false;
+					}
+				}
 			}
 		})
 		.method("exist", function() {
@@ -1445,10 +1451,19 @@ randomSurvivalGame = {
 				[SpeedParticle, DoubleJumpParticle, PlayerDisintegrationParticle, PlayerBodyPart],
 				[Acid, SpikeWall]
 			];
-			this.objects = randomSurvivalGame.utils.sortByType(this.objects, order);
-			/* display objects */
+			var renderingObjects = [];
 			for(var i = 0; i < this.objects.length; i ++) {
-				var obj = this.objects[i];
+				if(this.objects[i] instanceof AfterImage) {
+					renderingObjects.push(this.objects[i].image);
+				}
+				else {
+					renderingObjects.push(this.objects[i]);
+				}
+			}
+			renderingObjects = randomSurvivalGame.utils.sortByType(renderingObjects, order);
+			/* display objects */
+			for(var i = 0; i < renderingObjects.length; i ++) {
+				var obj = renderingObjects[i];
 				if(!obj.splicing) {
 					if(typeof obj.display === "function") {
 						obj.display();
@@ -1602,7 +1617,7 @@ randomSurvivalGame = {
 		}
 		.method("display", function() {
 			c.globalAlpha = 1;
-			if((this.invincible < 0 || utilities.frameCount % 2 === 0) && !this.isDead) {
+			if((this.invincible < 0 || randomSurvivalGame.utils.frameCount % 2 === 0) && !this.isDead) {
 				c.lineWidth = 5;
 				c.lineCap = "round";
 				/* head */
@@ -1643,7 +1658,7 @@ randomSurvivalGame = {
 				this.nauseaOffset = 0;
 			}
 			if(this.timeConfused === 0 || this.timeBlinded === 0 || this.timeNauseated === 0) {
-				effects.add();
+				randomSurvivalGame.events.effects.add();
 			}
 			if(this.timeConfused === 0) {
 				this.surviveEvent("confusion");
@@ -1713,7 +1728,7 @@ randomSurvivalGame = {
 			if(this.canExtendJump && randomSurvivalGame.input.keys[38] && this.timeExtended < 40 && randomSurvivalGame.shop.doubleJumper.equipped) {
 				this.velY = -6;
 				this.timeExtended ++;
-				shop.doubleJumper.glowOpacity += 0.1;
+				randomSurvivalGame.shop.doubleJumper.glowOpacity += 0.1;
 			}
 			if(!randomSurvivalGame.input.keys[38]) {
 				this.canExtendJump = false;
@@ -1725,27 +1740,27 @@ randomSurvivalGame = {
 			/* shop items */
 			var shop = randomSurvivalGame.shop;
 			if(shop.doubleJumper.equipped && shop.doubleJumper.numUpgrades >= 2) {
-				if(this.velY !== 0 && !this.hasDoubleJumped && input.keys[38] && !utilities.pastInputs.keys[38] && !jumpedThisFrame) {
+				if(this.velY !== 0 && !this.hasDoubleJumped && randomSurvivalGame.input.keys[38] && !randomSurvivalGame.utils.pastInputs.keys[38] && !jumpedThisFrame) {
 					this.velY = -6;
 					this.hasDoubleJumped = true;
-					if(shop.doubleJumper.numUpgrades >= 3) {
+					if(randomSurvivalGame.shop.doubleJumper.numUpgrades >= 3) {
 						this.canExtendJump = true;
 						this.timeExtended = 0;
 					}
 					if(this.velX > DEFAULT_MAX_VELOCITY || this.velX < -DEFAULT_MAX_VELOCITY) {
 						this.gonePlaces = true;
 					}
-					game.objects.push(new DoubleJumpParticle(this.x, this.y + 46 - this.worldY));
-					shop.doubleJumper.glowOpacity = 1;
+					randomSurvivalGame.game.objects.push(new randomSurvivalGame.shop.DoubleJumpParticle(this.x, this.y + 46 - this.worldY));
+					randomSurvivalGame.shop.doubleJumper.glowOpacity = 1;
 				}
 			}
-			if(shop.coinDoubler.equipped && shop.coinDoubler.numUpgrades > 1 && utilities.frameCount % 40 === 0) {
-				game.objects.push(new MagnetParticle(75));
+			if(shop.coinDoubler.equipped && shop.coinDoubler.numUpgrades > 1 && randomSurvivalGame.utils.frameCount % 40 === 0) {
+				randomSurvivalGame.game.objects.push(new randomSurvivalGame.shop.MagnetParticle(75));
 			}
 			if(shop.speedIncreaser.equipped && Math.dist(this.velX, 0) > DEFAULT_MAX_VELOCITY / 2) {
 				shop.speedIncreaser.glowOpacity += 0.1;
 				if(this.velY === 0.1) {
-					game.objects.push(new SpeedParticle(
+					randomSurvivalGame.game.objects.push(new randomSurvivalGame.shop.SpeedParticle(
 						this.x,
 						this.y + 46
 					));
@@ -1838,7 +1853,7 @@ randomSurvivalGame = {
 			this.usedRevive = false;
 			this.coins = 0;
 			if(!randomSurvivalGame.debugging.TESTING_MODE) {
-				effects.add();
+				randomSurvivalGame.events.effects.add();
 			}
 			if(randomSurvivalGame.shop.secondLife.equipped) {
 				this.numRevives = (randomSurvivalGame.shop.secondLife.numUpgrades >= 3) ? 2 : 1;
@@ -1874,7 +1889,8 @@ randomSurvivalGame = {
 			if(this.invincible < 0) {
 				if(secondLife.equipped && this.numRevives > 0) {
 					this.numRevives --;
-					this.invincible = (secondLife.numUpgrades >= 2) ? FPS * 2 : FPS;
+					this.usedRevive = true;
+					this.invincible = (randomSurvivalGame.shop.secondLife.numUpgrades >= 2) ? randomSurvivalGame.FPS * 2 : randomSurvivalGame.FPS;
 				}
 				else {
 					if(!this.diedThisGame) {
@@ -1905,7 +1921,7 @@ randomSurvivalGame = {
 			}
 			else if(this.y + 46 > 800) {
 				this.y = 800 - 46;
-				if(input.keys[38]) {
+				if(randomSurvivalGame.input.keys[38]) {
 					this.velY = -7;
 				}
 			}
@@ -2426,7 +2442,7 @@ randomSurvivalGame = {
 			if(
 				randomSurvivalGame.utils.isPlayerInRect(this.x - 20, this.y + player.worldY - 20, 40, 40) &&
 				this.age > this.timeToAppear &&
-				!(player.isIntangible() && shop.intangibilityTalisman.numUpgrades < 3)
+				!(player.isIntangible() && randomSurvivalGame.shop.intangibilityTalisman.numUpgrades < 3)
 			) {
 				this.splicing = true;
 				player.coins += (coinDoubler.equipped) ? 2 : 1;
@@ -2713,7 +2729,7 @@ randomSurvivalGame = {
 
 			isAcidVisible: function() {
 				var Acid = randomSurvivalGame.events.acid.Acid;
-				return (randomSurvivalGame.game.numObjects(Acid) === 0 || randomSurvivalGame.game.getObjectsByType(Acid)[0].y > canvas.height + 20);
+				return (randomSurvivalGame.game.numObjects(Acid) !== 0 && randomSurvivalGame.game.getObjectsByType(Acid)[0].y < canvas.height + 20);
 			}
 		},
 		boulder: {
@@ -3757,7 +3773,7 @@ randomSurvivalGame = {
 				opacity = Math.constrain(opacity, 0, 1);
 				c.save(); {
 					if(this.image instanceof randomSurvivalGame.game.Player) {
-						c.translate(0, randomSurvivalGame.game.player.worldY);
+						// c.translate(0, randomSurvivalGame.game.player.worldY);
 					}
 					c.globalAlpha = opacity;
 					this.image.display();
@@ -3780,6 +3796,7 @@ randomSurvivalGame = {
 				var skippedObjects = [
 					randomSurvivalGame.events.confusion.AfterImage, // to prevent infinite recursion
 					randomSurvivalGame.events.rocket.FireParticle, // to reduce lag
+					randomSurvivalGame.game.playerDeathAnimations.PlayerDisintegrationParticle, // to reduce lag
 					randomSurvivalGame.events.acid.Acid, // to reduce lag + isn't really that noticeable
 					randomSurvivalGame.events.spikeWall.SpikeWall, // not really that noticeable
 					randomSurvivalGame.events.Coin, // to make the coins not look strange
@@ -3795,7 +3812,11 @@ randomSurvivalGame = {
 					if(objects[i].splicing) {
 						continue;
 					}
-					objects.push(new randomSurvivalGame.events.confusion.AfterImage(objects[i].clone()));
+					var image = new randomSurvivalGame.events.confusion.AfterImage(objects[i].clone());
+					if(image.image instanceof randomSurvivalGame.game.Player) {
+						image.image.y -= randomSurvivalGame.game.player.worldY;
+					}
+					objects.push(image);
 				}
 
 				var playerAfterImage = randomSurvivalGame.game.player.clone();
@@ -4819,7 +4840,7 @@ randomSurvivalGame = {
 								text: "Buy - " + this.calculatePrice() + " coins",
 								onclick: function() {
 									var p = randomSurvivalGame.game.player;
-									if(!self.bought && p.totalCoins > self.calculatePrice()) {
+									if(!self.bought && p.totalCoins >= self.calculatePrice()) {
 										p.totalCoins -= self.calculatePrice();
 										self.bought = true;
 										self.numUpgrades ++;
@@ -4872,7 +4893,7 @@ randomSurvivalGame = {
 							text: "Upgrade - " + this.calculatePrice() + " coins",
 							onclick: function() {
 								var p = randomSurvivalGame.game.player;
-								if(p.totalCoins > self.calculatePrice()) {
+								if(p.totalCoins >= self.calculatePrice()) {
 									p.totalCoins -= self.calculatePrice();
 									self.numUpgrades ++;
 									self.showingPopup = false;
@@ -5293,7 +5314,7 @@ randomSurvivalGame = {
 		itemsBought: function() {
 			var itemsBought = [];
 			for(var i = 0; i < this.items.length; i ++) {
-				if(this.items[i].upgrades > 0) {
+				if(this.items[i].bought) {
 					itemsBought.push(this.items[i]);
 				}
 			}
@@ -5329,7 +5350,7 @@ randomSurvivalGame = {
 			c.strokeStyle = "rgb(255, 255, 0)";
 			c.lineWidth = 5;
 			c.save(); {
-				c.translate(this.x, this.y + p.worldY);
+				c.translate(this.x, this.y + randomSurvivalGame.game.player.worldY);
 				c.scale(this.size, 1);
 				c.strokeCircle(0, 0, 5);
 			} c.restore();
@@ -5343,8 +5364,8 @@ randomSurvivalGame = {
 			}
 		}),
 		MagnetParticle: function(size) {
-			this.x = p.x;
-			this.y = p.y + p.worldY + (46 / 2);
+			this.x = randomSurvivalGame.game.player.x;
+			this.y = randomSurvivalGame.game.player.y + randomSurvivalGame.game.player.worldY + (46 / 2);
 			this.size = size;
 			this.opacity = 0;
 		}
@@ -5353,14 +5374,14 @@ randomSurvivalGame = {
 				c.globalAlpha = Math.constrain(this.opacity, 0, 1);
 				c.strokeStyle = "rgb(125, 125, 125)";
 				c.lineWidth = 1;
-				c.strokeCircle(this.x, this.y + p.worldY, this.size);
+				c.strokeCircle(this.x, this.y + randomSurvivalGame.game.player.worldY, this.size);
 			} c.restore();
 		})
 		.method("update", function() {
 			this.size -= 0.5;
 			this.opacity += 0.025;
-			this.x = p.x;
-			this.y = p.y + p.worldY + (46 / 2);
+			this.x = randomSurvivalGame.game.player.x;
+			this.y = randomSurvivalGame.game.player.y + randomSurvivalGame.game.player.worldY + (46 / 2);
 			if(this.size < 0) {
 				this.splicing = true;
 			}
@@ -5768,7 +5789,8 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["aliens"],
+		INCLUDED_EVENTS: ["acid"],
+		PERMANENT_EFFECT: "confusion",
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
@@ -5870,9 +5892,24 @@ randomSurvivalGame = {
 		},
 
 		initializedDebuggingSettings: randomSurvivalGame.utils.initializer.request(function() {
-			randomSurvivalGame.events.listOfEvents = randomSurvivalGame.debugging.INCLUDED_EVENTS;
-			randomSurvivalGame.game.player.totalCoins = 1000;
-			randomSurvivalGame.debugging.initializedDebuggingSettings = true;
+			if(randomSurvivalGame.debugging.TESTING_MODE) {
+				randomSurvivalGame.events.listOfEvents = randomSurvivalGame.debugging.INCLUDED_EVENTS;
+				randomSurvivalGame.game.player.totalCoins = 1000;
+				randomSurvivalGame.debugging.initializedDebuggingSettings = true;
+				if(randomSurvivalGame.debugging.PERMANENT_EFFECT !== null) {
+					var effect = randomSurvivalGame.debugging.PERMANENT_EFFECT;
+					var p = randomSurvivalGame.game.player;
+					var effectPropertyNames = {
+						"confusion": "timeConfused",
+						"blindness": "timeBlinded",
+						"nausea": "timeNauseated"
+					};
+					var effectName = effectPropertyNames[effect];
+					window.setInterval(function() {
+						p[effectName] = randomSurvivalGame.FPS * 15;
+					}, 1000 / randomSurvivalGame.FPS);
+				}
+			}
 		}),
 		displayTestingModeWarning: function() {
 			c.loadTextStyle({
