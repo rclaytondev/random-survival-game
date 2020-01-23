@@ -306,6 +306,15 @@ Array.prototype.removeItemsWithProperty = function(propertyName, propertyValue) 
 Array.prototype.includesItemsWithProperty = function(propertyName, propertyValue) {
 	return (this.getItemsWithProperty(propertyName, propertyValue).length !== 0);
 };
+Array.prototype.getObjectsByType = function(constructor) {
+	var objects = [];
+	for(var i = 0; i < this.length; i ++) {
+		if(this[i] instanceof constructor) {
+			objects.push(this[i]);
+		}
+	}
+	return objects;
+};
 Number.prototype.mod = function(divisor) {
 	/*
 	This is used instead of the % operator because % returns negatives for negative numbers. (ex: -5 % 10 === -5)
@@ -1451,10 +1460,27 @@ randomSurvivalGame = {
 				[SpeedParticle, DoubleJumpParticle, PlayerDisintegrationParticle, PlayerBodyPart],
 				[Acid, SpikeWall]
 			];
-			this.objects = randomSurvivalGame.utils.sortByType(this.objects, order);
-			/* display objects */
+			var renderingObjects = [];
 			for(var i = 0; i < this.objects.length; i ++) {
-				var obj = this.objects[i];
+				if(this.objects[i] instanceof AfterImage) {
+					renderingObjects.push(this.objects[i].image);
+					renderingObjects[renderingObjects.length - 1].afterImage = this.objects[i];
+				}
+				else {
+					renderingObjects.push(this.objects[i]);
+				}
+			}
+			renderingObjects = randomSurvivalGame.utils.sortByType(renderingObjects, order);
+			/* replace images with their afterimages (confusion effect) */
+			var afterImages = renderingObjects.getObjectsByType(AfterImage);
+			outerLoop: for(var i = 0; i < renderingObjects.length; i ++) {
+				if(renderingObjects[i].afterImage !== null && typeof renderingObjects[i].afterImage === "object") {
+					renderingObjects[i] = renderingObjects[i].afterImage;
+				}
+			}
+			/* display objects */
+			for(var i = 0; i < renderingObjects.length; i ++) {
+				var obj = renderingObjects[i];
 				if(!obj.splicing) {
 					if(typeof obj.display === "function") {
 						obj.display();
@@ -3787,6 +3813,7 @@ randomSurvivalGame = {
 				var skippedObjects = [
 					randomSurvivalGame.events.confusion.AfterImage, // to prevent infinite recursion
 					randomSurvivalGame.events.rocket.FireParticle, // to reduce lag
+					randomSurvivalGame.game.playerDeathAnimations.PlayerDisintegrationParticle, // to reduce lag
 					randomSurvivalGame.events.acid.Acid, // to reduce lag + isn't really that noticeable
 					randomSurvivalGame.events.spikeWall.SpikeWall, // not really that noticeable
 					randomSurvivalGame.events.Coin, // to make the coins not look strange
@@ -3802,12 +3829,12 @@ randomSurvivalGame = {
 					if(objects[i].splicing) {
 						continue;
 					}
-					objects.push(new randomSurvivalGame.events.confusion.AfterImage(objects[i].clone()));
+					var image = new randomSurvivalGame.events.confusion.AfterImage(objects[i].clone());
+					if(image.image instanceof randomSurvivalGame.game.Player) {
+						image.image.y -= randomSurvivalGame.game.player.worldY;
+					}
+					objects.push(image);
 				}
-
-				var playerAfterImage = randomSurvivalGame.game.player.clone();
-				playerAfterImage.y -= randomSurvivalGame.game.player.worldY;
-				randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.confusion.AfterImage(playerAfterImage.clone()));
 			},
 			begin: function() {
 				randomSurvivalGame.game.player.timeConfused = randomSurvivalGame.FPS * 15;
@@ -5773,9 +5800,10 @@ randomSurvivalGame = {
 		})
 	},
 	debugging: {
-		TESTING_MODE: false,
+		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["spikeWall"],
+		INCLUDED_EVENTS: ["acid"],
+		PERMANENT_EFFECT: "confusion",
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
@@ -5881,6 +5909,19 @@ randomSurvivalGame = {
 				randomSurvivalGame.events.listOfEvents = randomSurvivalGame.debugging.INCLUDED_EVENTS;
 				randomSurvivalGame.game.player.totalCoins = 1000;
 				randomSurvivalGame.debugging.initializedDebuggingSettings = true;
+				if(randomSurvivalGame.debugging.PERMANENT_EFFECT !== null) {
+					var effect = randomSurvivalGame.debugging.PERMANENT_EFFECT;
+					var p = randomSurvivalGame.game.player;
+					var effectPropertyNames = {
+						"confusion": "timeConfused",
+						"blindness": "timeBlinded",
+						"nausea": "timeNauseated"
+					};
+					var effectName = effectPropertyNames[effect];
+					window.setInterval(function() {
+						p[effectName] = randomSurvivalGame.FPS * 15;
+					}, 1000 / randomSurvivalGame.FPS);
+				}
 			}
 		}),
 		displayTestingModeWarning: function() {
