@@ -5573,7 +5573,7 @@ randomSurvivalGame = {
 						c.fillCircle(self.x, self.y - 17, 10);
 					},
 					function() {
-						return (randomSurvivalGame.game.player.eventsSurvived.length / randomSurvivalGame.events.ORIGINAL_EVENTS.length) * 100;
+						return (randomSurvivalGame.game.player.eventsSurvived.length / randomSurvivalGame.events.ORIGINAL_EVENTS.length);
 					}
 				),
 				new Achievement(
@@ -5793,7 +5793,7 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["acid"],
+		INCLUDED_EVENTS: ["laser", "nausea", "blindness", "confusion"],
 		PERMANENT_EFFECT: null,
 
 		hitboxes: [],
