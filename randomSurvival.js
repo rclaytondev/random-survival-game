@@ -745,9 +745,6 @@ randomSurvivalGame = {
 								collisionBuffer[j] = Math.max(collisionBuffer[j], 5);
 							}
 						}
-						if(obj instanceof randomSurvivalGame.game.Player) {
-							y += randomSurvivalGame.game.player.worldY;
-						}
 						if(
 							obj.x + obj.hitbox.right >= x &&
 							obj.x + obj.hitbox.left <= x + w &&
@@ -787,9 +784,6 @@ randomSurvivalGame = {
 						) {
 							obj.x = Math.max(obj.x, x + w - obj.hitbox.left);
 							obj.handleCollision("wall-to-left", this);
-						}
-						if(obj instanceof randomSurvivalGame.game.Player) {
-							y -= randomSurvivalGame.game.player.worldY;
 						}
 					}
 				}
@@ -1479,17 +1473,20 @@ randomSurvivalGame = {
 				}
 			}
 			/* display objects */
-			for(var i = 0; i < renderingObjects.length; i ++) {
-				var obj = renderingObjects[i];
-				if(!obj.splicing) {
-					if(typeof obj.display === "function") {
-						obj.display();
-					}
-					else {
-						console.warn("An in-game object of type " + obj.constructor.name + " did not have a display() method.");
+			c.save(); {
+				c.translate(-randomSurvivalGame.game.camera.x, -randomSurvivalGame.game.camera.y);
+				for(var i = 0; i < renderingObjects.length; i ++) {
+					var obj = renderingObjects[i];
+					if(!obj.splicing) {
+						if(typeof obj.display === "function") {
+							obj.display();
+						}
+						else {
+							console.warn("An in-game object of type " + obj.constructor.name + " did not have a display() method.");
+						}
 					}
 				}
-			}
+			} c.restore();
 			/* display visual effects */
 			if(this.player.timeBlinded > 0) {
 				randomSurvivalGame.events.blindness.displayBlindnessEffect();
@@ -1594,7 +1591,6 @@ randomSurvivalGame = {
 			this.y = 300;
 			this.velX = 0;
 			this.velY = 0;
-			this.worldY = 0;
 			this.hitbox = { right: 5, left: -5, top: 0, bottom: 46 };
 			/* Player animation properties */
 			this.legs = 5;
@@ -1767,7 +1763,7 @@ randomSurvivalGame = {
 					if(this.velX > DEFAULT_MAX_VELOCITY || this.velX < -DEFAULT_MAX_VELOCITY) {
 						this.gonePlaces = true;
 					}
-					randomSurvivalGame.game.objects.push(new randomSurvivalGame.shop.DoubleJumpParticle(this.x, this.y + 46 - this.worldY));
+					randomSurvivalGame.game.objects.push(new randomSurvivalGame.shop.DoubleJumpParticle(this.x, this.y + 46));
 					randomSurvivalGame.shop.doubleJumper.glowOpacity = 1;
 				}
 			}
@@ -1849,9 +1845,9 @@ randomSurvivalGame = {
 			this.y = 300;
 			this.velX = 0;
 			this.velY = 0;
+			randomSurvivalGame.game.camera = { x: 0, y: 0 };
 			this.facing = "forward";
 			this.armHeight = 10;
-			this.worldY = 0;
 			this.hitbox = new randomSurvivalGame.game.Player().hitbox;
 			this.noCollisions = false;
 			randomSurvivalGame.game.timeToEvent = 2 * randomSurvivalGame.FPS;
@@ -1958,7 +1954,7 @@ randomSurvivalGame = {
 				function disintegrateLine(x1, y1, x2, y2) {
 					var points = Math.findPointsLinear(x1, y1, x2, y2);
 					for(var i = 0; i < points.length; i ++) {
-						objects.push(new PlayerDisintegrationParticle(points[i].x, points[i].y - randomSurvivalGame.game.player.worldY));
+						objects.push(new PlayerDisintegrationParticle(points[i].x, points[i].y));
 					}
 				};
 				function disintegrateEllipse(x, y, radiusX, radiusY) {
@@ -1974,12 +1970,12 @@ randomSurvivalGame = {
 						}
 					}
 					for(var i = 0; i < points.length; i ++) {
-						randomSurvivalGame.game.objects.push(new PlayerDisintegrationParticle(points[i].x, points[i].y - randomSurvivalGame.game.player.worldY));
+						randomSurvivalGame.game.objects.push(new PlayerDisintegrationParticle(points[i].x, points[i].y));
 					}
 				};
 				function removeParticlesInCircle(x, y, r) {
 					for(var i = 0; i < objects.length; i ++) {
-						if(objects[i] instanceof PlayerDisintegrationParticle && Math.dist(objects[i].x, objects[i].y + this.worldY, x, y) < r) {
+						if(objects[i] instanceof PlayerDisintegrationParticle && Math.dist(objects[i].x, objects[i].y, x, y) < r) {
 							objects.splice(i, 1);
 							i --;
 						}
@@ -2121,9 +2117,9 @@ randomSurvivalGame = {
 			}
 			.method("display", function() {
 				c.fillStyle = "rgb(0, 0, 0)";
-				c.fillRect(this.x - 2, this.y + randomSurvivalGame.game.player.worldY - 2, 4, 4);
+				c.fillRect(this.x - 2, this.y - 2, 4, 4);
 				if(this.isOnGround) {
-					c.fillRect(this.x - 3, this.y + randomSurvivalGame.game.player.worldY - 2, 6, 4);
+					c.fillRect(this.x - 3, this.y - 2, 6, 4);
 				}
 			})
 			.method("update", function() {
@@ -2255,6 +2251,11 @@ randomSurvivalGame = {
 			})
 		},
 
+		camera: {
+			x: 0,
+			y: 0
+		},
+
 		Platform: function(x, y, w, h) {
 			this.x = x;
 			this.y = y;
@@ -2268,12 +2269,9 @@ randomSurvivalGame = {
 			this.opacity = 1;
 		}
 		.method("display", function() {
-			c.save(); {
-				c.translate(0, randomSurvivalGame.game.player.worldY);
-				c.globalAlpha = this.opacity;
-				c.fillStyle = randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY;
-				c.fillRect(this.x, this.y, this.w, this.h);
-			} c.restore();
+			c.globalAlpha = this.opacity;
+			c.fillStyle = randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY;
+			c.fillRect(this.x, this.y, this.w, this.h);
 		})
 		.method("update", function() {
 			this.opacity += (this.opacity < 1) ? 0.05 : 0;
@@ -2439,7 +2437,7 @@ randomSurvivalGame = {
 			if(this.age > this.timeToAppear) {
 				c.fillStyle = "rgb(255, 255, 0)";
 				c.save(); {
-					c.translate(this.x, this.y + randomSurvivalGame.game.player.worldY);
+					c.translate(this.x, this.y);
 					c.scale(this.spin, 1);
 					c.fillCircle(0, 0, 20);
 				} c.restore();
@@ -2457,7 +2455,7 @@ randomSurvivalGame = {
 			var coinDoubler = randomSurvivalGame.shop.coinDoubler;
 			var player = randomSurvivalGame.game.player;
 			if(
-				randomSurvivalGame.utils.isPlayerInRect(this.x - 20, this.y + player.worldY - 20, 40, 40) &&
+				randomSurvivalGame.utils.isPlayerInRect(this.x - 20, this.y - 20, 40, 40) &&
 				this.age > this.timeToAppear &&
 				!(player.isIntangible() && randomSurvivalGame.shop.intangibilityTalisman.numUpgrades < 3)
 			) {
@@ -2646,7 +2644,7 @@ randomSurvivalGame = {
 					c.fillStyle = "rgb(" + brightness + ", 255, " + brightness + ")";
 					c.fillRect(
 						x,
-						this.y + randomSurvivalGame.game.player.worldY + Math.sin(x / 10) * 10 * Math.sin(randomSurvivalGame.utils.frameCount / 10),
+						this.y + Math.sin(x / 10) * 10 * Math.sin(randomSurvivalGame.utils.frameCount / 10),
 						1,
 						800
 					);
@@ -2657,8 +2655,7 @@ randomSurvivalGame = {
 				this.y += this.velY;
 				if(this.y < 600 && this.velY < 0) {
 					/* screen scrolling */
-					randomSurvivalGame.game.player.worldY -= this.velY;
-					randomSurvivalGame.game.player.y -= this.velY;
+					randomSurvivalGame.game.camera.y += this.velY;
 				}
 				if(this.y < -100) {
 					this.stopRising();
@@ -2672,7 +2669,7 @@ randomSurvivalGame = {
 				}
 				/* player collisions */
 				var p = randomSurvivalGame.game.player;
-				if(p.y + 46 > this.y + p.worldY) {
+				if(p.y + 46 > this.y) {
 					p.die("acid");
 					if(p.invincible) {
 						p.velY = Math.min(-5, p.velY);
@@ -2708,30 +2705,30 @@ randomSurvivalGame = {
 			.method("stopRising", function() {
 				this.velY = 1;
 				/* shift everything down back to the original playing area */
-				randomSurvivalGame.game.player.worldY = 0;
-				this.y += 700;
+				randomSurvivalGame.game.camera.y = 0;
+				// this.y += 700;
+				// randomSurvivalGame.game.player.y += 700;
 				/* delete platforms from acid rise */
 				var PlayerDisintegrationParticle = randomSurvivalGame.game.playerDeathAnimations.PlayerDisintegrationParticle;
 				var AfterImage = randomSurvivalGame.events.confusion.AfterImage;
 				var Platform = randomSurvivalGame.game.Platform;
 				var Player = randomSurvivalGame.game.Player;
 				var objects = randomSurvivalGame.game.objects;
+
+				var acidY = this.y + 700;
 				for(var i = 0; i < objects.length; i ++) {
 					var obj = objects[i];
-					if(obj instanceof PlayerDisintegrationParticle) {
-						obj.y += 700;
-						continue;
-					}
-					if(obj.y < 200 && !(obj instanceof Player)) {
-						obj.splicing = true;
-					}
-					/* remove platform afterimages if the player has the confusion effect */
-					if(obj instanceof AfterImage && obj.image instanceof Platform && obj.image.y < 200) {
-						obj.splicing = true;
-					}
-					/* translate other afterimages down */
-					if(obj instanceof AfterImage && !obj.splicing) {
+					if(obj instanceof AfterImage) {
 						obj.image.y += 700;
+						if(obj.image.y > acidY && !(obj instanceof PlayerDisintegrationParticle)) {
+							obj.splicing = true;
+						}
+					}
+					else {
+						obj.y += 700;
+						if(obj.y > acidY) {
+							obj.splicing = true;
+						}
 					}
 				}
 			}),
@@ -2889,7 +2886,7 @@ randomSurvivalGame = {
 				c.fillStyle = "rgb(215, 215, 215)";
 				c.globalAlpha = this.opacity;
 				c.save(); {
-					c.translate(this.x, this.y + randomSurvivalGame.game.player.worldY);
+					c.translate(this.x, this.y);
 					c.rotate(Math.toRadians(this.r));
 					c.fillPoly(
 						-5, 0,
@@ -3789,9 +3786,6 @@ randomSurvivalGame = {
 				var opacity = this.timeLeft / this.timeToExist;
 				opacity = Math.constrain(opacity, 0, 1);
 				c.save(); {
-					if(this.image instanceof randomSurvivalGame.game.Player) {
-						c.translate(0, randomSurvivalGame.game.player.worldY);
-					}
 					c.globalAlpha = opacity;
 					this.image.display();
 				} c.restore();
@@ -3830,9 +3824,6 @@ randomSurvivalGame = {
 						continue;
 					}
 					var image = new randomSurvivalGame.events.confusion.AfterImage(objects[i].clone());
-					if(image.image instanceof randomSurvivalGame.game.Player) {
-						image.image.y -= randomSurvivalGame.game.player.worldY;
-					}
 					objects.push(image);
 				}
 			},
@@ -5363,7 +5354,7 @@ randomSurvivalGame = {
 			c.strokeStyle = "rgb(255, 255, 0)";
 			c.lineWidth = 5;
 			c.save(); {
-				c.translate(this.x, this.y + randomSurvivalGame.game.player.worldY);
+				c.translate(this.x, this.y);
 				c.scale(this.size, 1);
 				c.strokeCircle(0, 0, 5);
 			} c.restore();
@@ -5378,7 +5369,7 @@ randomSurvivalGame = {
 		}),
 		MagnetParticle: function(size) {
 			this.x = randomSurvivalGame.game.player.x;
-			this.y = randomSurvivalGame.game.player.y + randomSurvivalGame.game.player.worldY + (46 / 2);
+			this.y = randomSurvivalGame.game.player.y + (46 / 2);
 			this.size = size;
 			this.opacity = 0;
 		}
@@ -5387,14 +5378,14 @@ randomSurvivalGame = {
 				c.globalAlpha = Math.constrain(this.opacity, 0, 1);
 				c.strokeStyle = "rgb(125, 125, 125)";
 				c.lineWidth = 1;
-				c.strokeCircle(this.x, this.y + randomSurvivalGame.game.player.worldY, this.size);
+				c.strokeCircle(this.x, this.y, this.size);
 			} c.restore();
 		})
 		.method("update", function() {
 			this.size -= 0.5;
 			this.opacity += 0.025;
 			this.x = randomSurvivalGame.game.player.x;
-			this.y = randomSurvivalGame.game.player.y + randomSurvivalGame.game.player.worldY + (46 / 2);
+			this.y = randomSurvivalGame.game.player.y + (46 / 2);
 			if(this.size < 0) {
 				this.splicing = true;
 			}
@@ -5803,7 +5794,7 @@ randomSurvivalGame = {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
 		INCLUDED_EVENTS: ["acid"],
-		PERMANENT_EFFECT: "confusion",
+		PERMANENT_EFFECT: null,
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
