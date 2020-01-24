@@ -3868,7 +3868,9 @@ randomSurvivalGame = {
 				}
 
 				c.globalAlpha = 1;
-				var gradient = c.createRadialGradient(randomSurvivalGame.game.player.x, randomSurvivalGame.game.player.y, smallRadius, randomSurvivalGame.game.player.x, randomSurvivalGame.game.player.y, largeRadius);
+				var x = randomSurvivalGame.game.player.x - randomSurvivalGame.game.camera.x;
+				var y = randomSurvivalGame.game.player.y - randomSurvivalGame.game.camera.y;
+				var gradient = c.createRadialGradient(x, y, smallRadius, x, y, largeRadius);
 				gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
 				gradient.addColorStop(1, "rgba(0, 0, 0, 255)");
 				c.fillStyle = gradient;
@@ -3893,7 +3895,10 @@ randomSurvivalGame = {
 							continue;
 						}
 						if(typeof obj.display === "function") {
-							this.displayNauseaEffect(obj);
+							c.save(); {
+								c.translate(-randomSurvivalGame.game.camera.x, -randomSurvivalGame.game.camera.y);
+								this.displayNauseaEffect(obj);
+							} c.restore();
 						}
 					}
 					return;
@@ -5793,8 +5798,8 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["laser", "nausea", "blindness", "confusion"],
-		PERMANENT_EFFECT: null,
+		INCLUDED_EVENTS: ["acid"],
+		PERMANENT_EFFECT: "confusion",
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
