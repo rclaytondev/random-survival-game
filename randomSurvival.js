@@ -1519,7 +1519,7 @@ randomSurvivalGame = {
 			c.fillText("Coins: " + p.coins, 790, 790);
 			/* debug */
 			if(randomSurvivalGame.debugging.SHOW_HITBOXES) {
-				game.displayHitboxes();
+				randomSurvivalGame.debugging.displayHitboxes();
 			}
 		},
 		update: function() {
@@ -3216,15 +3216,16 @@ randomSurvivalGame = {
 			Rocket: function(x, y, velX) {
 				this.x = x;
 				this.y = y;
-				this.velX = velX;
+				var velocity = Math.normalize(randomSurvivalGame.game.player.x - this.x, randomSurvivalGame.game.player.y - this.y);
+				this.velX = velocity.x * 6;
+				this.velY = velocity.y * 6;
+				this.angle = Math.toDegrees(Math.atan2(this.velY, this.velX));
 			}
 			.method("display", function() {
 				c.save(); {
 					c.fillStyle = "rgb(150, 150, 155)";
 					c.translate(this.x, this.y);
-					if(this.velX < 0) {
-						c.scale(-1, 1);
-					}
+					c.rotate(Math.toRadians(this.angle));
 					c.fillRect(0, -10, 50, 20);
 					/* tip */
 					c.fillPoly(
@@ -3249,13 +3250,25 @@ randomSurvivalGame = {
 				var p = randomSurvivalGame.game.player;
 
 				this.x += this.velX;
+				this.y += this.velY;
 				randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.rocket.FireParticle(this.x, this.y));
 				if(!p.isIntangible()) {
-					if(this.velX > 0) {
-						randomSurvivalGame.utils.killCollisions.rect(this.x - 50, this.y, 150, 10, "rocket");
-					}
-					else {
-						randomSurvivalGame.utils.killCollisions.rect(this.x - 100, this.y, 150, 10, "rocket");
+					var point1 = Math.rotateDegrees(-50, 10, this.angle);
+					var point2 = Math.rotateDegrees(-50, -10, this.angle);
+					var point3 = Math.rotateDegrees(90, -10, this.angle);
+					var point4 = Math.rotateDegrees(90, 10, this.angle);
+					point1.x += this.x;
+					point1.y += this.y;
+					point2.x += this.x;
+					point2.y += this.y;
+					point3.x += this.x;
+					point3.y += this.y;
+					point4.x += this.x;
+					point4.y += this.y;
+					var points = [point1, point2, point3, point4];
+					for(var i = 0; i < points.length; i ++) {
+						var next = (i + 1) % points.length;
+						randomSurvivalGame.utils.killCollisions.line(points[i].x, points[i].y, points[next].x, points[next].y, "rocket");
 					}
 				}
 				/* remove self if off-screen */
@@ -3312,11 +3325,14 @@ randomSurvivalGame = {
 
 				var Rocket = randomSurvivalGame.events.rocket.Rocket;
 				var p = randomSurvivalGame.game.player;
+
+				var rocketY = randomSurvivalGame.game.player.y + Math.randomInRange(-200, 200);
+				rocketY = Math.constrain(rocketY, 0, canvas.height);
 				if(p.x > 400) {
-					randomSurvivalGame.game.objects.push(new Rocket(-100, p.y, 6));
+					randomSurvivalGame.game.objects.push(new Rocket(-100, rocketY));
 				}
 				else {
-					randomSurvivalGame.game.objects.push(new Rocket(900, p.y, -6));
+					randomSurvivalGame.game.objects.push(new Rocket(canvas.width + 100, rocketY));
 				}
 			}
 		},
@@ -5798,15 +5814,16 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["acid"],
-		PERMANENT_EFFECT: "confusion",
+		INCLUDED_EVENTS: ["rocket"],
+		PERMANENT_EFFECT: null,
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
 			if(hitbox === undefined || hitbox === null) {
 				/* generate hitboxes */
-				for(var i = 0; i < game.objects.length; i ++) {
-					var obj = game.objects[i];
+				var objects = randomSurvivalGame.game.objects;
+				for(var i = 0; i < objects.length; i ++) {
+					var obj = objects[i];
 					if(typeof obj.hitbox === "object" && obj.hitbox !== null) {
 						randomSurvivalGame.debugging.hitboxes.push({
 							type: "rect",
@@ -5819,6 +5836,7 @@ randomSurvivalGame = {
 						})
 					}
 				}
+				var p = randomSurvivalGame.game.player;
 				randomSurvivalGame.debugging.hitboxes.push({
 					type: "rect",
 					color: "green",
@@ -5850,12 +5868,12 @@ randomSurvivalGame = {
 				for(var i = 0; i < randomSurvivalGame.debugging.hitboxes.length; i ++) {
 					let hitbox = randomSurvivalGame.debugging.hitboxes[i];
 					if(hitbox !== undefined && hitbox !== null) {
-						game.displayHitboxes(hitbox);
+						randomSurvivalGame.debugging.displayHitboxes(hitbox);
 					}
 				}
 			}
 			else {
-				var color = (Math.sin(utilities.frameCount / 10) * 55 + 200);
+				var color = (Math.sin(randomSurvivalGame.utils.frameCount / 10) * 55 + 200);
 				if(hitbox.color === "blue") {
 					c.strokeStyle = "rgb(0, 0, " + color + ")";
 				}
@@ -5941,7 +5959,7 @@ randomSurvivalGame = {
 			*/
 			c.save(); {
 				c.fillStyle = "rgb(255, 0, 0)";
-				var size = Math.sin(utilities.frameCount / 10) * 5 + 10;
+				var size = Math.sin(randomSurvivalGame.utils.frameCount / 10) * 5 + 10;
 				if(typeof arguments[0] === "number") {
 					c.fillCircle(arguments[0], arguments[1], size);
 				}
