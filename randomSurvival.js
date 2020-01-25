@@ -1900,7 +1900,7 @@ randomSurvivalGame = {
 		.method("die", function(cause) {
 			var secondLife = randomSurvivalGame.shop.secondLife;
 			if(this.invincible < 0) {
-				if(secondLife.equipped && this.numRevives > 0) {
+				if((secondLife.equipped && this.numRevives > 0) || randomSurvivalGame.debugging.TESTING_MODE && randomSurvivalGame.debugging.PLAYER_INVINCIBLE) {
 					this.numRevives --;
 					this.usedRevive = true;
 					this.invincible = (randomSurvivalGame.shop.secondLife.numUpgrades >= 2) ? randomSurvivalGame.FPS * 2 : randomSurvivalGame.FPS;
@@ -2256,6 +2256,19 @@ randomSurvivalGame = {
 			y: 0
 		},
 
+		difficulty: function() {
+			/*
+			Current difficulty system: linear progression (score of 0: minimum difficulty, score of 30: maximum difficulty). Each item you have equipped is like having 5 more score.
+			*/
+			return Math.constrain(Math.map(
+				randomSurvivalGame.game.player.score + (randomSurvivalGame.shop.itemsEquipped().length * 5),
+				0, 30,
+				this.MIN_DIFFICULTY, this.MAX_DIFFICULTY
+			), this.MIN_DIFFICULTY, this.MAX_DIFFICULTY);
+		},
+		MIN_DIFFICULTY: 0,
+		MAX_DIFFICULTY: 100,
+
 		Platform: function(x, y, w, h) {
 			this.x = x;
 			this.y = y;
@@ -2515,6 +2528,13 @@ randomSurvivalGame = {
 
 			var eventName = randomSurvivalGame.events.listOfEvents.randomItem();
 			var theEvent = randomSurvivalGame.events[eventName];
+			if(typeof theEvent !== "object" || theEvent === "null") {
+				if(randomSurvivalGame.events.listOfEvents.length !== 0) {
+					console.error("Unknown event ID: " + eventName);
+				}
+				this.endEvent();
+				return;
+			}
 			randomSurvivalGame.game.currentEvent = eventName;
 			theEvent.begin();
 			if(eventName === p.previousEvent) {
@@ -2588,7 +2608,12 @@ randomSurvivalGame = {
 						this.timeSinceBlink = 0;
 						this.numBlinks ++;
 					}
-					if(this.numBlinks > 6) {
+					var numBlinksBeforeExplosion = Math.map(
+						randomSurvivalGame.game.difficulty(),
+						randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+						6, 2
+					);
+					if(this.numBlinks > numBlinksBeforeExplosion) {
 						this.explode();
 						randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.Coin(this.x, this.y));
 						this.splicing = true;
@@ -2683,7 +2708,12 @@ randomSurvivalGame = {
 				var objects = randomSurvivalGame.game.objects;
 				var Platform = randomSurvivalGame.game.Platform;
 
-				this.velY = -2;
+				var acidSpeed = Math.map(
+					randomSurvivalGame.game.difficulty(),
+					randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+					2, 3.5
+				)
+				this.velY = -acidSpeed;
 				var platformInMiddle = true;
 				for(var y = 50; y >= -475; y -= 175) {
 					if(platformInMiddle) {
@@ -2755,15 +2785,20 @@ randomSurvivalGame = {
 				this.numBounces = 0;
 				this.vertices = [];
 				this.rotation = 0;
+				this.size = Math.map(
+					randomSurvivalGame.game.difficulty(),
+					randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+					50, 65
+				);
 				var r = 0;
 				while(r < 360) {
 					r += Math.randomInRange(45, 60);
 					if(r > 350) {
 						r = 360;
 					}
-					this.vertices.push(Math.rotateDegrees(0, -50, r));
+					this.vertices.push(Math.rotateDegrees(0, -this.size, r));
 				}
-				this.hitbox = { top: -50, bottom: 50, left: -50, right: 50 };
+				this.hitbox = { top: -this.size, bottom: this.size, left: -this.size, right: this.size };
 			}
 			.method("display", function() {
 				c.fillStyle = randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY;
@@ -2780,7 +2815,7 @@ randomSurvivalGame = {
 				this.rotation += (this.velX > 0) ? 5 : -5;
 				/* killing player */
 				if(!randomSurvivalGame.game.player.isIntangible()) {
-					randomSurvivalGame.utils.killCollisions.circle(this.x, this.y, 50, "boulder");
+					randomSurvivalGame.utils.killCollisions.circle(this.x, this.y, this.size, "boulder");
 				}
 				/* delete self if off-screen */
 				if((this.velX < 0 && this.x < 50) || (this.velX > 0 && this.x > 750)) {
@@ -2879,8 +2914,19 @@ randomSurvivalGame = {
 				this.numRevolutions = 0;
 				this.opacity = 0;
 
-				this.ROTATION_SPEED = 1 * (Math.random() < 0.5 ? 1 : -1);
-				this.MAX_NUM_REVOLUTIONS = 3;
+				var speed = Math.map(
+					randomSurvivalGame.game.difficulty(),
+					randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+					1, 2
+				);
+				this.fadeInSpeed = Math.map(
+					randomSurvivalGame.game.difficulty(),
+					randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+					1/20, 1/40
+				);
+				this.rotationSpeed = speed * ([-1, 1].randomItem());
+				this.maxNumRevolutions = (speed > 1.5 ? 4 : 3);
+				this.timeSinceLastRotation = 0;
 			}
 			.method("display", function() {
 				c.fillStyle = "rgb(215, 215, 215)";
@@ -2903,18 +2949,20 @@ randomSurvivalGame = {
 			})
 			.method("update", function() {
 				if(this.opacity >= 1) {
-					this.r += this.ROTATION_SPEED;
+					this.r += this.rotationSpeed;
 				}
 				this.r = this.r.mod(360);
 				if(
-					(Math.dist(this.r, 90) < Math.abs(this.ROTATION_SPEED) ||
-					Math.dist(this.r, 270) < Math.abs(this.ROTATION_SPEED)) &&
-					this.opacity >= 1 && this.age > randomSurvivalGame.FPS
+					(Math.dist(this.r, 90) < Math.abs(this.rotationSpeed) ||
+					Math.dist(this.r, 270) < Math.abs(this.rotationSpeed)) &&
+					this.opacity >= 1 && this.age > randomSurvivalGame.FPS && this.timeSinceLastRotation > 5
 				) {
 					this.numRevolutions ++;
+					this.timeSinceLastRotation = 0;
 				}
-				if(this.numRevolutions < this.MAX_NUM_REVOLUTIONS) {
-					this.opacity += 0.05;
+				this.timeSinceLastRotation ++;
+				if(this.numRevolutions < this.maxNumRevolutions) {
+					this.opacity += this.fadeInSpeed;
 				}
 				else {
 					this.opacity -= 0.05;
@@ -3019,20 +3067,19 @@ randomSurvivalGame = {
 				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Jumping pirhanas incoming!", "rgb(255, 128, 0)"));
 				/* fancy algorithm to make sure none of the pirhanas are touching */
 				var pirhanasSeparated = false;
+				var numPirhanas = Math.map(
+					randomSurvivalGame.game.difficulty(),
+					randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+					2, 6
+				);
 				while(!pirhanasSeparated) {
 					var objects = randomSurvivalGame.game.objects;
 					var Pirhana = randomSurvivalGame.events.pirhanas.Pirhana;
 
-					for(var i = 0; i < objects.length; i ++) {
-						if(objects[i] instanceof Pirhana) {
-							objects.splice(i, 1);
-							i --;
-							continue;
-						}
+					objects.removeAllInstances(Pirhana);
+					for(var i = 0; i < numPirhanas; i ++) {
+						objects.push(new Pirhana(Math.randomInRange(50, canvas.width - 50)));
 					}
-					objects.push(new Pirhana(Math.randomInRange(50, canvas.width - 50)));
-					objects.push(new Pirhana(Math.randomInRange(50, canvas.width - 50)));
-					objects.push(new Pirhana(Math.randomInRange(50, canvas.width - 50)));
 					pirhanasSeparated = true;
 					var pirhanas = randomSurvivalGame.game.getObjectsByType(Pirhana);
 					for(var i = 0; i < objects.length; i ++) {
@@ -3198,27 +3245,68 @@ randomSurvivalGame = {
 
 			begin: function() {
 				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Pacmans incoming!", "rgb(255, 128, 0)"));
-				var coinNum = Math.round(Math.random() * 11 + 1) * 60;
-				for(var x = 0; x < 800; x += 60) {
-					if(x === coinNum) {
-						randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.Coin(x, 200, x * 0.25));
-					} else {
-						randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.pacmans.Dot(x, 200, x * 0.25));
-					}
-					randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.pacmans.Dot(800 - x, 600, x * 0.25));
-				}
 				var Pacman = randomSurvivalGame.events.pacmans.Pacman;
-				randomSurvivalGame.game.objects.push(new Pacman(-200, 200, 1.5));
-				randomSurvivalGame.game.objects.push(new Pacman(1000, 600, -1.5));
+				var speed = Math.map(
+					randomSurvivalGame.game.difficulty(),
+					randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+					1.5, 2
+				);
+				if(Math.random() < 0.5) {
+					randomSurvivalGame.game.objects.push(new Pacman(
+						-200,
+						canvas.height / 4,
+						speed
+					));
+					randomSurvivalGame.game.objects.push(new Pacman(
+						canvas.width + 200,
+						canvas.height - (canvas.height / 4),
+						-speed
+					));
+					var coinNum = Math.round(Math.random() * 11 + 1) * 60;
+					for(var x = 0; x < 800; x += 60) {
+						if(x === coinNum) {
+							randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.Coin(x, 200, x * 0.25));
+						} else {
+							randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.pacmans.Dot(x, 200, x * 0.25));
+						}
+						randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.pacmans.Dot(800 - x, 600, x * 0.25));
+					}
+				}
+				else {
+					randomSurvivalGame.game.objects.push(new Pacman(
+						-200,
+						canvas.height - (canvas.height / 4),
+						speed
+					));
+					randomSurvivalGame.game.objects.push(new Pacman(
+						canvas.width + 200,
+						canvas.height / 4,
+						-speed
+					));
+					var coinNum = Math.round(Math.random() * 11 + 1) * 60;
+					for(var x = 0; x < 800; x += 60) {
+						if(x === coinNum) {
+							randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.Coin(800 - x, 200, x * 0.25));
+						} else {
+							randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.pacmans.Dot(800 - x, 200, x * 0.25));
+						}
+						randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.pacmans.Dot(x, 600, x * 0.25));
+					}
+				}
 			}
 		},
 		rocket: {
-			Rocket: function(x, y, velX) {
+			Rocket: function(x, y) {
 				this.x = x;
 				this.y = y;
 				var velocity = Math.normalize(randomSurvivalGame.game.player.x - this.x, randomSurvivalGame.game.player.y - this.y);
-				this.velX = velocity.x * 6;
-				this.velY = velocity.y * 6;
+				var speed = Math.map(
+					randomSurvivalGame.game.difficulty(),
+					randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+					5, 8
+				);
+				this.velX = velocity.x * speed;
+				this.velY = velocity.y * speed;
 				this.angle = Math.toDegrees(Math.atan2(this.velY, this.velX));
 			}
 			.method("display", function() {
@@ -3438,8 +3526,15 @@ randomSurvivalGame = {
 			begin: function() {
 				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
 				const NUM_SPIKEBALLS = 3;
-				this.addSpikeballs(NUM_SPIKEBALLS / 2, "left");
-				this.addSpikeballs(NUM_SPIKEBALLS / 2, "right");
+				var numSpikeballs = Math.map(
+					randomSurvivalGame.game.difficulty(),
+					randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+					3, 6
+				);
+				var spikeballsOnLeft = Math.round(Math.randomInRange(numSpikeballs / 2 - 1, numSpikeballs / 2 + 1));
+				var spikeballsOnRight = numSpikeballs - spikeballsOnLeft;
+				this.addSpikeballs(spikeballsOnLeft, "left");
+				this.addSpikeballs(spikeballsOnRight, "right");
 			},
 			addSpikeballs: function(numSpikeballs, direction) {
 				var objects = randomSurvivalGame.game.objects;
@@ -3536,7 +3631,14 @@ randomSurvivalGame = {
 						"moveCornerBlocks": 4,
 						"moveAllBlocks": 5
 					};
-					var randomSequence = ["swapCornerAndCenter", "swapTopOrBottom", "move3Blocks", "moveCornerBlocks", "moveAllBlocks"].randomItem();
+					var sequences = ["swapCornerAndCenter", "swapTopOrBottom", "move3Blocks", "moveCornerBlocks", "moveAllBlocks"];
+					if(randomSurvivalGame.game.difficulty() > Math.map(1/3, 0, 1, randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY)) {
+						sequences.removeAll("swapTopOrBottom");
+					}
+					if(randomSurvivalGame.game.difficulty() > Math.map(2/3, 0, 1, randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY)) {
+						sequences.removeAll("swapCornerAndCenter");
+					}
+					var randomSequence = sequences.randomItem();
 					this[randomSequence]();
 					this.blocksMoved += numberOfBlocksEachSequenceMoves[randomSequence];
 				}
@@ -3776,23 +3878,34 @@ randomSurvivalGame = {
 				randomSurvivalGame.events.listOfEvents.removeAll("blindness");
 				randomSurvivalGame.events.listOfEvents.removeAll("nausea");
 				randomSurvivalGame.events.listOfEvents.removeAll("confusion");
+			},
+
+			duration: function() {
+				/*
+				Returns how long every effect should last, in frames.
+				*/
+				return randomSurvivalGame.FPS * Math.map(
+					randomSurvivalGame.game.difficulty(),
+					randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY,
+					15, 20
+				);
 			}
 		},
 		confusion: {
 			AfterImage: function(image) {
 				this.image = image;
-				var timeElapsed = (randomSurvivalGame.FPS * 15) - randomSurvivalGame.game.player.timeConfused;
-				if(timeElapsed < randomSurvivalGame.FPS * 14) {
+				var timeElapsed = (randomSurvivalGame.events.effects.duration()) - randomSurvivalGame.game.player.timeConfused;
+				if(timeElapsed < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
 					this.timeLeft = Math.map(
 						timeElapsed,
-						0, randomSurvivalGame.FPS * 15,
+						0, randomSurvivalGame.events.effects.duration(),
 						30, 20
 					);
 				}
 				else {
 					this.timeLeft = Math.map(
 						timeElapsed,
-						randomSurvivalGame.FPS * 14, randomSurvivalGame.FPS * 15,
+						randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, randomSurvivalGame.events.effects.duration(),
 						20, 0
 					);
 				}
@@ -3844,7 +3957,7 @@ randomSurvivalGame = {
 				}
 			},
 			begin: function() {
-				randomSurvivalGame.game.player.timeConfused = randomSurvivalGame.FPS * 15;
+				randomSurvivalGame.game.player.timeConfused = randomSurvivalGame.events.effects.duration();
 				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been confused", "rgb(0, 255, 0)"));
 				randomSurvivalGame.events.effects.remove();
 				randomSurvivalGame.events.endEvent();
@@ -3854,31 +3967,31 @@ randomSurvivalGame = {
 			displayBlindnessEffect: function() {
 				/*
 				When timeElapsed is 0, largeRadius is 150 and smallRadius is 50.
-				When timeElapsed is FPS * 15, largeRadius and smallRadius are SCREEN_DIAGONAL_LENGTH.
+				When timeElapsed is effects.duration(), largeRadius and smallRadius are SCREEN_DIAGONAL_LENGTH.
 				*/
 				const SCREEN_DIAGONAL_LENGTH = Math.dist(0, 0, 800, 800);
-				var timeElapsed = (randomSurvivalGame.FPS * 15) - randomSurvivalGame.game.player.timeBlinded;
-				if(timeElapsed < randomSurvivalGame.FPS * 14) {
+				var timeElapsed = (randomSurvivalGame.events.effects.duration()) - randomSurvivalGame.game.player.timeBlinded;
+				if(timeElapsed < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
 					var largeRadius = Math.map(
 						timeElapsed,
-						0, randomSurvivalGame.FPS * 14,
+						0, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS,
 						150, 400
 					);
 					var smallRadius = Math.map(
 						timeElapsed,
-						0, randomSurvivalGame.FPS * 14,
+						0, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS,
 						50, 390
 					);
 				}
 				else {
 					var largeRadius = Math.map(
 						timeElapsed,
-						randomSurvivalGame.FPS * 14, randomSurvivalGame.FPS * 15,
+						randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, randomSurvivalGame.events.effects.duration(),
 						400, SCREEN_DIAGONAL_LENGTH
 					);
 					var smallRadius = Math.map(
 						timeElapsed,
-						randomSurvivalGame.FPS * 14, randomSurvivalGame.FPS * 15,
+						randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, randomSurvivalGame.events.effects.duration(),
 						390, SCREEN_DIAGONAL_LENGTH
 					);
 				}
@@ -3893,7 +4006,7 @@ randomSurvivalGame = {
 				c.fillCanvas();
 			},
 			begin: function() {
-				randomSurvivalGame.game.player.timeBlinded = randomSurvivalGame.FPS * 15;
+				randomSurvivalGame.game.player.timeBlinded = randomSurvivalGame.events.effects.duration();
 				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
 				randomSurvivalGame.events.effects.remove();
 				randomSurvivalGame.events.endEvent();
@@ -3922,12 +4035,12 @@ randomSurvivalGame = {
 				var p = randomSurvivalGame.game.player;
 				var offsetX = p.nauseaOffsetArray[p.nauseaOffset].x;
 				var offsetY = p.nauseaOffsetArray[p.nauseaOffset].y;
-				var timeElapsed = (randomSurvivalGame.FPS * 15) - p.timeNauseated;
-				if(timeElapsed < randomSurvivalGame.FPS * 14) {
-					var intensity = Math.map(timeElapsed, 0, randomSurvivalGame.FPS * 14, 1.5, 1);
+				var timeElapsed = (randomSurvivalGame.events.effects.duration()) - p.timeNauseated;
+				if(timeElapsed < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
+					var intensity = Math.map(timeElapsed, 0, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, 1.5, 1);
 				}
 				else {
-					var intensity = Math.map(timeElapsed, randomSurvivalGame.FPS * 14, randomSurvivalGame.FPS * 15, 1, 0);
+					var intensity = Math.map(timeElapsed, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, randomSurvivalGame.events.effects.duration(), 1, 0);
 				}
 				offsetX *= intensity;
 				offsetY *= intensity;
@@ -3941,7 +4054,7 @@ randomSurvivalGame = {
 				obj.y += offsetY;
 			},
 			begin: function() {
-				randomSurvivalGame.game.player.timeNauseated = randomSurvivalGame.FPS * 15;
+				randomSurvivalGame.game.player.timeNauseated = randomSurvivalGame.events.effects.duration();
 				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
 				randomSurvivalGame.events.effects.remove();
 				randomSurvivalGame.events.endEvent();
@@ -4341,6 +4454,12 @@ randomSurvivalGame = {
 			begin: function() {
 				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
 				var numEnemies = 2;
+				if(randomSurvivalGame.game.difficulty() > Math.map(1/2, 0, 1, randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY)) {
+					numEnemies = 3;
+				}
+				if(randomSurvivalGame.game.difficulty() >= randomSurvivalGame.game.MAX_DIFFICULTY) {
+					numEnemies = 4;
+				}
 				randomSurvivalGame.events.enemies.addEnemiesAtPosition(randomSurvivalGame.events.laserBots.LaserBot, numEnemies, null, 50);
 			}
 		},
@@ -4465,6 +4584,12 @@ randomSurvivalGame = {
 			begin: function() {
 				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
 				var numEnemies = 2;
+				if(randomSurvivalGame.game.difficulty() > Math.map(1/2, 0, 1, randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY)) {
+					numEnemies = 3;
+				}
+				if(randomSurvivalGame.game.difficulty() >= randomSurvivalGame.game.MAX_DIFFICULTY) {
+					numEnemies = 4;
+				}
 				randomSurvivalGame.events.enemies.addEnemiesAtPosition(randomSurvivalGame.events.badGuys.BadGuy, numEnemies, null, 25);
 			}
 		},
@@ -5814,8 +5939,9 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["rocket"],
+		INCLUDED_EVENTS: ["spinningBlades"],
 		PERMANENT_EFFECT: null,
+		PLAYER_INVINCIBLE: true,
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
@@ -5933,7 +6059,7 @@ randomSurvivalGame = {
 					};
 					var effectName = effectPropertyNames[effect];
 					window.setInterval(function() {
-						p[effectName] = randomSurvivalGame.FPS * 15;
+						p[effectName] = randomSurvivalGame.events.effects.duration();
 					}, 1000 / randomSurvivalGame.FPS);
 				}
 			}
