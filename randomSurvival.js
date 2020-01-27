@@ -5509,7 +5509,7 @@ randomSurvivalGame = {
 				},
 				[
 					{
-						text: "Are your hands full? Carry an extra shop item with you each game.",
+						text: "Are your hands full? Use this cardboard box to carry an extra item with you each game.",
 						price: 15
 					}
 				]
@@ -5754,36 +5754,35 @@ randomSurvivalGame = {
 					"I Survived",
 					"Survive all of the events.",
 					function(self, isGrayscale) {
-						/* rays of light */
-						for(var r = 0; r < 360; r += 360 / 6) {
-							c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY : "rgb(255, 128, 0)");
-							c.save(); {
-								c.translate(self.x, self.y);
-								c.rotate(Math.toRadians(r));
-								c.fillArc(0, 0, 47, Math.toRadians(-11), Math.toRadians(11));
-							} c.restore();
-						}
-						/* stickman */
-						c.beginPath();
-						c.strokeStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
-						c.strokeLine(
-							self.x - 20, self.y + 25,
-							self.x - 20, self.y + 10,
-							self.x + 20, self.y + 10,
-							self.x + 20, self.y + 25
-						);
-						c.strokeLine(
-							self.x, self.y + 10,
-							self.x, self.y - 10
-						);
-						c.strokeLine(
-							self.x - 20, self.y - 30,
-							self.x - 20, self.y - 10,
-							self.x + 20, self.y - 10,
-							self.x + 20, self.y - 30
-						);
-						c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
-						c.fillCircle(self.x, self.y - 17, 10);
+						c.save(); {
+							c.translate(self.x, self.y);
+							c.scale(0.75, 0.75);
+							/* skull */
+							c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(255, 255, 255)");
+							c.fillCircle(0, 0, 30);
+							/* skull chin */
+							c.fillRect(0 - 15, 0 + 20, 30, 20);
+							/* eyes - whitespace */
+							c.fillStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
+							c.fillCircle(0 - 13, 0 - 10, 7);
+							c.fillCircle(0 + 13, 0 - 10, 7);
+							/* mouth */
+							c.fillRect(0 - 2, 0 + 20, 4, 20);
+							c.fillRect(0 - 10, 0 + 20, 4, 20);
+							c.fillRect(0 + 6, 0 + 20, 4, 20);
+							/* x icon over skull */
+							if(isGrayscale) {
+								c.strokeStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
+								c.lineWidth = 7;
+								c.strokeLine(-40, -40, 40, 40);
+								c.strokeLine(40, -40, -40, 40);
+							}
+
+							c.strokeStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(255, 0, 0)");
+							c.lineWidth = 3;
+							c.strokeLine(-40, -40, 40, 40);
+							c.strokeLine(40, -40, -40, 40);
+						} c.restore();
 					},
 					function() {
 						return (randomSurvivalGame.game.player.eventsSurvived.length / randomSurvivalGame.events.ORIGINAL_EVENTS.length);
@@ -5863,24 +5862,24 @@ randomSurvivalGame = {
 						c.fillStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
 						c.save(); {
 							c.translate(self.x  - 1, self.y - 15);
-							c.scale(1, 0.75);
+							c.scale(1, 0.5);
 							c.fillCircle(0, 0, 5);
 						} c.restore();
 						/* die 2 - whitespace */
 						c.save(); {
 							c.translate(self.x + 12, self.y - 3);
-							c.scale(0.75, 1);
+							c.scale(0.5, 1);
 							c.fillCircle(0, 0, 5);
 						} c.restore();
 						c.save(); {
 							c.translate(self.x + 21, self.y + 3);
-							c.scale(0.75, 1);
+							c.scale(0.5, 1);
 							c.fillCircle(0, 0, 5);
 						} c.restore();
 						/* die 3 - whitespace */
-						c.fillCircle(self.x - 21, self.y + 4, 5);
-						c.fillCircle(self.x - 1, self.y + 18, 5);
-						c.fillCircle(self.x - 10, self.y + 11, 5);
+						c.fillCircle(self.x - 21, self.y + 4, 4);
+						c.fillCircle(self.x - 1, self.y + 18, 4);
+						c.fillCircle(self.x - 10, self.y + 11, 4);
 					},
 					function() {
 						var p = randomSurvivalGame.game.player;
@@ -6007,7 +6006,7 @@ randomSurvivalGame = {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
 		INCLUDED_EVENTS: ["spinningBlades"],
-		PERMANENT_EFFECT: null,
+		PERMANENT_EFFECT: "confusion",
 		PLAYER_INVINCIBLE: true,
 
 		hitboxes: [],
