@@ -5128,7 +5128,7 @@ randomSurvivalGame = {
 							c.clip("evenodd");
 
 							c.fillCircle(0 - 40, 0 - 10, 20);
-						} } c.restore();
+						} c.restore();
 						/* chin */
 						c.fillPoly(
 							0 - 40, 0 + 10,
@@ -5138,8 +5138,8 @@ randomSurvivalGame = {
 						/* coin slot - whitespace */
 						c.strokeStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
 						c.strokeArc(0, 0, 20, Math.toRadians(270 - 35), Math.toRadians(270 + 35));
-						c.restore();
-					},
+					} c.restore();
+				},
 				[
 						{
 							text: "With this amazing piggy bank, you will be able to collect a lot of money.",
@@ -5173,36 +5173,52 @@ randomSurvivalGame = {
 			);
 			shop.speedIncreaser = new ShopItem(
 				800 / 4 * 2, 800 / 3,
-				"Boots of Speediness",
+				"Boots of Speed",
 				function(isGrayscale) {
-					/* boots */
-					c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 223, 0)");
-					c.fillRect(0 - 10, 0 + 46, 20, 5);
-					c.fillRect(0 + 30, 0 + 46, 20, 5);
-					/* stickman body + limbs */
-					c.strokeStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
-					c.strokeLine(
-						0 - 10, 0 - 10,
-						0 + 10, 0 + 10,
-						0 - 10, 0 + 30,
-						0 + 10, 0 + 50
-					);
-					c.strokeLine(
-						0 + 10, 0 + 10,
-						0 + 50, 0 + 50
-					);
-					c.strokeLine(
-						0 + 10, 0 - 30,
-						0 - 30, 0 + 10,
-						0 - 50, 0 - 10
-					);
-					c.strokeLine(
-						0 + 10, 0 - 30,
-						0 + 30, 0 - 10
-					);
-					/* stickman head */
-					c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
-					c.fillCircle(-17, -17, 10);
+					c.save(); {
+						c.translate(0, -5);
+						c.scale(0.85, 0.85);
+						const HEAD_DISTANCE = 10;
+						const ARM_SIZE = 20;
+						const LEG_SIZE = 20;
+						const SHOE_SIZE = 20;
+						const BODY_SIZE = 20;
+						var gray = randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY;
+						c.strokeStyle = (isGrayscale ? gray : "rgb(0, 0, 0)");
+						c.lineWidth = 5 * (1 / 0.85);
+						c.strokeLine(-BODY_SIZE / 2, -BODY_SIZE / 2, BODY_SIZE / 2, BODY_SIZE / 2);
+						c.save(); {
+							c.translate(BODY_SIZE / 2, BODY_SIZE / 2);
+							c.strokeStyle = (isGrayscale ? gray : "rgb(0, 223, 0)");
+							c.strokeLine(0, LEG_SIZE * 2, -SHOE_SIZE, LEG_SIZE * 2);
+							c.strokeLine(LEG_SIZE * 2, LEG_SIZE * 2, LEG_SIZE * 2 - SHOE_SIZE, LEG_SIZE * 2);
+							c.strokeStyle = (isGrayscale ? gray : "rgb(0, 0, 0)");
+							c.strokeLine(
+								0, 0,
+								-LEG_SIZE, LEG_SIZE,
+								0, LEG_SIZE * 2
+							);
+							c.strokeLine(
+								0, 0,
+								LEG_SIZE * 2, LEG_SIZE * 2
+							);
+						} c.restore();
+						c.save(); {
+							c.fillStyle = (isGrayscale ? gray : "rgb(0, 0, 0)");
+							c.translate(-BODY_SIZE / 2, -BODY_SIZE / 2);
+							c.fillCircle(-HEAD_DISTANCE, -HEAD_DISTANCE, Math.dist(-HEAD_DISTANCE, -HEAD_DISTANCE, 0, 0));
+							c.strokeLine(
+								0, 0,
+								-ARM_SIZE, ARM_SIZE,
+								-2 * ARM_SIZE, 0
+							)
+							c.strokeLine(
+								0, 0,
+								ARM_SIZE, -ARM_SIZE,
+								2 * ARM_SIZE, 0
+							);
+						} c.restore();
+					} c.restore();
 				},
 				[
 					{
@@ -5237,28 +5253,28 @@ randomSurvivalGame = {
 			);
 			shop.doubleJumper = new ShopItem(
 				800 / 4 * 3, 800 / 3,
-				"Potion of Jumpiness",
+				"Potion of Jumping",
 				function(isGrayscale) {
-					/* potion */
-					c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(255, 255, 0)");
-					c.fillPoly(
-						0 - 5 - 4, 0 + 4,
-						0 + 5 + 4, 0 + 4,
-						0 + 25, 0 + 20,
-						0 - 25, 0 + 20
-					);
-					/* beaker body */
-					c.strokeStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
-					c.strokeLine(
-						0 - 5, 0 - 20,
-						0 - 5, 0,
-						0 - 5 - 20, 0 + 20,
-						0 + 25, 0 + 20,
-						0 + 5, 0,
-						0 + 5, 0 - 20
-					);
-					/* beaker opening */
-					c.strokeCircle(0, 0 - 27, 10);
+					c.save(); {
+						c.translate(0, 8);
+						c.strokeStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
+						c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : this.color);
+						c.save(); {
+							c.beginPath();
+							c.rect(-5, -30, 10, 13);
+							c.invertPath();
+							c.clip("evenodd");
+							c.beginPath();
+							c.arc(0, 0, 20, Math.toRadians(-30), Math.toRadians(180 + 30));
+							c.fill();
+							c.strokeCircle(0, 0, 20);
+						} c.restore();
+						c.strokeLine(-5, -17, -5, -30);
+						c.strokeLine(5, -17, 5, -30);
+						c.fillStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
+						c.fillCircle(0, -35, 10);
+						c.strokeCircle(0, -35, 10);
+					} c.restore();
 				},
 				[
 					{
@@ -5289,7 +5305,7 @@ randomSurvivalGame = {
 						price: 10
 					},
 				],
-				"rgb(255, 255, 0)"
+				"rgb(255, 128, 0)"
 			);
 			shop.intangibilityTalisman = new ShopItem(
 				800 / 4, 800 / 3 * 2,
@@ -5408,41 +5424,62 @@ randomSurvivalGame = {
 				800 / 4 * 3, 800 / 3 * 2,
 				"Box of Storage",
 				function(isGrayscale) {
-					c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(138, 87, 0)");
-					/* front face */
-					c.beginPath();
-					c.fillRect(0 - 30, 0 - 10, 40, 40);
-					c.fill();
-					/* top face */
-					c.fillPoly(
-						0 - 30, 0 - 12,
-						0 + 10, 0 - 12,
-						0 + 40, 0 - 40,
-						0     , 0 - 40
-					);
-					/* right face */
-					c.fillPoly(
-						0 + 12, 0 - 10,
-						0 + 12, 0 + 30,
-						0 + 42, 0,
-						0 + 42, 0 - 40
-					);
-					/* lines separating lid from box - whitespace */
-					c.strokeStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
-					c.lineWidth = 2;
-					c.strokeLine(
-						0 - 30, 0 - 5,
-						0 + 10, 0 - 5
-					);
-					c.strokeLine(
-						0 + 10, 0 - 3,
-						0 + 42, 0 - 35
-					);
-					c.lineWidth = 5;
+					c.save(); {
+						c.translate(-10, 10);
+						const BOX_WIDTH = 30;
+						const BOX_HEIGHT = 30;
+						const BOX_DEPTH_X = 25;
+						const BOX_DEPTH_Y = 20;
+						c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(138, 87, 0)");
+						c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(97, 66, 0)");
+						c.strokeStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
+						c.lineWidth = 1;
+						var points = [
+							{ x: -BOX_WIDTH / 2, y: -BOX_HEIGHT / 2 },
+							{ x:  BOX_WIDTH / 2, y: -BOX_HEIGHT / 2 },
+							{ x:  BOX_WIDTH / 2, y:  BOX_HEIGHT / 2 },
+							{ x: -BOX_WIDTH / 2, y:  BOX_HEIGHT / 2 },
+						]; // 4 corners of front face (in clockwise order, starting from top-left)
+						/* polygons for each face of cube */
+						for(var i = 0; i < points.length; i ++) {
+							var next = (i + 1) % points.length;
+							var p1 = points[i];
+							var p2 = {
+								x: points[i].x + BOX_DEPTH_X,
+								y: points[i].y - BOX_DEPTH_Y
+							};
+							var p3 = {
+								x: points[next].x + BOX_DEPTH_X,
+								y: points[next].y - BOX_DEPTH_Y
+							};
+							var p4 = points[next];
+							c.fillPoly(p1, p2, p3, p4);
+							// break;
+						}
+						/* front face */
+						c.fillPoly(points);
+						/* lines seprating faces of cube */
+						var topRight = points[1];
+						var topLeft = points[0];
+						var bottomRight = points[2];
+						var topRightBack = {
+							x: topRight.x + BOX_DEPTH_X,
+							y: topRight.y - BOX_DEPTH_Y
+						};
+						c.strokeLine(topRight, topLeft);
+						c.strokeLine(topRight, bottomRight);
+						c.strokeLine(topRight, topRightBack);
+						c.save(); {
+							c.translate(0, 4);
+							c.strokeLine(topRight, topLeft);
+							c.strokeLine(topRight, bottomRight);
+							c.strokeLine(topRight, topRightBack);
+						} c.restore();
+					} c.restore();
 				},
 				[
 					{
-						text: "Are your hands full? Carry an extra shop item with you each game.",
+						text: "Are your hands full? Use this cardboard box to carry an extra item with you each game.",
 						price: 15
 					}
 				]
@@ -5497,7 +5534,7 @@ randomSurvivalGame = {
 		}
 		.method("display", function() {
 			c.globalAlpha = this.op;
-			c.strokeStyle = "rgb(255, 255, 0)";
+			c.strokeStyle = randomSurvivalGame.shop.doubleJumper.color;
 			c.lineWidth = 5;
 			c.save(); {
 				c.translate(this.x, this.y);
@@ -5687,36 +5724,35 @@ randomSurvivalGame = {
 					"I Survived",
 					"Survive all of the events.",
 					function(self, isGrayscale) {
-						/* rays of light */
-						for(var r = 0; r < 360; r += 360 / 6) {
-							c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY : "rgb(255, 128, 0)");
-							c.save(); {
-								c.translate(self.x, self.y);
-								c.rotate(Math.toRadians(r));
-								c.fillArc(0, 0, 47, Math.toRadians(-11), Math.toRadians(11));
-							} c.restore();
-						}
-						/* stickman */
-						c.beginPath();
-						c.strokeStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
-						c.strokeLine(
-							self.x - 20, self.y + 25,
-							self.x - 20, self.y + 10,
-							self.x + 20, self.y + 10,
-							self.x + 20, self.y + 25
-						);
-						c.strokeLine(
-							self.x, self.y + 10,
-							self.x, self.y - 10
-						);
-						c.strokeLine(
-							self.x - 20, self.y - 30,
-							self.x - 20, self.y - 10,
-							self.x + 20, self.y - 10,
-							self.x + 20, self.y - 30
-						);
-						c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
-						c.fillCircle(self.x, self.y - 17, 10);
+						c.save(); {
+							c.translate(self.x, self.y);
+							c.scale(0.75, 0.75);
+							/* skull */
+							c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(255, 255, 255)");
+							c.fillCircle(0, 0, 30);
+							/* skull chin */
+							c.fillRect(0 - 15, 0 + 20, 30, 20);
+							/* eyes - whitespace */
+							c.fillStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
+							c.fillCircle(0 - 13, 0 - 10, 7);
+							c.fillCircle(0 + 13, 0 - 10, 7);
+							/* mouth */
+							c.fillRect(0 - 2, 0 + 20, 4, 20);
+							c.fillRect(0 - 10, 0 + 20, 4, 20);
+							c.fillRect(0 + 6, 0 + 20, 4, 20);
+							/* x icon over skull */
+							if(isGrayscale) {
+								c.strokeStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
+								c.lineWidth = 7;
+								c.strokeLine(-40, -40, 40, 40);
+								c.strokeLine(40, -40, -40, 40);
+							}
+
+							c.strokeStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(255, 0, 0)");
+							c.lineWidth = 3;
+							c.strokeLine(-40, -40, 40, 40);
+							c.strokeLine(40, -40, -40, 40);
+						} c.restore();
 					},
 					function() {
 						return (randomSurvivalGame.game.player.eventsSurvived.length / randomSurvivalGame.events.ORIGINAL_EVENTS.length);
@@ -5796,24 +5832,24 @@ randomSurvivalGame = {
 						c.fillStyle = randomSurvivalGame.ui.COLORS.BACKGROUND_LIGHT_GRAY;
 						c.save(); {
 							c.translate(self.x  - 1, self.y - 15);
-							c.scale(1, 0.75);
+							c.scale(1, 0.5);
 							c.fillCircle(0, 0, 5);
 						} c.restore();
 						/* die 2 - whitespace */
 						c.save(); {
-							c.translate(self.x + 12, self.y - 3);
-							c.scale(0.75, 1);
+							c.translate(self.x + 12, self.y + 7);
+							c.scale(0.5, 1);
 							c.fillCircle(0, 0, 5);
 						} c.restore();
 						c.save(); {
-							c.translate(self.x + 21, self.y + 3);
-							c.scale(0.75, 1);
+							c.translate(self.x + 21, self.y - 7);
+							c.scale(0.5, 1);
 							c.fillCircle(0, 0, 5);
 						} c.restore();
 						/* die 3 - whitespace */
-						c.fillCircle(self.x - 21, self.y + 4, 5);
-						c.fillCircle(self.x - 1, self.y + 18, 5);
-						c.fillCircle(self.x - 10, self.y + 11, 5);
+						c.fillCircle(self.x - 19, self.y + 4, 4);
+						c.fillCircle(self.x - 1, self.y + 18, 4);
+						c.fillCircle(self.x - 9, self.y + 11, 4);
 					},
 					function() {
 						var p = randomSurvivalGame.game.player;
@@ -5939,9 +5975,9 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["spinningBlades"],
+		INCLUDED_EVENTS: ["rocket"],
 		PERMANENT_EFFECT: null,
-		PLAYER_INVINCIBLE: true,
+		PLAYER_INVINCIBLE: false,
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
