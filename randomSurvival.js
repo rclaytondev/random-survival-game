@@ -43,11 +43,6 @@ CanvasRenderingContext2D.prototype.clipArc = function(x, y, radius, startAngle, 
 	this.lineTo(x, y);
 	this.clip();
 };
-CanvasRenderingContext2D.prototype.clipRect = function(x, y, w, h) {
-	this.beginPath();
-	this.rect(x, y, w, h);
-	this.clip();
-};
 CanvasRenderingContext2D.prototype.circle = function(x, y, r) {
 	this.arc(x, y, r, 0, Math.toRadians(360));
 };
@@ -200,9 +195,6 @@ CanvasRenderingContext2D.prototype.fillCanvas = function(color) {
 };
 CanvasRenderingContext2D.prototype.resetTransform = function() {
 	this.setTransform(1, 0, 0, 1, 0, 0);
-};
-CanvasRenderingContext2D.prototype.skew = function(skewX, skewY) {
-	this.transform(1, skewY, skewX, 1, 0, 0);
 };
 Object.prototype.clone = function() {
 	var clone = new this.constructor();
@@ -571,8 +563,17 @@ var randomSurvivalGame = {
 				return false;
 			},
 			initializeEverything: function() {
-				for(var i = 0; i < this.initFuncs.length; i ++) {
-					this.initFuncs[i]();
+				while(this.initFuncs.length > 0) {
+					for(var i = 0; i < this.initFuncs.length; i ++) {
+						try {
+							this.initFuncs[i]();
+							this.initFuncs.splice(i, 1);
+							i --;
+						}
+						catch(error) {
+							/* This function was initalized in the wrong order, so skip it and come back later when more things have been initialized */
+						}
+					}
 				}
 			}
 		}
@@ -1320,6 +1321,11 @@ randomSurvivalGame = {
 			this.shopButton.exist();
 			this.achievementsButton.exist();
 			this.playButton.exist();
+			if(randomSurvivalGame.input.keys[32]) {
+				/* simulate pressing the play button when 'space' is pressed */
+				randomSurvivalGame.ui.transitions.transitionToScreen("play");
+				randomSurvivalGame.game.player.reset();
+			}
 		},
 		deathScreen: function() {
 			var p = randomSurvivalGame.game.player;
@@ -1339,6 +1345,7 @@ randomSurvivalGame = {
 				c.fillText(this.DEATH_MESSAGES[p.deathCause], 200, 300);
 			}
 			p.highScore = Math.max(p.score, p.highScore);
+			localStorage.setItem("randomSurvivalGame.game.player.highScore", p.highScore);
 			c.fillText("You got a score of " + p.score + " points", 200, 350);
 			c.fillText("Your highscore is " + p.highScore + " points", 200, 400);
 			c.fillText("You collected " + p.coins + " coins", 200, 450);
@@ -1346,6 +1353,11 @@ randomSurvivalGame = {
 			/* buttons */
 			this.homeFromDeath.exist();
 			this.retryButton.exist();
+			if(randomSurvivalGame.input.keys[32]) {
+				/* simulate pressing the retry button when 'space' is pressed */
+				randomSurvivalGame.ui.transitions.transitionToScreen("play");
+				randomSurvivalGame.game.player.reset();
+			}
 		},
 		shopScreen: function() {
 			/* title */
@@ -1427,6 +1439,8 @@ randomSurvivalGame = {
 		}
 	},
 	game: {
+		loadedScoresFromLocalStorage: randomSurvivalGame.utils.initializer.request(function() {
+		}),
 		display: function() {
 			var Platform = randomSurvivalGame.game.Platform;
 			var Player = randomSurvivalGame.game.Player;
@@ -5181,7 +5195,7 @@ randomSurvivalGame = {
 			);
 			shop.speedIncreaser = new ShopItem(
 				800 / 4 * 2, 800 / 3,
-				"Boots of Speediness",
+				"Boots of Speed",
 				function(isGrayscale) {
 					c.save(); {
 						c.translate(0, -5);
@@ -5261,7 +5275,7 @@ randomSurvivalGame = {
 			);
 			shop.doubleJumper = new ShopItem(
 				800 / 4 * 3, 800 / 3,
-				"Potion of Jumpiness",
+				"Potion of Jumping",
 				function(isGrayscale) {
 					c.save(); {
 						c.translate(0, 8);
@@ -5283,28 +5297,6 @@ randomSurvivalGame = {
 						c.fillCircle(0, -35, 10);
 						c.strokeCircle(0, -35, 10);
 					} c.restore();
-						return;
-						/* potion */
-						c.fillStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : this.color);
-						c.fillPoly(
-							0 - 5 - 4, 0 + 4,
-							0 + 5 + 4, 0 + 4,
-							0 + 25, 0 + 20,
-							0 - 25, 0 + 20
-						);
-						/* beaker body */
-						c.strokeStyle = (isGrayscale ? randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY : "rgb(0, 0, 0)");
-						c.strokeLine(
-							0 - 5, 0 - 20,
-							0 - 5, 0,
-							0 - 5 - 20, 0 + 20,
-							0 + 25, 0 + 20,
-							0 + 5, 0,
-							0 + 5, 0 - 20
-						);
-						/* beaker opening */
-						c.strokeCircle(0, 0 - 27, 10);
-					// } c.restore();
 				},
 				[
 					{
@@ -5867,19 +5859,19 @@ randomSurvivalGame = {
 						} c.restore();
 						/* die 2 - whitespace */
 						c.save(); {
-							c.translate(self.x + 12, self.y - 3);
+							c.translate(self.x + 12, self.y + 7);
 							c.scale(0.5, 1);
 							c.fillCircle(0, 0, 5);
 						} c.restore();
 						c.save(); {
-							c.translate(self.x + 21, self.y + 3);
+							c.translate(self.x + 21, self.y - 7);
 							c.scale(0.5, 1);
 							c.fillCircle(0, 0, 5);
 						} c.restore();
 						/* die 3 - whitespace */
-						c.fillCircle(self.x - 21, self.y + 4, 4);
+						c.fillCircle(self.x - 19, self.y + 4, 4);
 						c.fillCircle(self.x - 1, self.y + 18, 4);
-						c.fillCircle(self.x - 10, self.y + 11, 4);
+						c.fillCircle(self.x - 9, self.y + 11, 4);
 					},
 					function() {
 						var p = randomSurvivalGame.game.player;
@@ -6005,9 +5997,9 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["spinningBlades"],
-		PERMANENT_EFFECT: "confusion",
-		PLAYER_INVINCIBLE: true,
+		INCLUDED_EVENTS: ["rocket"],
+		PERMANENT_EFFECT: null,
+		PLAYER_INVINCIBLE: false,
 
 		hitboxes: [],
 		displayHitboxes: function(hitbox) {
@@ -6159,6 +6151,47 @@ randomSurvivalGame = {
 					c.fillCircle(arguments[0].x, arguments[0].y, size);
 				}
 			} c.restore();
+		}
+	},
+
+	persistentData: {
+		saveAllData: function() {
+
+		},
+		loadAllData: function() {
+			this.loadHighScores();
+		},
+		loadedAllData: randomSurvivalGame.utils.initializer.request(function() {
+			randomSurvivalGame.persistentData.loadAllData();
+			randomSurvivalGame.persistentData.loadedAllData = true;
+		}),
+
+		saveHighScores: function() {
+			localStorage.setItem("randomSurvivalGame.game.player.highScore", randomSurvivalGame.game.player.highScore);
+		},
+		saveCoins: function() {
+			localStorage.setItem("randomSurvivalGame.game.player.coins", randomSurvivalGame.game.player.highScore);
+		},
+		saveShopItems: function() {
+			var shop = {
+
+			};
+		},
+
+		loadHighScores: function() {
+			var highScore = localStorage.getItem("randomSurvivalGame.game.player.highScore");
+			if(highScore !== null) {
+				randomSurvivalGame.game.player.highScore = parseInt(highScore);
+			}
+		},
+		loadCoins: function() {
+			var coins = localStorage.getItem("randomSurvivalGame.game.player.coins");
+			if(coins !== null) {
+				randomSurvivalGame.game.player.totalCoins = parseInt(coins);
+			}
+		},
+		loadShopItems: function() {
+			var shop = localStorage.getItem("")
 		}
 	}
 };
