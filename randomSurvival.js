@@ -5997,7 +5997,7 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["rocket"],
+		INCLUDED_EVENTS: ["laser"],
 		PERMANENT_EFFECT: null,
 		PLAYER_INVINCIBLE: false,
 
@@ -6156,10 +6156,12 @@ randomSurvivalGame = {
 
 	persistentData: {
 		saveAllData: function() {
-
+			this.saveCoins();
+			this.saveHighScores();
 		},
 		loadAllData: function() {
 			this.loadHighScores();
+			this.loadCoins();
 		},
 		loadedAllData: randomSurvivalGame.utils.initializer.request(function() {
 			randomSurvivalGame.persistentData.loadAllData();
