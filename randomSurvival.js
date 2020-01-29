@@ -5016,6 +5016,8 @@ randomSurvivalGame = {
 										p.totalCoins -= self.calculatePrice();
 										self.bought = true;
 										self.numUpgrades ++;
+										randomSurvivalGame.persistentData.saveShopItems();
+										randomSurvivalGame.persistentData.saveCoins();
 									}
 								},
 								translation: buttonOffset
@@ -5069,6 +5071,8 @@ randomSurvivalGame = {
 									p.totalCoins -= self.calculatePrice();
 									self.numUpgrades ++;
 									self.showingPopup = false;
+									randomSurvivalGame.persistentData.saveShopItems();
+									randomSurvivalGame.persistentData.saveCoins();
 								}
 							}
 						}
@@ -6162,6 +6166,13 @@ randomSurvivalGame = {
 		loadAllData: function() {
 			this.loadHighScores();
 			this.loadCoins();
+			this.loadShopItems();
+			/* remove achievement notifications player has already achieved */
+			for(var i = 0; i < randomSurvivalGame.achievements.listOfAchievements.length; i ++) {
+				var achievement = randomSurvivalGame.achievements.listOfAchievements[i];
+				achievement.checkProgress();
+			}
+			randomSurvivalGame.game.chatMessages = [];
 		},
 		loadedAllData: randomSurvivalGame.utils.initializer.request(function() {
 			randomSurvivalGame.persistentData.loadAllData();
@@ -6172,11 +6183,23 @@ randomSurvivalGame = {
 			localStorage.setItem("randomSurvivalGame.game.player.highScore", randomSurvivalGame.game.player.highScore);
 		},
 		saveCoins: function() {
-			localStorage.setItem("randomSurvivalGame.game.player.coins", randomSurvivalGame.game.player.highScore);
+			console.log("saving coins");
+			localStorage.setItem("randomSurvivalGame.game.player.coins", randomSurvivalGame.game.player.totalCoins);
 		},
 		saveShopItems: function() {
 			var shop = {
-
+				coinDoubler: randomSurvivalGame.shop.coinDoubler.numUpgrades,
+				speedIncreaser: randomSurvivalGame.shop.speedIncreaser.numUpgrades,
+				doubleJumper: randomSurvivalGame.shop.doubleJumper.numUpgrades,
+				intangibilityTalisman: randomSurvivalGame.shop.intangibilityTalisman.numUpgrades,
+				secondLife: randomSurvivalGame.shop.secondLife.numUpgrades,
+				secondItem: randomSurvivalGame.shop.secondItem.numUpgrades,
+			};
+			localStorage.setItem("randomSurvivalGame.shop", JSON.stringify(shop));
+		},
+		saveAchievements: function() {
+			var achievement1 = {
+				
 			};
 		},
 
@@ -6193,7 +6216,13 @@ randomSurvivalGame = {
 			}
 		},
 		loadShopItems: function() {
-			var shop = localStorage.getItem("")
+			var shop = JSON.parse(localStorage.getItem("randomSurvivalGame.shop"));
+			for(var shopItem in shop) {
+				if(shop.hasOwnProperty(shopItem)) {
+					randomSurvivalGame.shop[shopItem].numUpgrades = shop[shopItem];
+					randomSurvivalGame.shop[shopItem].bought = (randomSurvivalGame.shop[shopItem].numUpgrades >= 1);
+				}
+			}
 		}
 	}
 };
