@@ -1699,7 +1699,7 @@ randomSurvivalGame = {
 				this.surviveEvent("confusion");
 			}
 			if(this.timeNauseated === 0) {
-				this.surviveEvent("nauesea");
+				this.surviveEvent("nausea");
 			}
 			if(this.timeBlinded === 0) {
 				this.surviveEvent("blindness");
@@ -2097,6 +2097,7 @@ randomSurvivalGame = {
 				}
 			}
 			this.eventsSurvived.push(event);
+			randomSurvivalGame.persistentData.saveAchievements();
 		})
 		.method("isIntangible", function() {
 			if(this !== randomSurvivalGame.game.player) {
@@ -2842,7 +2843,6 @@ randomSurvivalGame = {
 				/* delete self if off-screen */
 				if((this.velX < 0 && this.x < 50) || (this.velX > 0 && this.x > 750)) {
 					this.shatter();
-					randomSurvivalGame.game.player.surviveEvent("boulder");
 				}
 			})
 			.method("shatter", function() {
@@ -2911,7 +2911,7 @@ randomSurvivalGame = {
 					if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.boulder.RockParticle) === 0) {
 						/* This is the last rock particle, so end the event */
 						randomSurvivalGame.events.endEvent(-1);
-						randomSurvivalGame.game.player.surviveEvent("boulders");
+						randomSurvivalGame.game.player.surviveEvent("boulder");
 					}
 				}
 			}),
@@ -5738,6 +5738,7 @@ randomSurvivalGame = {
 			if(this.calculateProgress() >= 1 && !this.hasBeenAchieved) {
 				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Achievement Earned: " + this.name, "rgb(255, 255, 0)"));
 				this.hasBeenAchieved = true;
+				randomSurvivalGame.persistentData.saveAchievements();
 			}
 		}),
 
@@ -6167,6 +6168,7 @@ randomSurvivalGame = {
 			this.loadHighScores();
 			this.loadCoins();
 			this.loadShopItems();
+			this.loadAchievements();
 			/* remove achievement notifications player has already achieved */
 			for(var i = 0; i < randomSurvivalGame.achievements.listOfAchievements.length; i ++) {
 				var achievement = randomSurvivalGame.achievements.listOfAchievements[i];
@@ -6186,33 +6188,30 @@ randomSurvivalGame = {
 			localStorage.removeItem("randomSurvivalGame.achievements.achievement9");
 			localStorage.removeItem("randomSurvivalGame.game.player.coins");
 			localStorage.removeItem("randomSurvivalGame.game.player.highScore");
-			localStorage.removeItem("randomSurvivalGame.game.shop.coinDoubler");
-			localStorage.removeItem("randomSurvivalGame.game.shop.speedIncreaser");
-			localStorage.removeItem("randomSurvivalGame.game.shop.doubleJumper");
-			localStorage.removeItem("randomSurvivalGame.game.shop.intangibilityTalisman");
-			localStorage.removeItem("randomSurvivalGame.game.shop.secondLife");
-			localStorage.removeItem("randomSurvivalGame.game.shop.secondItem");
+			localStorage.removeItem("randomSurvivalGame.shop");
 		},
 
 		saveHighScores: function() {
 			localStorage.setItem("randomSurvivalGame.game.player.highScore", randomSurvivalGame.game.player.highScore);
 		},
 		saveCoins: function() {
-			console.log("saving coins");
 			localStorage.setItem("randomSurvivalGame.game.player.coins", randomSurvivalGame.game.player.totalCoins);
 		},
 		saveShopItems: function() {
 			var shop = {
-				coinDoubler: randomSurvivalGame.shop.coinDoubler.numUpgrades,
-				speedIncreaser: randomSurvivalGame.shop.speedIncreaser.numUpgrades,
-				doubleJumper: randomSurvivalGame.shop.doubleJumper.numUpgrades,
-				intangibilityTalisman: randomSurvivalGame.shop.intangibilityTalisman.numUpgrades,
-				secondLife: randomSurvivalGame.shop.secondLife.numUpgrades,
-				secondItem: randomSurvivalGame.shop.secondItem.numUpgrades,
+				coinDoubler: [ randomSurvivalGame.shop.coinDoubler.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
+				speedIncreaser: [ randomSurvivalGame.shop.speedIncreaser.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
+				doubleJumper: [ randomSurvivalGame.shop.doubleJumper.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
+				intangibilityTalisman: [ randomSurvivalGame.shop.intangibilityTalisman.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
+				secondLife: [ randomSurvivalGame.shop.secondLife.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
+				secondItem: [ randomSurvivalGame.shop.secondItem.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ]
 			};
 			localStorage.setItem("randomSurvivalGame.shop", JSON.stringify(shop));
 		},
 		saveAchievements: function() {
+			if(!randomSurvivalGame.persistentData.loadedAllData) {
+				return;
+			}
 			/* achievement 1 - list of events survived */
 			localStorage.setItem("randomSurvivalGame.achievements.achievement1", JSON.stringify(randomSurvivalGame.game.player.eventsSurvived));
 			/* achievement 4 - whether the user has completed it */
@@ -6248,7 +6247,6 @@ randomSurvivalGame = {
 		},
 		loadAchievements: function() {
 			/* achievement 1 - list of events survived */
-			localStorage.setItem("randomSurvivalGame.achievements.achievement1", JSON.stringify(randomSurvivalGame.game.player.eventsSurvived));
 			var achievement1 = JSON.parse(localStorage.getItem("randomSurvivalGame.achievements.achievement1"));
 			if(achievement1 !== null) {
 				randomSurvivalGame.game.player.eventsSurvived = achievement1;
@@ -6258,9 +6256,9 @@ randomSurvivalGame = {
 			/* achievement 7 - how many times the user has beaten their record */
 			randomSurvivalGame.game.player.numRecords = parseInt(localStorage.getItem("randomSurvivalGame.achievements.achievement7")) || 0;
 			/* achievement 8 - whether the user has completed it */
-			randomSurvivalGame.game.player.gonePlaces = localStorage.getItem("randomSurvivalGame.achievements.achievement8" === "true");
+			randomSurvivalGame.game.player.gonePlaces = (localStorage.getItem("randomSurvivalGame.achievements.achievement8") === "true");
 			/* achievement 9 - whether the user has completed it */
-			randomSurvivalGame.game.player.beenGhost = localStorage.getItem("randomSurvivalGame.achievements.achievement9" === "true");
+			randomSurvivalGame.game.player.beenGhost = (localStorage.getItem("randomSurvivalGame.achievements.achievement9") === "true");
 		}
 	}
 };
