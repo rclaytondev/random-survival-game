@@ -1463,6 +1463,7 @@ randomSurvivalGame = {
 			var Laser = randomSurvivalGame.events.laserBots.Laser;
 			var BadGuy = randomSurvivalGame.events.badGuys.BadGuy;
 			var Alien = randomSurvivalGame.events.aliens.Alien;
+			var SmokeParticle = randomSurvivalGame.events.aliens.SmokeParticle;
 			var MagnetParticle = randomSurvivalGame.shop.MagnetParticle;
 			var SpeedParticle = randomSurvivalGame.shop.SpeedParticle;
 			var DoubleJumpParticle = randomSurvivalGame.shop.DoubleJumpParticle;
@@ -1470,7 +1471,7 @@ randomSurvivalGame = {
 			var PlayerBodyPart = randomSurvivalGame.game.playerDeathAnimations.PlayerBodyPart;
 			var order = [
 				[AfterImage],
-				[Coin, MagnetParticle],
+				[Coin, MagnetParticle, SmokeParticle],
 				[Platform],
 				[FireParticle, Dot, Laser, Player],
 				[Crosshair, Boulder, RockParticle, SpinningBlade, Pirhana, Pacman, Rocket, Spikeball, LaserBot, BadGuy, Alien],
@@ -4626,6 +4627,8 @@ randomSurvivalGame = {
 				this.velY = 0;
 				this.rotation = 0;
 				this.tractorBeamOpacity = 0;
+				this.lives = 3;
+				this.timeInvincible = 0;
 
 				this.hitbox = { top: -40, bottom: 20, left: -40, right: 40 };
 				this.ACCELERATION = 0.05;
@@ -4691,6 +4694,17 @@ randomSurvivalGame = {
 						var bottom = point.y - 2;
 						c.fillRect(left, top, right - left, bottom - top);
 						c.fillArc(0, top, right, Math.toRadians(180), Math.toRadians(360));
+						/* cracks in windsheild to show health */
+						c.strokeStyle = "rgb(63, 241, 121)";
+						c.lineWidth = 2;
+						if(this.lives <= 2) {
+							c.strokeLine(right, top, right - 20, top - 10);
+							c.strokeLine(right - 10, top - 5, right - 20, top + 5);
+						}
+						if(this.lives <= 1) {
+							c.strokeLine(left, top, left + 15, top + 15);
+							c.strokeLine(left + 7, top + 7, left + 7, top - 5);
+						}
 					} c.restore();
 				} c.restore();
 			})
@@ -4708,18 +4722,6 @@ randomSurvivalGame = {
 					/* move towards player */
 					this.velX += (this.x > destX) ? -this.ACCELERATION : this.ACCELERATION;
 					this.velY += (this.y > destY) ? -this.ACCELERATION : this.ACCELERATION;
-				}
-				var aliens = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.events.aliens.Alien);
-				for(var i = 0; i < aliens.length; i ++) {
-					if(aliens[i] !== this) {
-						var distance = Math.dist(this.x, this.y, aliens[i].x, aliens[i].y);
-						/* move away from other UFOs, depending on how close they are (closer = faster) */
-						if(distance < 150) {
-							const SPEED = 0.1;
-							this.velX += (this.x < aliens[i].x) ? -SPEED : SPEED;
-							this.velY += (this.y < aliens[i].y) ? -SPEED : SPEED;
-						}
-					}
 				}
 				this.x += this.velX;
 				this.y += this.velY;
@@ -4761,24 +4763,45 @@ randomSurvivalGame = {
 					}
 				}
 				/* collide with other UFOs */
-				for(var i = 0; i < aliens.length; i ++) {
-					if(aliens[i] !== this && randomSurvivalGame.utils.collidesWith(this, aliens[i])) {
-						this.splicing = true;
-						aliens[i].splicing = true;
-						if(p.beingAbductedBy === this || p.beingAbductedBy === aliens[i]) {
-							p.beingAbductedBy = null;
+				if(this.timeInvincible < 0) {
+					var aliens = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.events.aliens.Alien);
+					for(var i = 0; i < aliens.length; i ++) {
+						if(aliens[i] !== this && randomSurvivalGame.utils.collidesWith(this, aliens[i])) {
+							console.log("oof!");
+							this.lives --;
+							aliens[i].lives --;
+							var velocity = Math.normalize(
+								aliens[i].x - this.x,
+								aliens[i].y - this.y
+							);
+							velocity.x *= 10;
+							velocity.y *= 10;
+							this.velX = -velocity.x;
+							this.velY = -velocity.y;
+							aliens[i].velX = velocity.x;
+							aliens[i].velY = velocity.y;
+							this.timeInvincible = randomSurvivalGame.FPS / 10;
+							aliens[i].timeInvincible = randomSurvivalGame.FPS / 10;
+							if(this.lives <= 0 && aliens[i].lives <= 0) {
+								this.splicing = true;
+								aliens[i].splicing = true;
+								if(p.beingAbductedBy === this || p.beingAbductedBy === aliens[i]) {
+									p.beingAbductedBy = null;
+								}
+								if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.aliens.Alien) === 0) {
+									randomSurvivalGame.game.player.surviveEvent("aliens");
+									randomSurvivalGame.events.endEvent(randomSurvivalGame.FPS * 2);
+								}
+								/* create explosion */
+								var laser = new randomSurvivalGame.events.laser.Crosshair();
+								laser.x = Math.average(this.x, aliens[i].x);
+								laser.y = Math.average(this.y, aliens[i].y);
+								laser.explode(true);
+							}
 						}
-						if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.aliens.Alien) === 0) {
-							randomSurvivalGame.game.player.surviveEvent("aliens");
-							randomSurvivalGame.events.endEvent(randomSurvivalGame.FPS * 2);
-						}
-						/* create explosion */
-						var laser = new randomSurvivalGame.events.laser.Crosshair();
-						laser.x = Math.average(this.x, aliens[i].x);
-						laser.y = Math.average(this.y, aliens[i].y);
-						laser.explode(true);
 					}
 				}
+				this.timeInvincible --;
 				/* screen edge collisions */
 				if(this.x + this.hitbox.right > canvas.width) {
 					this.velX = -Math.abs(this.velX);
@@ -4786,6 +4809,7 @@ randomSurvivalGame = {
 				else if(this.x + this.hitbox.left < 0) {
 					this.velX = Math.abs(this.velX);
 				}
+				this.y = Math.constrain(this.y, -200, canvas.height + 100);
 				/* move toward center of screen to avoid top platforms while abducting player */
 				if(p.beingAbductedBy === this) {
 					if(this.x > canvas.width - 160) {
@@ -4793,6 +4817,23 @@ randomSurvivalGame = {
 					}
 					else if(this.x < 160) {
 						this.velX += 0.2;
+					}
+				}
+				/* smoke particles when damage has been taken */
+				if(this.lives < 3) {
+					function addSmokeParticle(self) {
+						randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.aliens.SmokeParticle(
+							Math.randomInRange(self.x - 20, self.x + 20),
+							Math.randomInRange(self.y - 20, self.y + 20),
+							Math.constrain(-self.velX + Math.randomInRange(-1, 1), -2, 2),
+							Math.constrain(-self.velY + Math.randomInRange(-1, 1), -2, 2)
+						));
+					};
+					if(randomSurvivalGame.utils.frameCount % 3 === 0) {
+						addSmokeParticle(this);
+					}
+					if(randomSurvivalGame.utils.frameCount % 3 === 0 && this.lives <= 1) {
+						addSmokeParticle(this);
 					}
 				}
 			})
@@ -4808,6 +4849,31 @@ randomSurvivalGame = {
 				}
 				else if(direction === "wall-to-left") {
 					this.velX = Math.abs(this.velX);
+				}
+			}),
+
+			SmokeParticle: function(x, y, velX, velY) {
+				this.x = x;
+				this.y = y;
+				this.velX = velX;
+				this.velY = velX;
+				this.opacity = 1;
+				this.size = Math.randomInRange(7, 10);
+			}
+			.method("display", function() {
+				c.save(); {
+					c.fillStyle = "rgb(0, 0, 0)";
+					c.globalAlpha = this.opacity;
+					c.fillCircle(this.x, this.y, this.size);
+				} c.restore();
+			})
+			.method("update", function() {
+				this.x += this.velX;
+				this.y += this.velY;
+				this.opacity -= 1 / 200;
+				this.size -= 1 / 20;
+				if(this.opacity <= 0 || this.size <= 0) {
+					this.splicing = true;
 				}
 			}),
 
@@ -6005,7 +6071,7 @@ randomSurvivalGame = {
 	debugging: {
 		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["rocket"],
+		INCLUDED_EVENTS: ["aliens"],
 		PERMANENT_EFFECT: null,
 		PLAYER_INVINCIBLE: false,
 
