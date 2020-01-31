@@ -1687,7 +1687,7 @@ randomSurvivalGame = {
 				this.surviveEvent("confusion");
 			}
 			if(this.timeNauseated === 0) {
-				this.surviveEvent("nauesea");
+				this.surviveEvent("nausea");
 			}
 			if(this.timeBlinded === 0) {
 				this.surviveEvent("blindness");
@@ -2830,7 +2830,6 @@ randomSurvivalGame = {
 				/* delete self if off-screen */
 				if((this.velX < 0 && this.x < 50) || (this.velX > 0 && this.x > 750)) {
 					this.shatter();
-					randomSurvivalGame.game.player.surviveEvent("boulder");
 				}
 			})
 			.method("shatter", function() {
@@ -2899,7 +2898,7 @@ randomSurvivalGame = {
 					if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.boulder.RockParticle) === 0) {
 						/* This is the last rock particle, so end the event */
 						randomSurvivalGame.events.endEvent(-1);
-						randomSurvivalGame.game.player.surviveEvent("boulders");
+						randomSurvivalGame.game.player.surviveEvent("boulder");
 					}
 				}
 			}),
