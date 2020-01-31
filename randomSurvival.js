@@ -1312,6 +1312,11 @@ randomSurvivalGame = {
 			this.shopButton.exist();
 			this.achievementsButton.exist();
 			this.playButton.exist();
+			if(randomSurvivalGame.input.keys[32]) {
+				/* simulate pressing the play button when 'space' is pressed */
+				randomSurvivalGame.ui.transitions.transitionToScreen("play");
+				randomSurvivalGame.game.player.reset();
+			}
 		},
 		deathScreen: function() {
 			var p = randomSurvivalGame.game.player;
@@ -1338,6 +1343,11 @@ randomSurvivalGame = {
 			/* buttons */
 			this.homeFromDeath.exist();
 			this.retryButton.exist();
+			if(randomSurvivalGame.input.keys[32]) {
+				/* simulate pressing the retry button when 'space' is pressed */
+				randomSurvivalGame.ui.transitions.transitionToScreen("play");
+				randomSurvivalGame.game.player.reset();
+			}
 		},
 		shopScreen: function() {
 			/* title */
