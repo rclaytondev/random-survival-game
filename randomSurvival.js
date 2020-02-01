@@ -2299,8 +2299,8 @@ randomSurvivalGame = {
 			this.y = y;
 			this.w = w;
 			this.h = h;
-			this.origX = x;
-			this.origY = y;
+			this.ORIGINAL_X = x;
+			this.ORIGINAL_Y = y;
 			this.velX = 0;
 			this.velY = 0;
 			this.destinations = [];
@@ -2331,8 +2331,8 @@ randomSurvivalGame = {
 						this.calculateVelocity();
 					}
 					else {
-						this.x = this.origX;
-						this.y = this.origY;
+						this.x = this.ORIGINAL_X;
+						this.y = this.ORIGINAL_Y;
 						this.velX = 0;
 						this.velY = 0;
 					}
@@ -2408,8 +2408,8 @@ randomSurvivalGame = {
 			return (this.velX !== 0 || this.velY !== 0 || this.destinations.length !== 0);
 		})
 		.method("resetPosition", function() {
-			this.x = this.origX;
-			this.y = this.origY;
+			this.x = this.ORIGINAL_X;
+			this.y = this.ORIGINAL_Y;
 			this.velX = 0;
 			this.velY = 0;
 			this.destinations = [];
@@ -2516,14 +2516,32 @@ randomSurvivalGame = {
 				}
 			}
 		}),
-		ChatMessage: function(msg, col) {
+		ChatMessage: function(msg, type) {
 			this.msg = msg;
-			this.col = col;
+			this.type = type;
+			if(type === "event") {
+				this.color = "rgb(255, 128, 0)"
+			}
+			else if(type === "effect") {
+				this.color = "rgb(0, 255, 0)";
+			}
+			else if(type === "enemy") {
+				this.color = "rgb(255, 0, 0)";
+			}
+			else if(type === "highscore") {
+				this.color = "rgb(0, 0, 255)";
+			}
+			else if(type === "achievement") {
+				this.color = "rgb(255, 255, 0)";
+			}
+			else {
+				throw new Error("Unknown ChatMessage type of \"" + type + "\"");
+			}
 			this.time = 120;
 		}
 		.method("display", function(y) {
 			c.loadTextStyle({
-				color: this.col,
+				color: this.color,
 				textAlign: "right",
 				font: "20px monospace"
 			});
@@ -2540,7 +2558,7 @@ randomSurvivalGame = {
 					i --;
 					continue;
 				}
-				if(randomSurvivalGame.game.screen !== "play" && !(message.col === "rgb(255, 255, 0)")) {
+				if(randomSurvivalGame.game.screen !== "play" && message.type !== "achievement") {
 					messages.splice(i, 1);
 					i --;
 					continue;
@@ -2568,7 +2586,7 @@ randomSurvivalGame = {
 			p.previousEvent = eventName;
 			p.score ++;
 			if(p.score === p.highScore + 1) {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("New Record!", "rgb(0, 0, 255)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("New Record!", "highscore"));
 				p.numRecords ++;
 				randomSurvivalGame.persistentData.saveAchievements();
 			}
@@ -2681,7 +2699,7 @@ randomSurvivalGame = {
 
 			begin: function() {
 				randomSurvivalGame.game.objects.push(new this.Crosshair());
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Laser incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Laser incoming!", "event"));
 			}
 		},
 		acid: {
@@ -2794,7 +2812,7 @@ randomSurvivalGame = {
 				var acid = new randomSurvivalGame.events.acid.Acid();
 				acid.beginRising();
 				objects.push(acid);
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("The tides are rising...", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("The tides are rising...", "event"));
 			},
 
 			isAcidVisible: function() {
@@ -2921,7 +2939,7 @@ randomSurvivalGame = {
 
 			begin: function() {
 				var chooser = Math.random();
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Boulder incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Boulder incoming!", "event"));
 				var Boulder = randomSurvivalGame.events.boulder.Boulder;
 				if(chooser < 0.5) {
 					randomSurvivalGame.game.objects.push(new Boulder(850, 100, -3));
@@ -3016,7 +3034,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spinning blades are appearing", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spinning blades are appearing", "event"));
 				var platforms = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.game.Platform);
 				for(var i = 0; i < platforms.length; i ++) {
 					randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.spinningBlades.SpinningBlade(platforms[i].x + 80, platforms[i].y + 10));
@@ -3089,7 +3107,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Jumping pirhanas incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Jumping pirhanas incoming!", "event"));
 				/* fancy algorithm to make sure none of the pirhanas are touching */
 				var pirhanasSeparated = false;
 				var numPirhanas = Math.map(
@@ -3269,7 +3287,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Pacmans incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Pacmans incoming!", "event"));
 				var Pacman = randomSurvivalGame.events.pacmans.Pacman;
 				var speed = Math.map(
 					randomSurvivalGame.game.difficulty(),
@@ -3434,7 +3452,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Rocket incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Rocket incoming!", "event"));
 
 				var Rocket = randomSurvivalGame.events.rocket.Rocket;
 				var p = randomSurvivalGame.game.player;
@@ -3549,7 +3567,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spikeballs incoming!", "event"));
 				const NUM_SPIKEBALLS = 3;
 				var numSpikeballs = Math.map(
 					randomSurvivalGame.game.difficulty(),
@@ -3609,7 +3627,7 @@ randomSurvivalGame = {
 		},
 		blockShuffle: {
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("The blocks are shuffling", "event"));
 				this.blocksMoved = 0;
 				this.nextSequence();
 			},
@@ -3878,11 +3896,11 @@ randomSurvivalGame = {
 				const SPIKEWALL_DISTANCE = 1500;
 				if(Math.random() < 0.5) {
 					randomSurvivalGame.game.objects.push(new SpikeWall(-SPIKEWALL_DISTANCE));
-					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "rgb(255, 128, 0)"));
+					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "event"));
 				}
 				else {
 					randomSurvivalGame.game.objects.push(new SpikeWall(canvas.width + SPIKEWALL_DISTANCE));
-					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "rgb(255, 128, 0)"));
+					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "event"));
 				}
 			}
 		},
@@ -3983,7 +4001,7 @@ randomSurvivalGame = {
 			},
 			begin: function() {
 				randomSurvivalGame.game.player.timeConfused = randomSurvivalGame.events.effects.duration();
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been confused", "rgb(0, 255, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been confused", "effect"));
 				randomSurvivalGame.events.effects.remove();
 				randomSurvivalGame.events.endEvent();
 			}
@@ -4032,7 +4050,7 @@ randomSurvivalGame = {
 			},
 			begin: function() {
 				randomSurvivalGame.game.player.timeBlinded = randomSurvivalGame.events.effects.duration();
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been blinded", "effect"));
 				randomSurvivalGame.events.effects.remove();
 				randomSurvivalGame.events.endEvent();
 			}
@@ -4080,7 +4098,7 @@ randomSurvivalGame = {
 			},
 			begin: function() {
 				randomSurvivalGame.game.player.timeNauseated = randomSurvivalGame.events.effects.duration();
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been nauseated", "effect"));
 				randomSurvivalGame.events.effects.remove();
 				randomSurvivalGame.events.endEvent();
 			}
@@ -4477,7 +4495,7 @@ randomSurvivalGame = {
 			},
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("LaserBots are invading!", "enemy"));
 				var numEnemies = 2;
 				if(randomSurvivalGame.game.difficulty() > Math.map(1/2, 0, 1, randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY)) {
 					numEnemies = 3;
@@ -4607,7 +4625,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Bad Guys are invading!", "enemy"));
 				var numEnemies = 2;
 				if(randomSurvivalGame.game.difficulty() > Math.map(1/2, 0, 1, randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY)) {
 					numEnemies = 3;
@@ -4878,7 +4896,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("UFOs are invading!", "rgb(255, 0, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("UFOs are invading!", "enemy"));
 				var numEnemies = 2;
 				if(numEnemies === 2) {
 					var xPosition = (Math.random() < 0.5) ? (0 - 50) : (canvas.width + 50);
@@ -4898,8 +4916,8 @@ randomSurvivalGame = {
 		ShopItem: function(x, y, name, display, upgrades, color) {
 			this.x = x;
 			this.y = y;
-			this.origX = x;
-			this.origY = y;
+			this.ORIGINAL_X = x;
+			this.ORIGINAL_Y = y;
 			this.name = name;
 			this.display = display; // a function called to display graphics
 			this.upgrades = upgrades;
@@ -4907,15 +4925,15 @@ randomSurvivalGame = {
 			this.bought = false;
 			this.equipped = false;
 			this.description = upgrades[0].text;
-			this.infoOp = 0;
+			this.infoOpacity = 0;
 			this.numUpgrades = 0;
 			this.showingPopup = false;
 			this.glowOpacity = 0;
 		}
 		.method("displayLogo", function(size) {
 			if(size === 1) {
-				this.x = this.origX;
-				this.y = this.origY;
+				this.x = this.ORIGINAL_X;
+				this.y = this.ORIGINAL_Y;
 			}
 			c.save(); {
 				c.translate(this.x, this.y);
@@ -4959,7 +4977,7 @@ randomSurvivalGame = {
 			if(randomSurvivalGame.utils.mouseInCircle(this.x, this.y, 75)) {
 				mouseOver = true;
 			}
-			if(this.infoOp > 0) {
+			if(this.infoOpacity > 0) {
 				if(this.x >= 500 && randomSurvivalGame.utils.mouseInRect(this.x - 85 - 250, this.y - 100, 250, 200)) {
 					mouseOver = true;
 				}
@@ -4976,20 +4994,20 @@ randomSurvivalGame = {
 			/* prevent conflicts between overlapping shop items when mousing over */
 			var shop = randomSurvivalGame.shop;
 			for(var i = 0; i < shop.items.length; i ++) {
-				if(shop.items[i].infoOp > 0 && shop.items[i] !== this) {
+				if(shop.items[i].infoOpacity > 0 && shop.items[i] !== this) {
 					mouseOver = false;
 				}
 			}
 			if(mouseOver) {
-				this.infoOp += 0.1;
+				this.infoOpacity += 0.1;
 			}
 			else {
-				this.infoOp -= 0.1;
+				this.infoOpacity -= 0.1;
 			}
-			this.infoOp = Math.constrain(this.infoOp, 0, 1);
+			this.infoOpacity = Math.constrain(this.infoOpacity, 0, 1);
 		})
 		.method("displayInfo", function(direction) {
-			if(this.infoOp <= 0) {
+			if(this.infoOpacity <= 0) {
 				return;
 			}
 			if(direction !== "right" && direction !== "left") {
@@ -5000,7 +5018,7 @@ randomSurvivalGame = {
 			const BOX_HEIGHT = 200;
 			const MARGIN_WIDTH = 10;
 			c.save(); {
-				c.globalAlpha = Math.max(this.infoOp, 0);
+				c.globalAlpha = Math.max(this.infoOpacity, 0);
 				c.fillStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				/* display triangle + box */
 				c.save(); {
@@ -5100,7 +5118,7 @@ randomSurvivalGame = {
 			if(this.showingPopup) {
 				var shop = randomSurvivalGame.shop;
 				for(var i = 0; i < shop.items.length; i ++) {
-					shop.items[i].infoOp = -0.5;
+					shop.items[i].infoOpacity = -0.5;
 				}
 				c.fillStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.fillRect(250, 250, 300, 300);
@@ -5710,7 +5728,7 @@ randomSurvivalGame = {
 				progress = Math.roundToAccuracy(progress, 2);
 				return progress + "%";
 			};
-			this.infoOp = 0;
+			this.infoOpacity = 0;
 			this.hasBeenAchieved = false;
 		}
 		.method("displayLogo", function() {
@@ -5723,19 +5741,19 @@ randomSurvivalGame = {
 			this.display(this, (!this.hasBeenAchieved));
 			/* fading in */
 			if(randomSurvivalGame.utils.mouseInCircle(this.x, this.y, 50)) {
-				this.infoOp += 0.1;
+				this.infoOpacity += 0.1;
 			}
 			else {
-				this.infoOp -= 0.1;
+				this.infoOpacity -= 0.1;
 			}
-			this.infoOp = Math.constrain(this.infoOp, 0, 1);
+			this.infoOpacity = Math.constrain(this.infoOpacity, 0, 1);
 		})
 		.method("displayInfo", function(direction) {
 			const BOX_WIDTH = 250;
 			const BOX_HEIGHT = 200;
 			const MARGIN_WIDTH = 10;
 			if(direction === "left") {
-				c.globalAlpha = this.infoOp;
+				c.globalAlpha = this.infoOpacity;
 				c.fillStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.fillPoly(
 					this.x - 50, this.y,
@@ -5749,7 +5767,7 @@ randomSurvivalGame = {
 				} c.restore();
 			}
 			else if(direction === "right") {
-				c.globalAlpha = this.infoOp;
+				c.globalAlpha = this.infoOpacity;
 				c.fillStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.fillPoly(
 					this.x + 50, this.y,
@@ -5805,7 +5823,7 @@ randomSurvivalGame = {
 		})
 		.method("checkProgress", function() {
 			if(this.calculateProgress() >= 1 && !this.hasBeenAchieved) {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Achievement Earned: " + this.name, "rgb(255, 255, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Achievement Earned: " + this.name, "achievement"));
 				this.hasBeenAchieved = true;
 				randomSurvivalGame.persistentData.saveAchievements();
 			}
