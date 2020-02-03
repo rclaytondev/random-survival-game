@@ -44,7 +44,7 @@ CanvasRenderingContext2D.prototype.clipArc = function(x, y, radius, startAngle, 
 	this.clip();
 };
 CanvasRenderingContext2D.prototype.circle = function(x, y, r) {
-	this.arc(x, y, r, 0, Math.toRadians(360));
+	this.arc(x, y, r, Math.toRadians(0), Math.toRadians(360));
 };
 CanvasRenderingContext2D.prototype.fillCircle = function(x, y, r) {
 	this.beginPath();
@@ -128,11 +128,12 @@ CanvasRenderingContext2D.prototype.invertPath = function() {
 
 	The evenodd fillrule MUST be used in order for this function to work as intended.
 	*/
-	this.moveTo(-8000, -8000);
-	this.lineTo(8000, 0);
-	this.lineTo(8000, 8000);
-	this.lineTo(-8000, 8000);
-	this.lineTo(-8000, -8000);
+	const DISTANCE_OFFSCREEN = 8000;
+	this.moveTo(-DISTANCE_OFFSCREEN, -DISTANCE_OFFSCREEN);
+	this.lineTo(DISTANCE_OFFSCREEN, 0);
+	this.lineTo(DISTANCE_OFFSCREEN, DISTANCE_OFFSCREEN);
+	this.lineTo(-DISTANCE_OFFSCREEN, DISTANCE_OFFSCREEN);
+	this.lineTo(-DISTANCE_OFFSCREEN, -DISTANCE_OFFSCREEN);
 };
 CanvasRenderingContext2D.prototype.loadTextStyle = function(textStyle) {
 	if(typeof textStyle.fillStyle === "string") {
@@ -363,7 +364,7 @@ Math.toDegrees = function(rad) {
 	return rad / Math.PI * 180;
 };
 Math.rotateDegrees = function(x, y, deg) {
-	var rad = (deg / 180.0) * Math.PI;
+	var rad = Math.toRadians(deg);
 	return Math.rotate(x, y, rad);
 };
 Math.rotate = function(x, y, rad) {
@@ -740,14 +741,15 @@ randomSurvivalGame = {
 						obj !== settings.caller &&
 						!obj.noCollisions
 					) {
+						const MINIMUM_COLLISION_BUFFER = 2;
 						var collisionBuffer = { top: 5, bottom: 5, left: 5, right: 5 };
 						if(obj.hasOwnProperty("velY")) {
-							collisionBuffer.top = obj.velY - settings.velY + 2;
-							collisionBuffer.bottom = settings.velY - obj.velY + 2;
+							collisionBuffer.top = obj.velY - settings.velY + MINIMUM_COLLISION_BUFFER;
+							collisionBuffer.bottom = settings.velY - obj.velY + MINIMUM_COLLISION_BUFFER;
 						}
 						if(obj.hasOwnProperty("velX")) {
-							collisionBuffer.left = obj.velX - settings.velX + 2;
-							collisionBuffer.right = settings.velX - obj.velX + 2;
+							collisionBuffer.left = obj.velX - settings.velX + MINIMUM_COLLISION_BUFFER;
+							collisionBuffer.right = settings.velX - obj.velX + MINIMUM_COLLISION_BUFFER;
 						}
 						for(var j in collisionBuffer) {
 							if(collisionBuffer.hasOwnProperty(j)) {
@@ -1011,6 +1013,7 @@ randomSurvivalGame = {
 			c.globalAlpha = 1;
 			c.lineWidth = 5;
 			if(this.icon === "play") {
+				const BUTTON_SIZE = 75;
 				this.resetAnimation = function() {
 					this.iconScale = 1;
 				};
@@ -1018,8 +1021,8 @@ randomSurvivalGame = {
 				/* button outline */
 				c.strokeStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.lineWidth = 5;
-				c.strokeCircle(this.x, this.y, 75);
-				/* small triangle (mouse is not over) */
+				c.strokeCircle(this.x, this.y, BUTTON_SIZE);
+				/* play button icon */
 				c.save(); {
 					c.translate(this.x, this.y);
 					c.scale(this.iconScale, this.iconScale);
@@ -1030,19 +1033,23 @@ randomSurvivalGame = {
 						30, 0
 					);
 				} c.restore();
+				const SCALING_ANIMATION_SPEED = 0.1;
 				if(this.mouseOver) {
-					this.iconScale += 0.1;
+					this.iconScale += SCALING_ANIMATION_SPEED;
 				}
 				else {
-					this.iconScale -= 0.1;
+					this.iconScale -= SCALING_ANIMATION_SPEED;
 				}
-				this.iconScale = Math.constrain(this.iconScale, 1, 1.5);
+				const MIN_SCALE = 1;
+				const MAX_SCALE = 1.5;
+				this.iconScale = Math.constrain(this.iconScale, MIN_SCALE, MAX_SCALE);
 			}
 			else if(this.icon === "question") {
+				const BUTTON_SIZE = 50;
 				/* button outline */
 				c.strokeStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.lineWidth = 5;
-				c.fillCircle(this.x, this.y, 50);
+				c.fillCircle(this.x, this.y, BUTTON_SIZE);
 				/* question mark */
 				c.loadTextStyle({
 					color: randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY,
@@ -1053,31 +1060,34 @@ randomSurvivalGame = {
 					c.rotate(this.r);
 					c.fillText("?", 0, 15);
 				} c.restore();
-				if(this.mouseOver && this.r < 0.5) {
+				const MIN_ROTATION = 0.5;
+				const MAX_ROTATION = 0;
+				if(this.mouseOver && this.r < MIN_ROTATION) {
 					this.r += 0.05;
 				}
-				if(!this.mouseOver && this.r > 0) {
+				if(!this.mouseOver && this.r > MAX_ROTATION) {
 					this.r -= 0.05;
 				}
 			}
 			else if(this.icon === "gear") {
+				const BUTTON_SIZE = 50;
 				/* button outline */
 				c.strokeStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.lineWidth = 5;
-				c.strokeCircle(this.x, this.y, 50);
+				c.strokeCircle(this.x, this.y, BUTTON_SIZE);
 				/* gear body */
 				c.fillStyle = randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY;
 				c.fillCircle(this.x, this.y, 20);
 				/* gear prongs */
-				for(var r = 0; r < 2 * Math.PI; r += (2 * Math.PI) / 9) {
+				for(var r = 0; r < 360; r += 360 / 9) {
 					c.save(); {
 						c.translate(this.x, this.y);
-						c.rotate(r + this.r);
+						c.rotate(Math.toRadians(r) + this.r);
 						c.fillRect(-5, -28, 10, 28);
 					} c.restore();
 				}
 				if(this.mouseOver) {
-					this.r += 0.05;
+					this.r += 2;
 				}
 			}
 			else if(this.icon === "dollar") {
@@ -1085,9 +1095,10 @@ randomSurvivalGame = {
 					this.dollarIcons = [];
 				};
 				/* button outline */
+				const BUTTON_SIZE = 50;
 				c.strokeStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.lineWidth = 5;
-				c.strokeCircle(this.x, this.y, 50);
+				c.strokeCircle(this.x, this.y, BUTTON_SIZE);
 				/* dollar sign */
 				c.loadTextStyle({
 					color: randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY,
@@ -1098,7 +1109,7 @@ randomSurvivalGame = {
 				/* dollar sign animation */
 				this.dollarIcons = this.dollarIcons || [];
 				if(this.mouseOver && randomSurvivalGame.utils.frameCount % 15 === 0) {
-					this.dollarIcons.push({ x: Math.randomInRange(225, 325), y: 450 });
+					this.dollarIcons.push({ x: Math.randomInRange(this.x - 50, this.x + 50), y: this.y - 50 });
 				}
 				if(this.dollarIcons.length > 0) {
 					c.save(); {
@@ -1125,20 +1136,21 @@ randomSurvivalGame = {
 					this.shouldAddLightGraphic = false;
 				};
 				/* rays of light */
+				const BUTTON_SIZE = 50;
 				c.save(); {
-					c.clipCircle(this.x, this.y, 50);
+					c.clipCircle(this.x, this.y, BUTTON_SIZE);
 					this.radii = this.radii || [];
 					if(this.mouseOver) {
 						this.shouldAddLightGraphic = true;
 					}
-					if(this.shouldAddLightGraphic && (this.radii[0] > 25 || this.radii.length === 0)) {
+					if(this.shouldAddLightGraphic && (this.radii[0] > (BUTTON_SIZE / 2) || this.radii.length === 0)) {
 						this.shouldAddLightGraphic = false;
 						this.radii.unshift(0);
 					}
 					c.strokeStyle = "rgb(170, 170, 170)";
 					for(var i = 0; i < this.radii.length; i ++) {
 						this.radii[i] ++;
-						if(this.radii[i] > 60) {
+						if(this.radii[i] > BUTTON_SIZE + 10) {
 							this.radii.splice(i, 1);
 							i --;
 							continue;
@@ -1151,7 +1163,7 @@ randomSurvivalGame = {
 				/* button outline */
 				c.strokeStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.lineWidth = 5;
-				c.strokeCircle(this.x, this.y, 50);
+				c.strokeCircle(this.x, this.y, BUTTON_SIZE);
 				/* trophy base */
 				c.fillStyle = randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY;
 				c.fillArc(this.x, this.y + 23, 13, Math.toRadians(-180), 0);
@@ -1170,8 +1182,9 @@ randomSurvivalGame = {
 				};
 				this.doorX = this.doorX || 0;
 				/* button outline */
+				const BUTTON_SIZE = 50;
 				c.strokeStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
-				c.strokeCircle(this.x, this.y, 50);
+				c.strokeCircle(this.x, this.y, BUTTON_SIZE);
 				/* house icon */
 				c.fillStyle = randomSurvivalGame.ui.COLORS.STONE_DARK_GRAY;
 				c.fillRect(this.x - 20, this.y - 15, 15, 35);
@@ -1201,8 +1214,9 @@ randomSurvivalGame = {
 					this.iconRotation = 0;
 				};
 				/* button outline */
+				const BUTTON_SIZE = 50;
 				c.strokeStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
-				c.strokeCircle(this.x, this.y, 50);
+				c.strokeCircle(this.x, this.y, BUTTON_SIZE);
 				/* retry icon */
 				c.save(); {
 					c.translate(this.x, this.y);
@@ -1215,11 +1229,12 @@ randomSurvivalGame = {
 						30, 20
 					);
 				} c.restore();
+				const ANIMATION_SPEED = 12;
 				if(this.mouseOver) {
-					this.iconRotation += 12;
+					this.iconRotation += ANIMATION_SPEED;
 				}
 				else {
-					this.iconRotation -= 12;
+					this.iconRotation -= ANIMATION_SPEED;
 				}
 				this.iconRotation = Math.constrain(this.iconRotation, 0, 90);
 			}
@@ -1243,7 +1258,7 @@ randomSurvivalGame = {
 				if(this.icon === "retry" || this.icon === "play") {
 					randomSurvivalGame.game.player.reset();
 				}
-				if(this.icon === "dollar") {
+				if(this.whereTo === "shop") {
 					for(var i = 0; i < randomSurvivalGame.shop.items.length; i ++) {
 						var item = randomSurvivalGame.shop.items[i];
 						item.showingPopup = false;
@@ -1290,13 +1305,13 @@ randomSurvivalGame = {
 		initializedButtons: randomSurvivalGame.utils.initializer.request(function() {
 			var ui = randomSurvivalGame.ui;
 			var Button = ui.Button;
-			ui.playButton = new Button(400, 400, "play", "play");
-			ui.shopButton = new Button(275, 500, "shop", "dollar");
-			ui.achievementsButton = new Button(525, 500, "achievements", "trophy");
-			ui.homeFromDeath = new Button(266, 650, "home", "house");
+			ui.playButton = new Button(canvas.width / 2, canvas.height / 2, "play", "play");
+			ui.shopButton = new Button((canvas.width / 2) - 125, (canvas.height / 2) + 100, "shop", "dollar");
+			ui.achievementsButton = new Button((canvas.width / 2) + 125, (canvas.height / 2) + 100, "achievements", "trophy");
+			ui.retryButton = new Button(canvas.width / 3 * 2, canvas.height / 2 + 250, "play", "retry");
+			ui.homeFromDeath = new Button(canvas.width / 3, canvas.height / 2 + 250, "home", "house");
 			ui.homeFromShop = new Button(75, 75, "home", "house");
 			ui.homeFromAchievements = new Button(75, 75, "home", "house");
-			ui.retryButton = new Button(533, 650, "play", "retry");
 
 			ui.buttons = [
 				ui.playButton,
@@ -1314,8 +1329,8 @@ randomSurvivalGame = {
 			/* title */
 			if(!randomSurvivalGame.debugging.TESTING_MODE) {
 				c.loadTextStyle(this.TITLE_TEXT_STYLE);
-				c.fillText("Randomonicity", 400, 150);
-				c.fillText("Survival", 400, 200);
+				c.fillText("Randomonicity", canvas.width / 2, 150);
+				c.fillText("Survival", canvas.width / 2, 200);
 			}
 			/* buttons */
 			this.shopButton.exist();
@@ -1338,18 +1353,17 @@ randomSurvivalGame = {
 				textAlign: "left"
 			});
 			if(typeof this.DEATH_MESSAGES[p.deathCause] !== "string") {
-				c.fillText("You died.", 200, 300);
+				c.fillText("You died.", canvas.width / 4, 300);
 				console.errorOnce("Invalid player death cause of '" + p.deathCause + "'");
 			}
 			else {
-				c.fillText(this.DEATH_MESSAGES[p.deathCause], 200, 300);
+				c.fillText(this.DEATH_MESSAGES[p.deathCause], canvas.width / 4, 300);
 			}
 			p.highScore = Math.max(p.score, p.highScore);
-			localStorage.setItem("randomSurvivalGame.game.player.highScore", p.highScore);
-			c.fillText("You got a score of " + p.score + " points", 200, 350);
-			c.fillText("Your highscore is " + p.highScore + " points", 200, 400);
-			c.fillText("You collected " + p.coins + " coins", 200, 450);
-			c.fillText("You now have " + p.totalCoins + " coins", 200, 500);
+			c.fillText("You got a score of " + p.score + " points", canvas.width / 4, 350);
+			c.fillText("Your highscore is " + p.highScore + " points", canvas.width / 4, 400);
+			c.fillText("You collected " + p.coins + " coins", canvas.width / 4, 450);
+			c.fillText("You now have " + p.totalCoins + " coins", canvas.width / 4, 500);
 			/* buttons */
 			this.homeFromDeath.exist();
 			this.retryButton.exist();
@@ -1362,14 +1376,14 @@ randomSurvivalGame = {
 		shopScreen: function() {
 			/* title */
 			c.loadTextStyle(randomSurvivalGame.ui.TITLE_TEXT_STYLE);
-			c.fillText("Shop", 400, 100);
+			c.fillText("Shop", canvas.width / 2, 100);
 			/* coin counter */
 			c.loadTextStyle({
 				color: "rgb(255, 255, 0)",
 				font: "20px cursive",
 				textAlign: "center"
 			});
-			c.fillText("coins: " + randomSurvivalGame.game.player.totalCoins, 400, 150);
+			c.fillText("coins: " + randomSurvivalGame.game.player.totalCoins, canvas.width / 2, 150);
 			/* items */
 			var shop = randomSurvivalGame.shop;
 			for(var i = 0; i < shop.items.length; i ++) {
@@ -1387,7 +1401,7 @@ randomSurvivalGame = {
 		achievementsScreen: function() {
 			/* title */
 			c.loadTextStyle(randomSurvivalGame.ui.TITLE_TEXT_STYLE);
-			c.fillText("Achievements", 400, 100);
+			c.fillText("Achievements", canvas.width / 2, 100);
 			/* achievements */
 			var achievements = randomSurvivalGame.achievements.listOfAchievements;
 			for(var i = 0; i < achievements.length; i ++) {
@@ -1435,12 +1449,14 @@ randomSurvivalGame = {
 			transitionToScreen: function(screen) {
 				this.opacityDirection = this.TRANSITION_SPEED;
 				this.nextScreen = screen;
+				if(screen === "death") {
+					randomSurvivalGame.persistentData.saveCoins();
+					randomSurvivalGame.persistentData.saveHighScores();
+				}
 			}
 		}
 	},
 	game: {
-		loadedScoresFromLocalStorage: randomSurvivalGame.utils.initializer.request(function() {
-		}),
 		display: function() {
 			var Platform = randomSurvivalGame.game.Platform;
 			var Player = randomSurvivalGame.game.Player;
@@ -1462,6 +1478,7 @@ randomSurvivalGame = {
 			var Laser = randomSurvivalGame.events.laserBots.Laser;
 			var BadGuy = randomSurvivalGame.events.badGuys.BadGuy;
 			var Alien = randomSurvivalGame.events.aliens.Alien;
+			var SmokeParticle = randomSurvivalGame.events.aliens.SmokeParticle;
 			var MagnetParticle = randomSurvivalGame.shop.MagnetParticle;
 			var SpeedParticle = randomSurvivalGame.shop.SpeedParticle;
 			var DoubleJumpParticle = randomSurvivalGame.shop.DoubleJumpParticle;
@@ -1469,7 +1486,7 @@ randomSurvivalGame = {
 			var PlayerBodyPart = randomSurvivalGame.game.playerDeathAnimations.PlayerBodyPart;
 			var order = [
 				[AfterImage],
-				[Coin, MagnetParticle],
+				[Coin, MagnetParticle, SmokeParticle],
 				[Platform],
 				[FireParticle, Dot, Laser, Player],
 				[Crosshair, Boulder, RockParticle, SpinningBlade, Pirhana, Pacman, Rocket, Spikeball, LaserBot, BadGuy, Alien],
@@ -1510,13 +1527,13 @@ randomSurvivalGame = {
 				}
 			} c.restore();
 			/* display visual effects */
-			if(this.player.timeBlinded > 0) {
+			if(this.player.timeBlinded < randomSurvivalGame.events.effects.duration()) {
 				randomSurvivalGame.events.blindness.displayBlindnessEffect();
 			}
-			else if(this.player.timeNauseated > 0) {
+			else if(this.player.timeNauseated < randomSurvivalGame.events.effects.duration()) {
 				randomSurvivalGame.events.nausea.displayNauseaEffect();
 			}
-			else if(this.player.timeConfused > 0) {
+			else if(this.player.timeConfused < randomSurvivalGame.events.effects.duration()) {
 				randomSurvivalGame.events.confusion.displayConfusionEffect();
 			}
 			/* shop status effect indicators */
@@ -1524,7 +1541,7 @@ randomSurvivalGame = {
 			var items = randomSurvivalGame.shop.items;
 			for(var i = 0; i < items.length; i ++) {
 				if(items[i].equipped) {
-					items[i].x = 50 + 100 * numItemsEquipped;
+					items[i].x = 50 + (100 * numItemsEquipped);
 					items[i].y = 50;
 					items[i].displayLogo(0.5);
 					numItemsEquipped ++;
@@ -1536,9 +1553,9 @@ randomSurvivalGame = {
 				color: randomSurvivalGame.ui.COLORS.UI_DARK_GRAY,
 				textAlign: "left"
 			});
-			c.fillText("Score: " + p.score, 10, 790);
+			c.fillText("Score: " + p.score, 10, canvas.height - 10);
 			c.textAlign = "right";
-			c.fillText("Coins: " + p.coins, 790, 790);
+			c.fillText("Coins: " + p.coins, canvas.width - 10, canvas.height - 10);
 			/* debug */
 			if(randomSurvivalGame.debugging.SHOW_HITBOXES) {
 				randomSurvivalGame.debugging.displayHitboxes();
@@ -1600,40 +1617,45 @@ randomSurvivalGame = {
 			}
 			/* offscreen enemy collisions */
 			if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.Enemy) !== 0) {
-				randomSurvivalGame.utils.collisions.rect(-100,         225 - 10, 100, 20);
-				randomSurvivalGame.utils.collisions.rect(-100,         575 - 10, 100, 20);
-				randomSurvivalGame.utils.collisions.rect(canvas.width, 225 - 10, 100, 20);
-				randomSurvivalGame.utils.collisions.rect(canvas.width, 575 - 10, 100, 20);
+				const OFFSCREEN_PLATFORM_WIDTH = 100;
+				randomSurvivalGame.utils.collisions.rect(-OFFSCREEN_PLATFORM_WIDTH, 225 - 10, OFFSCREEN_PLATFORM_WIDTH, 20);
+				randomSurvivalGame.utils.collisions.rect(-OFFSCREEN_PLATFORM_WIDTH, 575 - 10, OFFSCREEN_PLATFORM_WIDTH, 20);
+				randomSurvivalGame.utils.collisions.rect(canvas.width, 225 - 10, OFFSCREEN_PLATFORM_WIDTH, 20);
+				randomSurvivalGame.utils.collisions.rect(canvas.width, 575 - 10, OFFSCREEN_PLATFORM_WIDTH, 20);
 			}
 		},
 
 		Player: function() {
 			/* Location + velocity */
-			this.x = 400;
-			this.y = 300;
+			this.x = canvas.width / 2;
+			this.y = (canvas.height / 2) - 100;
 			this.velX = 0;
 			this.velY = 0;
 			this.hitbox = { right: 5, left: -5, top: 0, bottom: 46 };
 			/* Player animation properties */
-			this.legs = 5;
+			this.animations = {
+				legs: 5,
+				arms: 10,
+				legDir: 1,
+				facing: "forward"
+			};
 			this.legDir = 1;
 			this.facing = "forward";
-			this.armHeight = 10;
 			/* Effect properties */
-			this.timeConfused = 0;
-			this.timeBlinded = 0;
-			this.timeNauseated = 0;
+			this.timeConfused = Infinity;
+			this.timeBlinded = Infinity;
+			this.timeNauseated = Infinity;
 			this.nauseaOffsetArray = Math.findPointsCircular(0, 0, 30);
 			this.nauseaOffset = 0;
 			/* Scoring */
-			this.score = -1;
+			this.score = 0;
 			this.highScore = 0;
 			this.coins = 0; // number of coins collected in the current game
 			this.totalCoins = 0;
 			this.itemsEquipped = 0;
 			this.hasDoubleJumped = false;
 			/* Shop item properties */
-			this.invincible = 0;
+			this.timeInvincible = Infinity;
 			this.numRevives = 1;
 			this.canExtendJump = true;
 			this.timeExtended = 0;
@@ -1652,7 +1674,7 @@ randomSurvivalGame = {
 		}
 		.method("display", function() {
 			c.globalAlpha = 1;
-			if((this.invincible < 0 || randomSurvivalGame.utils.frameCount % 2 === 0) && !this.isDead) {
+			if((this.timeInvincible > this.invincibilityDuration() || randomSurvivalGame.utils.frameCount % 2 === 0) && !this.isDead) {
 				c.lineWidth = 5;
 				c.lineCap = "round";
 				/* head */
@@ -1671,11 +1693,11 @@ randomSurvivalGame = {
 				c.strokeStyle = (this.isIntangible() ? "rgb(80, 80, 80)" : "rgb(0, 0, 0)");
 				c.strokeLine(this.x, this.y + 15, this.x, this.y + 36);
 				/* legs */
-				c.strokeLine(this.x, this.y + 36, this.x - this.legs, this.y + 46);
-				c.strokeLine(this.x, this.y + 36, this.x + this.legs, this.y + 46);
+				c.strokeLine(this.x, this.y + 36, this.x - this.animations.legs, this.y + 46);
+				c.strokeLine(this.x, this.y + 36, this.x + this.animations.legs, this.y + 46);
 				/* arms */
-				c.strokeLine(this.x, this.y + 26, this.x + 10, this.y + 26 + this.armHeight);
-				c.strokeLine(this.x, this.y + 26, this.x - 10, this.y + 26 + this.armHeight);
+				c.strokeLine(this.x, this.y + 26, this.x + 10, this.y + 26 + this.animations.arms);
+				c.strokeLine(this.x, this.y + 26, this.x - 10, this.y + 26 + this.animations.arms);
 				c.lineCap = "butt";
 			}
 		})
@@ -1684,25 +1706,29 @@ randomSurvivalGame = {
 				this.updateAnimations();
 				return;
 			}
-			this.timeConfused --;
-			this.timeBlinded --;
-			this.timeNauseated --;
-			this.invincible --;
+			this.timeConfused ++;
+			this.timeBlinded ++;
+			this.timeNauseated ++;
+			this.timeInvincible ++;
 			this.nauseaOffset ++;
 			if(this.nauseaOffset >= 190) {
 				this.nauseaOffset = 0;
 			}
-			if(this.timeConfused === 0 || this.timeBlinded === 0 || this.timeNauseated === 0) {
+			var effectDuration = randomSurvivalGame.events.effects.duration();
+			if(this.timeConfused > randomSurvivalGame.events.effects.duration() && this.timeConfused !== Infinity) {
 				randomSurvivalGame.events.effects.add();
-			}
-			if(this.timeConfused === 0) {
 				this.surviveEvent("confusion");
+				this.timeConfused = Infinity;
 			}
-			if(this.timeNauseated === 0) {
+			if(this.timeNauseated > randomSurvivalGame.events.effects.duration() && this.timeNauseated !== Infinity) {
+				randomSurvivalGame.events.effects.add();
 				this.surviveEvent("nausea");
+				this.timeNauseated = Infinity;
 			}
-			if(this.timeBlinded === 0) {
+			if(this.timeBlinded > randomSurvivalGame.events.effects.duration() && this.timeBlinded !== Infinity) {
+				randomSurvivalGame.events.effects.add();
 				this.surviveEvent("blindness");
+				this.timeBlinded = Infinity;
 			}
 			/* inputs */
 			this.input();
@@ -1804,7 +1830,7 @@ randomSurvivalGame = {
 			if(this.isIntangible()) {
 				shop.intangibilityTalisman.glowOpacity += 0.1;
 			}
-			if(this.invincible > 0) {
+			if(this.timeInvincible < (randomSurvivalGame.FPS * (randomSurvivalGame.shop.secondLife.numUpgrades >= 2) ? 2 : 1)) {
 				shop.secondLife.glowOpacity += 0.1;
 			}
 			/* falling deaths */
@@ -1825,26 +1851,26 @@ randomSurvivalGame = {
 		})
 		.method("updateAnimations", function() {
 			/* leg animations */
-			this.legs += this.legDir;
+			this.animations.legs += this.legDir;
 			if(randomSurvivalGame.input.keys[37] || randomSurvivalGame.input.keys[39]) {
-				if(this.legs >= 5) {
+				if(this.animations.legs >= 5) {
 					this.legDir = -0.5;
 				}
-				else if(this.legs <= -5) {
+				else if(this.animations.legs <= -5) {
 					this.legDir = 0.5;
 				}
 			}
 			else {
 				this.legDir = 0;
-				this.legDir = (this.legs > 0) ? 0.5 : -0.5;
-				this.legDir = (this.legs <= -5 || this.legs >= 5) ? 0 : this.legDir;
+				this.legDir = (this.animations.legs > 0) ? 0.5 : -0.5;
+				this.legDir = (this.animations.legs <= -5 || this.animations.legs >= 5) ? 0 : this.legDir;
 			}
 			/* arm animations */
 			if(this.velY === 0) {
-				this.armHeight += (this.armHeight < 10) ? 1 : 0;
+				this.animations.arms += (this.animations.arms < 10) ? 1 : 0;
 			}
 			else {
-				this.armHeight += (this.armHeight > -5) ? -1 : 0;
+				this.animations.arms += (this.animations.arms > -5) ? -1 : 0;
 			}
 			/* death animations */
 			var PlayerDisintegrationParticle = randomSurvivalGame.game.playerDeathAnimations.PlayerDisintegrationParticle;
@@ -1869,7 +1895,7 @@ randomSurvivalGame = {
 			this.velY = 0;
 			randomSurvivalGame.game.camera = { x: 0, y: 0 };
 			this.facing = "forward";
-			this.armHeight = 10;
+			this.animations.arms = 10;
 			this.hitbox = new randomSurvivalGame.game.Player().hitbox;
 			this.noCollisions = false;
 			randomSurvivalGame.game.timeToEvent = 2 * randomSurvivalGame.FPS;
@@ -1880,11 +1906,11 @@ randomSurvivalGame = {
 			randomSurvivalGame.game.initializePlatforms();
 			randomSurvivalGame.game.chatMessages = [];
 			randomSurvivalGame.game.currentEvent = null;
-			this.timeNauseated = -5;
-			this.timeConfused = -5;
-			this.timeBlinded = -5;
+			this.timeNauseated = Infinity;
+			this.timeConfused = Infinity;
+			this.timeBlinded = Infinity;
 			this.beingAbductedBy = null;
-			this.invincible = 0;
+			this.timeInvincible = Infinity;
 			this.usedRevive = false;
 			this.coins = 0;
 			if(!randomSurvivalGame.debugging.TESTING_MODE) {
@@ -1921,11 +1947,11 @@ randomSurvivalGame = {
 
 		.method("die", function(cause) {
 			var secondLife = randomSurvivalGame.shop.secondLife;
-			if(this.invincible < 0) {
+			if(this.timeInvincible > this.invincibilityDuration()) {
 				if((secondLife.equipped && this.numRevives > 0) || randomSurvivalGame.debugging.TESTING_MODE && randomSurvivalGame.debugging.PLAYER_INVINCIBLE) {
 					this.numRevives --;
 					this.usedRevive = true;
-					this.invincible = (randomSurvivalGame.shop.secondLife.numUpgrades >= 2) ? randomSurvivalGame.FPS * 2 : randomSurvivalGame.FPS;
+					this.timeInvincible = 0;
 				}
 				else {
 					if(!this.diedThisGame) {
@@ -2007,12 +2033,12 @@ randomSurvivalGame = {
 				disintegrateEllipse(this.x, this.y + 12, 10, 12);
 				/* body */
 				disintegrateLine(this.x, this.y + 15, this.x, this.y + 36);
-				/* legs */
-				disintegrateLine(this.x, this.y + 36, this.x - this.legs, this.y + 46);
-				disintegrateLine(this.x, this.y + 36, this.x + this.legs, this.y + 46);
+				/*.animations.legs */
+				disintegrateLine(this.x, this.y + 36, this.x - this.animations.legs, this.y + 46);
+				disintegrateLine(this.x, this.y + 36, this.x + this.animations.legs, this.y + 46);
 				/* arms */
-				disintegrateLine(this.x, this.y + 26, this.x + 10, this.y + 26 + this.armHeight);
-				disintegrateLine(this.x, this.y + 26, this.x - 10, this.y + 26 + this.armHeight);
+				disintegrateLine(this.x, this.y + 26, this.x + 10, this.y + 26 + this.animations.arms);
+				disintegrateLine(this.x, this.y + 26, this.x - 10, this.y + 26 + this.animations.arms);
 				/* remove particles where player's eyes are */
 				if(this.facing === "left" || this.facing === "forward") {
 					removeParticlesInCircle(this.x - 4, this.y + 10, 4);
@@ -2046,7 +2072,7 @@ randomSurvivalGame = {
 						{
 							x1: this.x,
 							y1: this.y + 36,
-							x2: this.x - this.legs,
+							x2: this.x - this.animations.legs,
 							y2: this.y + 46
 						}
 					)
@@ -2057,7 +2083,7 @@ randomSurvivalGame = {
 						{
 							x1: this.x,
 							y1: this.y + 36,
-							x2: this.x + this.legs,
+							x2: this.x + this.animations.legs,
 							y2: this.y + 46
 						}
 					)
@@ -2070,7 +2096,7 @@ randomSurvivalGame = {
 							x1: this.x,
 							y1: this.y + 26,
 							x2: this.x + 10,
-							y2: this.y + 26 + this.armHeight
+							y2: this.y + 26 + this.animations.arms
 						}
 					)
 				);
@@ -2081,7 +2107,7 @@ randomSurvivalGame = {
 							x1: this.x,
 							y1: this.y + 26,
 							x2: this.x - 10,
-							y2: this.y + 26 + this.armHeight
+							y2: this.y + 26 + this.animations.arms
 						}
 					)
 				);
@@ -2104,6 +2130,12 @@ randomSurvivalGame = {
 				return false; // for the Bad Guys that use the Player's methods
 			}
 			return (randomSurvivalGame.input.keys[40] && randomSurvivalGame.shop.intangibilityTalisman.equipped);
+		})
+		.method("invincibilityDuration", function() {
+			/*
+			Returns how many frames the invincibility effect should last.
+			*/
+			return randomSurvivalGame.FPS * (randomSurvivalGame.shop.secondLife.numUpgrades >= 2 ? 2 : 1);
 		})
 		.method("isInPath", function() {
 			/*
@@ -2297,8 +2329,8 @@ randomSurvivalGame = {
 			this.y = y;
 			this.w = w;
 			this.h = h;
-			this.origX = x;
-			this.origY = y;
+			this.ORIGINAL_X = x;
+			this.ORIGINAL_Y = y;
 			this.velX = 0;
 			this.velY = 0;
 			this.destinations = [];
@@ -2329,8 +2361,8 @@ randomSurvivalGame = {
 						this.calculateVelocity();
 					}
 					else {
-						this.x = this.origX;
-						this.y = this.origY;
+						this.x = this.ORIGINAL_X;
+						this.y = this.ORIGINAL_Y;
 						this.velX = 0;
 						this.velY = 0;
 					}
@@ -2406,8 +2438,8 @@ randomSurvivalGame = {
 			return (this.velX !== 0 || this.velY !== 0 || this.destinations.length !== 0);
 		})
 		.method("resetPosition", function() {
-			this.x = this.origX;
-			this.y = this.origY;
+			this.x = this.ORIGINAL_X;
+			this.y = this.ORIGINAL_Y;
 			this.velX = 0;
 			this.velY = 0;
 			this.destinations = [];
@@ -2514,14 +2546,32 @@ randomSurvivalGame = {
 				}
 			}
 		}),
-		ChatMessage: function(msg, col) {
+		ChatMessage: function(msg, type) {
 			this.msg = msg;
-			this.col = col;
+			this.type = type;
+			if(type === "event") {
+				this.color = "rgb(255, 128, 0)"
+			}
+			else if(type === "effect") {
+				this.color = "rgb(0, 255, 0)";
+			}
+			else if(type === "enemy") {
+				this.color = "rgb(255, 0, 0)";
+			}
+			else if(type === "highscore") {
+				this.color = "rgb(0, 0, 255)";
+			}
+			else if(type === "achievement") {
+				this.color = "rgb(255, 255, 0)";
+			}
+			else {
+				throw new Error("Unknown ChatMessage type of \"" + type + "\"");
+			}
 			this.time = 120;
 		}
 		.method("display", function(y) {
 			c.loadTextStyle({
-				color: this.col,
+				color: this.color,
 				textAlign: "right",
 				font: "20px monospace"
 			});
@@ -2538,7 +2588,7 @@ randomSurvivalGame = {
 					i --;
 					continue;
 				}
-				if(randomSurvivalGame.game.screen !== "play" && !(message.col === "rgb(255, 255, 0)")) {
+				if(randomSurvivalGame.game.screen !== "play" && message.type !== "achievement") {
 					messages.splice(i, 1);
 					i --;
 					continue;
@@ -2566,8 +2616,9 @@ randomSurvivalGame = {
 			p.previousEvent = eventName;
 			p.score ++;
 			if(p.score === p.highScore + 1) {
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("New Record!", "highscore"));
 				p.numRecords ++;
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("New Record!", "rgb(0, 0, 255)"));
+				randomSurvivalGame.persistentData.saveAchievements();
 			}
 		},
 		endEvent: function(timeToEvent) {
@@ -2678,7 +2729,7 @@ randomSurvivalGame = {
 
 			begin: function() {
 				randomSurvivalGame.game.objects.push(new this.Crosshair());
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Laser incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Laser incoming!", "event"));
 			}
 		},
 		acid: {
@@ -2719,7 +2770,7 @@ randomSurvivalGame = {
 				var p = randomSurvivalGame.game.player;
 				if(p.y + 46 > this.y) {
 					p.die("acid");
-					if(p.invincible) {
+					if(p.timeInvincible < p.invincibilityDuration()) {
 						p.velY = Math.min(-5, p.velY);
 						if(randomSurvivalGame.input.keys[38]) {
 							p.velY = Math.min(-8.5, p.velY);
@@ -2791,7 +2842,7 @@ randomSurvivalGame = {
 				var acid = new randomSurvivalGame.events.acid.Acid();
 				acid.beginRising();
 				objects.push(acid);
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("The tides are rising...", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("The tides are rising...", "event"));
 			},
 
 			isAcidVisible: function() {
@@ -2918,7 +2969,7 @@ randomSurvivalGame = {
 
 			begin: function() {
 				var chooser = Math.random();
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Boulder incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Boulder incoming!", "event"));
 				var Boulder = randomSurvivalGame.events.boulder.Boulder;
 				if(chooser < 0.5) {
 					randomSurvivalGame.game.objects.push(new Boulder(850, 100, -3));
@@ -3013,7 +3064,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spinning blades are appearing", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spinning blades are appearing", "event"));
 				var platforms = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.game.Platform);
 				for(var i = 0; i < platforms.length; i ++) {
 					randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.spinningBlades.SpinningBlade(platforms[i].x + 80, platforms[i].y + 10));
@@ -3086,7 +3137,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Jumping pirhanas incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Jumping pirhanas incoming!", "event"));
 				/* fancy algorithm to make sure none of the pirhanas are touching */
 				var pirhanasSeparated = false;
 				var numPirhanas = Math.map(
@@ -3266,7 +3317,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Pacmans incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Pacmans incoming!", "event"));
 				var Pacman = randomSurvivalGame.events.pacmans.Pacman;
 				var speed = Math.map(
 					randomSurvivalGame.game.difficulty(),
@@ -3431,7 +3482,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Rocket incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Rocket incoming!", "event"));
 
 				var Rocket = randomSurvivalGame.events.rocket.Rocket;
 				var p = randomSurvivalGame.game.player;
@@ -3546,7 +3597,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spikeballs incoming!", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Spikeballs incoming!", "event"));
 				const NUM_SPIKEBALLS = 3;
 				var numSpikeballs = Math.map(
 					randomSurvivalGame.game.difficulty(),
@@ -3606,7 +3657,7 @@ randomSurvivalGame = {
 		},
 		blockShuffle: {
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("The blocks are shuffling", "rgb(255, 128, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("The blocks are shuffling", "event"));
 				this.blocksMoved = 0;
 				this.nextSequence();
 			},
@@ -3875,11 +3926,11 @@ randomSurvivalGame = {
 				const SPIKEWALL_DISTANCE = 1500;
 				if(Math.random() < 0.5) {
 					randomSurvivalGame.game.objects.push(new SpikeWall(-SPIKEWALL_DISTANCE));
-					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "rgb(255, 128, 0)"));
+					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the left!", "event"));
 				}
 				else {
 					randomSurvivalGame.game.objects.push(new SpikeWall(canvas.width + SPIKEWALL_DISTANCE));
-					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "rgb(255, 128, 0)"));
+					randomSurvivalGame.game.chatMessages.push(new ChatMessage("Spike wall incoming from the right!", "event"));
 				}
 			}
 		},
@@ -3916,17 +3967,17 @@ randomSurvivalGame = {
 		confusion: {
 			AfterImage: function(image) {
 				this.image = image;
-				var timeElapsed = (randomSurvivalGame.events.effects.duration()) - randomSurvivalGame.game.player.timeConfused;
-				if(timeElapsed < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
+				var timeConfused = randomSurvivalGame.game.player.timeConfused;
+				if(timeConfused < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
 					this.timeLeft = Math.map(
-						timeElapsed,
+						timeConfused,
 						0, randomSurvivalGame.events.effects.duration(),
 						30, 20
 					);
 				}
 				else {
 					this.timeLeft = Math.map(
-						timeElapsed,
+						timeConfused,
 						randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, randomSurvivalGame.events.effects.duration(),
 						20, 0
 					);
@@ -3979,8 +4030,8 @@ randomSurvivalGame = {
 				}
 			},
 			begin: function() {
-				randomSurvivalGame.game.player.timeConfused = randomSurvivalGame.events.effects.duration();
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been confused", "rgb(0, 255, 0)"));
+				randomSurvivalGame.game.player.timeConfused = 0;
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been confused", "effect"));
 				randomSurvivalGame.events.effects.remove();
 				randomSurvivalGame.events.endEvent();
 			}
@@ -3988,36 +4039,39 @@ randomSurvivalGame = {
 		blindness: {
 			displayBlindnessEffect: function() {
 				/*
-				When timeElapsed is 0, largeRadius is 150 and smallRadius is 50.
-				When timeElapsed is effects.duration(), largeRadius and smallRadius are SCREEN_DIAGONAL_LENGTH.
+				When 'timeBlinded' is 0, smallRadius = 50 and largeRadius = 150.
+				When 'timeBlinded' is 1 second away from the end of the event, smallRadius and largeRadius are half the width of the screen.
+				When 'timeBlinded' is at the end of the event, smallRadius and largeRadius are the length of the screen diagonal.
 				*/
-				const SCREEN_DIAGONAL_LENGTH = Math.dist(0, 0, 800, 800);
-				var timeElapsed = (randomSurvivalGame.events.effects.duration()) - randomSurvivalGame.game.player.timeBlinded;
-				if(timeElapsed < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
+				var timeBlinded = randomSurvivalGame.game.player.timeBlinded;
+				if(timeBlinded === Infinity || timeBlinded < 0 || timeBlinded > randomSurvivalGame.events.effects.duration()) {
+					return;
+				}
+				const SCREEN_DIAGONAL_LENGTH = Math.dist(0, 0, canvas.width, canvas.height);
+				if(timeBlinded < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
 					var largeRadius = Math.map(
-						timeElapsed,
+						timeBlinded,
 						0, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS,
-						150, 400
+						150, (canvas.width / 2)
 					);
 					var smallRadius = Math.map(
-						timeElapsed,
+						timeBlinded,
 						0, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS,
-						50, 390
+						50, (canvas.width / 2)
 					);
 				}
 				else {
 					var largeRadius = Math.map(
-						timeElapsed,
+						timeBlinded,
 						randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, randomSurvivalGame.events.effects.duration(),
-						400, SCREEN_DIAGONAL_LENGTH
+						(canvas.width / 2), SCREEN_DIAGONAL_LENGTH
 					);
 					var smallRadius = Math.map(
-						timeElapsed,
+						timeBlinded,
 						randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, randomSurvivalGame.events.effects.duration(),
-						390, SCREEN_DIAGONAL_LENGTH
+						(canvas.width / 2) - 10, SCREEN_DIAGONAL_LENGTH
 					);
 				}
-
 				c.globalAlpha = 1;
 				var x = randomSurvivalGame.game.player.x - randomSurvivalGame.game.camera.x;
 				var y = randomSurvivalGame.game.player.y - randomSurvivalGame.game.camera.y;
@@ -4028,8 +4082,8 @@ randomSurvivalGame = {
 				c.fillCanvas();
 			},
 			begin: function() {
-				randomSurvivalGame.game.player.timeBlinded = randomSurvivalGame.events.effects.duration();
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been blinded", "rgb(0, 255, 0)"));
+				randomSurvivalGame.game.player.timeBlinded = 0;
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been blinded", "effect"));
 				randomSurvivalGame.events.effects.remove();
 				randomSurvivalGame.events.endEvent();
 			}
@@ -4057,12 +4111,13 @@ randomSurvivalGame = {
 				var p = randomSurvivalGame.game.player;
 				var offsetX = p.nauseaOffsetArray[p.nauseaOffset].x;
 				var offsetY = p.nauseaOffsetArray[p.nauseaOffset].y;
-				var timeElapsed = (randomSurvivalGame.events.effects.duration()) - p.timeNauseated;
-				if(timeElapsed < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
-					var intensity = Math.map(timeElapsed, 0, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, 1.5, 1);
+				// var timeElapsed = (randomSurvivalGame.events.effects.duration()) - p.timeNauseated;
+				var timeNauseated = randomSurvivalGame.game.player.timeNauseated;
+				if(timeNauseated < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
+					var intensity = Math.map(timeNauseated, 0, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, 1.5, 1);
 				}
 				else {
-					var intensity = Math.map(timeElapsed, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, randomSurvivalGame.events.effects.duration(), 1, 0);
+					var intensity = Math.map(timeNauseated, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, randomSurvivalGame.events.effects.duration(), 1, 0);
 				}
 				offsetX *= intensity;
 				offsetY *= intensity;
@@ -4076,8 +4131,8 @@ randomSurvivalGame = {
 				obj.y += offsetY;
 			},
 			begin: function() {
-				randomSurvivalGame.game.player.timeNauseated = randomSurvivalGame.events.effects.duration();
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been nauseated", "rgb(0, 255, 0)"));
+				randomSurvivalGame.game.player.timeNauseated = 0;
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("You have been nauseated", "effect"));
 				randomSurvivalGame.events.effects.remove();
 				randomSurvivalGame.events.endEvent();
 			}
@@ -4474,7 +4529,7 @@ randomSurvivalGame = {
 			},
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("LaserBots are invading!", "rgb(255, 0, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("LaserBots are invading!", "enemy"));
 				var numEnemies = 2;
 				if(randomSurvivalGame.game.difficulty() > Math.map(1/2, 0, 1, randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY)) {
 					numEnemies = 3;
@@ -4492,19 +4547,21 @@ randomSurvivalGame = {
 				this.velX = 0;
 				this.velY = 0;
 				this.player = new randomSurvivalGame.game.Player();
-				this.player.invincible = -1;
+				this.player.timeInvincible = Infinity;
 				this.hitbox = this.player.hitbox;
 				/* arm + leg animation properties */
-				this.legWidth = 0;
-				this.legDir = 0.5;
-				this.armHeight = 0; // -5 (arms lifted) to 10 (arms down)
-				this.armDir = 0;
+				this.animations = {
+					legs: 0,
+					arms: 0,
+					legDir: 0.5,
+					armDir: 0
+				};
 			}
 			.extend(randomSurvivalGame.events.Enemy)
 			.method("display", function() {
 				/* display stick figure graphics (same as player) */
-				this.player.legs = this.legWidth;
-				this.player.armHeight = this.armHeight;
+				this.player.animations.legs = this.legWidth;
+				this.player.animations.arms = this.animations.arms;
 				this.player.facing = "none"; // remove default grey player eyes
 				this.player.display();
 				/* display red eyes */
@@ -4565,8 +4622,8 @@ randomSurvivalGame = {
 					this.legDir = -0.5;
 				}
 				/* arm animations */
-				this.armHeight += this.armDir;
-				this.armHeight = Math.constrain(this.armHeight, -5, 10);
+				this.animations.arms += this.armDir;
+				this.animations.arms = Math.constrain(this.animations.arms, -5, 10);
 				if(this.velY === 0.1) {
 					this.armDir = 1;
 				}
@@ -4604,7 +4661,7 @@ randomSurvivalGame = {
 			}),
 
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Bad Guys are invading!", "rgb(255, 0, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Bad Guys are invading!", "enemy"));
 				var numEnemies = 2;
 				if(randomSurvivalGame.game.difficulty() > Math.map(1/2, 0, 1, randomSurvivalGame.game.MIN_DIFFICULTY, randomSurvivalGame.game.MAX_DIFFICULTY)) {
 					numEnemies = 3;
@@ -4624,6 +4681,8 @@ randomSurvivalGame = {
 				this.velY = 0;
 				this.rotation = 0;
 				this.tractorBeamOpacity = 0;
+				this.lives = 3;
+				this.timeInvincible = 0;
 
 				this.hitbox = { top: -40, bottom: 20, left: -40, right: 40 };
 				this.ACCELERATION = 0.05;
@@ -4689,6 +4748,17 @@ randomSurvivalGame = {
 						var bottom = point.y - 2;
 						c.fillRect(left, top, right - left, bottom - top);
 						c.fillArc(0, top, right, Math.toRadians(180), Math.toRadians(360));
+						/* cracks in windsheild to show health */
+						c.strokeStyle = "rgb(63, 241, 121)";
+						c.lineWidth = 2;
+						if(this.lives <= 2) {
+							c.strokeLine(right, top, right - 20, top - 10);
+							c.strokeLine(right - 10, top - 5, right - 20, top + 5);
+						}
+						if(this.lives <= 1) {
+							c.strokeLine(left, top, left + 15, top + 15);
+							c.strokeLine(left + 7, top + 7, left + 7, top - 5);
+						}
 					} c.restore();
 				} c.restore();
 			})
@@ -4706,18 +4776,6 @@ randomSurvivalGame = {
 					/* move towards player */
 					this.velX += (this.x > destX) ? -this.ACCELERATION : this.ACCELERATION;
 					this.velY += (this.y > destY) ? -this.ACCELERATION : this.ACCELERATION;
-				}
-				var aliens = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.events.aliens.Alien);
-				for(var i = 0; i < aliens.length; i ++) {
-					if(aliens[i] !== this) {
-						var distance = Math.dist(this.x, this.y, aliens[i].x, aliens[i].y);
-						/* move away from other UFOs, depending on how close they are (closer = faster) */
-						if(distance < 150) {
-							const SPEED = 0.1;
-							this.velX += (this.x < aliens[i].x) ? -SPEED : SPEED;
-							this.velY += (this.y < aliens[i].y) ? -SPEED : SPEED;
-						}
-					}
 				}
 				this.x += this.velX;
 				this.y += this.velY;
@@ -4759,24 +4817,44 @@ randomSurvivalGame = {
 					}
 				}
 				/* collide with other UFOs */
-				for(var i = 0; i < aliens.length; i ++) {
-					if(aliens[i] !== this && randomSurvivalGame.utils.collidesWith(this, aliens[i])) {
-						this.splicing = true;
-						aliens[i].splicing = true;
-						if(p.beingAbductedBy === this || p.beingAbductedBy === aliens[i]) {
-							p.beingAbductedBy = null;
+				if(this.timeInvincible < 0) {
+					var aliens = randomSurvivalGame.game.getObjectsByType(randomSurvivalGame.events.aliens.Alien);
+					for(var i = 0; i < aliens.length; i ++) {
+						if(aliens[i] !== this && randomSurvivalGame.utils.collidesWith(this, aliens[i])) {
+							this.lives --;
+							aliens[i].lives --;
+							var velocity = Math.normalize(
+								aliens[i].x - this.x,
+								aliens[i].y - this.y
+							);
+							velocity.x *= 10;
+							velocity.y *= 10;
+							this.velX = -velocity.x;
+							this.velY = -velocity.y;
+							aliens[i].velX = velocity.x;
+							aliens[i].velY = velocity.y;
+							this.timeInvincible = randomSurvivalGame.FPS / 10;
+							aliens[i].timeInvincible = randomSurvivalGame.FPS / 10;
+							if(this.lives <= 0 && aliens[i].lives <= 0) {
+								this.splicing = true;
+								aliens[i].splicing = true;
+								if(p.beingAbductedBy === this || p.beingAbductedBy === aliens[i]) {
+									p.beingAbductedBy = null;
+								}
+								if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.aliens.Alien) === 0) {
+									randomSurvivalGame.game.player.surviveEvent("aliens");
+									randomSurvivalGame.events.endEvent(randomSurvivalGame.FPS * 2);
+								}
+								/* create explosion */
+								var laser = new randomSurvivalGame.events.laser.Crosshair();
+								laser.x = Math.average(this.x, aliens[i].x);
+								laser.y = Math.average(this.y, aliens[i].y);
+								laser.explode(true);
+							}
 						}
-						if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.aliens.Alien) === 0) {
-							randomSurvivalGame.game.player.surviveEvent("aliens");
-							randomSurvivalGame.events.endEvent(randomSurvivalGame.FPS * 2);
-						}
-						/* create explosion */
-						var laser = new randomSurvivalGame.events.laser.Crosshair();
-						laser.x = Math.average(this.x, aliens[i].x);
-						laser.y = Math.average(this.y, aliens[i].y);
-						laser.explode(true);
 					}
 				}
+				this.timeInvincible --;
 				/* screen edge collisions */
 				if(this.x + this.hitbox.right > canvas.width) {
 					this.velX = -Math.abs(this.velX);
@@ -4784,6 +4862,7 @@ randomSurvivalGame = {
 				else if(this.x + this.hitbox.left < 0) {
 					this.velX = Math.abs(this.velX);
 				}
+				this.y = Math.constrain(this.y, -200, canvas.height + 100);
 				/* move toward center of screen to avoid top platforms while abducting player */
 				if(p.beingAbductedBy === this) {
 					if(this.x > canvas.width - 160) {
@@ -4791,6 +4870,23 @@ randomSurvivalGame = {
 					}
 					else if(this.x < 160) {
 						this.velX += 0.2;
+					}
+				}
+				/* smoke particles when damage has been taken */
+				if(this.lives < 3) {
+					function addSmokeParticle(self) {
+						randomSurvivalGame.game.objects.push(new randomSurvivalGame.events.aliens.SmokeParticle(
+							Math.randomInRange(self.x - 20, self.x + 20),
+							Math.randomInRange(self.y - 20, self.y + 20),
+							Math.constrain(-self.velX + Math.randomInRange(-1, 1), -2, 2),
+							Math.constrain(-self.velY + Math.randomInRange(-1, 1), -2, 2)
+						));
+					};
+					if(randomSurvivalGame.utils.frameCount % 3 === 0) {
+						addSmokeParticle(this);
+					}
+					if(randomSurvivalGame.utils.frameCount % 3 === 0 && this.lives <= 1) {
+						addSmokeParticle(this);
 					}
 				}
 			})
@@ -4809,8 +4905,33 @@ randomSurvivalGame = {
 				}
 			}),
 
+			SmokeParticle: function(x, y, velX, velY) {
+				this.x = x;
+				this.y = y;
+				this.velX = velX;
+				this.velY = velX;
+				this.opacity = 1;
+				this.size = Math.randomInRange(7, 10);
+			}
+			.method("display", function() {
+				c.save(); {
+					c.fillStyle = "rgb(0, 0, 0)";
+					c.globalAlpha = this.opacity;
+					c.fillCircle(this.x, this.y, this.size);
+				} c.restore();
+			})
+			.method("update", function() {
+				this.x += this.velX;
+				this.y += this.velY;
+				this.opacity -= 1 / 200;
+				this.size -= 1 / 20;
+				if(this.opacity <= 0 || this.size <= 0) {
+					this.splicing = true;
+				}
+			}),
+
 			begin: function() {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("UFOs are invading!", "rgb(255, 0, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("UFOs are invading!", "enemy"));
 				var numEnemies = 2;
 				if(numEnemies === 2) {
 					var xPosition = (Math.random() < 0.5) ? (0 - 50) : (canvas.width + 50);
@@ -4830,8 +4951,8 @@ randomSurvivalGame = {
 		ShopItem: function(x, y, name, display, upgrades, color) {
 			this.x = x;
 			this.y = y;
-			this.origX = x;
-			this.origY = y;
+			this.ORIGINAL_X = x;
+			this.ORIGINAL_Y = y;
 			this.name = name;
 			this.display = display; // a function called to display graphics
 			this.upgrades = upgrades;
@@ -4839,15 +4960,15 @@ randomSurvivalGame = {
 			this.bought = false;
 			this.equipped = false;
 			this.description = upgrades[0].text;
-			this.infoOp = 0;
+			this.infoOpacity = 0;
 			this.numUpgrades = 0;
 			this.showingPopup = false;
 			this.glowOpacity = 0;
 		}
 		.method("displayLogo", function(size) {
 			if(size === 1) {
-				this.x = this.origX;
-				this.y = this.origY;
+				this.x = this.ORIGINAL_X;
+				this.y = this.ORIGINAL_Y;
 			}
 			c.save(); {
 				c.translate(this.x, this.y);
@@ -4891,7 +5012,7 @@ randomSurvivalGame = {
 			if(randomSurvivalGame.utils.mouseInCircle(this.x, this.y, 75)) {
 				mouseOver = true;
 			}
-			if(this.infoOp > 0) {
+			if(this.infoOpacity > 0) {
 				if(this.x >= 500 && randomSurvivalGame.utils.mouseInRect(this.x - 85 - 250, this.y - 100, 250, 200)) {
 					mouseOver = true;
 				}
@@ -4908,20 +5029,20 @@ randomSurvivalGame = {
 			/* prevent conflicts between overlapping shop items when mousing over */
 			var shop = randomSurvivalGame.shop;
 			for(var i = 0; i < shop.items.length; i ++) {
-				if(shop.items[i].infoOp > 0 && shop.items[i] !== this) {
+				if(shop.items[i].infoOpacity > 0 && shop.items[i] !== this) {
 					mouseOver = false;
 				}
 			}
 			if(mouseOver) {
-				this.infoOp += 0.1;
+				this.infoOpacity += 0.1;
 			}
 			else {
-				this.infoOp -= 0.1;
+				this.infoOpacity -= 0.1;
 			}
-			this.infoOp = Math.constrain(this.infoOp, 0, 1);
+			this.infoOpacity = Math.constrain(this.infoOpacity, 0, 1);
 		})
 		.method("displayInfo", function(direction) {
-			if(this.infoOp <= 0) {
+			if(this.infoOpacity <= 0) {
 				return;
 			}
 			if(direction !== "right" && direction !== "left") {
@@ -4932,7 +5053,7 @@ randomSurvivalGame = {
 			const BOX_HEIGHT = 200;
 			const MARGIN_WIDTH = 10;
 			c.save(); {
-				c.globalAlpha = Math.max(this.infoOp, 0);
+				c.globalAlpha = Math.max(this.infoOpacity, 0);
 				c.fillStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				/* display triangle + box */
 				c.save(); {
@@ -4986,6 +5107,7 @@ randomSurvivalGame = {
 									text: (this.equipped ? "Unequip" : "Equip"),
 									onclick: function() {
 										self.equipped = !self.equipped;
+										randomSurvivalGame.persistentData.saveShopItems();
 									},
 									canBeClicked: (randomSurvivalGame.shop.canEquipAnotherItem() || this.equipped),
 									translation: buttonOffset,
@@ -5031,7 +5153,7 @@ randomSurvivalGame = {
 			if(this.showingPopup) {
 				var shop = randomSurvivalGame.shop;
 				for(var i = 0; i < shop.items.length; i ++) {
-					shop.items[i].infoOp = -0.5;
+					shop.items[i].infoOpacity = -0.5;
 				}
 				c.fillStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.fillRect(250, 250, 300, 300);
@@ -5641,7 +5763,7 @@ randomSurvivalGame = {
 				progress = Math.roundToAccuracy(progress, 2);
 				return progress + "%";
 			};
-			this.infoOp = 0;
+			this.infoOpacity = 0;
 			this.hasBeenAchieved = false;
 		}
 		.method("displayLogo", function() {
@@ -5654,19 +5776,19 @@ randomSurvivalGame = {
 			this.display(this, (!this.hasBeenAchieved));
 			/* fading in */
 			if(randomSurvivalGame.utils.mouseInCircle(this.x, this.y, 50)) {
-				this.infoOp += 0.1;
+				this.infoOpacity += 0.1;
 			}
 			else {
-				this.infoOp -= 0.1;
+				this.infoOpacity -= 0.1;
 			}
-			this.infoOp = Math.constrain(this.infoOp, 0, 1);
+			this.infoOpacity = Math.constrain(this.infoOpacity, 0, 1);
 		})
 		.method("displayInfo", function(direction) {
 			const BOX_WIDTH = 250;
 			const BOX_HEIGHT = 200;
 			const MARGIN_WIDTH = 10;
 			if(direction === "left") {
-				c.globalAlpha = this.infoOp;
+				c.globalAlpha = this.infoOpacity;
 				c.fillStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.fillPoly(
 					this.x - 50, this.y,
@@ -5680,7 +5802,7 @@ randomSurvivalGame = {
 				} c.restore();
 			}
 			else if(direction === "right") {
-				c.globalAlpha = this.infoOp;
+				c.globalAlpha = this.infoOpacity;
 				c.fillStyle = randomSurvivalGame.ui.COLORS.UI_DARK_GRAY;
 				c.fillPoly(
 					this.x + 50, this.y,
@@ -5736,7 +5858,7 @@ randomSurvivalGame = {
 		})
 		.method("checkProgress", function() {
 			if(this.calculateProgress() >= 1 && !this.hasBeenAchieved) {
-				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Achievement Earned: " + this.name, "rgb(255, 255, 0)"));
+				randomSurvivalGame.game.chatMessages.push(new randomSurvivalGame.events.ChatMessage("Achievement Earned: " + this.name, "achievement"));
 				this.hasBeenAchieved = true;
 				randomSurvivalGame.persistentData.saveAchievements();
 			}
@@ -6000,9 +6122,9 @@ randomSurvivalGame = {
 		})
 	},
 	debugging: {
-		TESTING_MODE: false,
+		TESTING_MODE: true,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["laser"],
+		INCLUDED_EVENTS: ["nausea"],
 		PERMANENT_EFFECT: null,
 		PLAYER_INVINCIBLE: false,
 
@@ -6163,18 +6285,14 @@ randomSurvivalGame = {
 		saveAllData: function() {
 			this.saveCoins();
 			this.saveHighScores();
+			this.saveShopItems();
+			this.saveAchievements();
 		},
 		loadAllData: function() {
 			this.loadHighScores();
 			this.loadCoins();
 			this.loadShopItems();
 			this.loadAchievements();
-			/* remove achievement notifications player has already achieved */
-			for(var i = 0; i < randomSurvivalGame.achievements.listOfAchievements.length; i ++) {
-				var achievement = randomSurvivalGame.achievements.listOfAchievements[i];
-				achievement.checkProgress();
-			}
-			randomSurvivalGame.game.chatMessages = [];
 		},
 		loadedAllData: randomSurvivalGame.utils.initializer.request(function() {
 			randomSurvivalGame.persistentData.loadAllData();
@@ -6200,11 +6318,11 @@ randomSurvivalGame = {
 		saveShopItems: function() {
 			var shop = {
 				coinDoubler: [ randomSurvivalGame.shop.coinDoubler.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
-				speedIncreaser: [ randomSurvivalGame.shop.speedIncreaser.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
-				doubleJumper: [ randomSurvivalGame.shop.doubleJumper.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
-				intangibilityTalisman: [ randomSurvivalGame.shop.intangibilityTalisman.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
-				secondLife: [ randomSurvivalGame.shop.secondLife.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ],
-				secondItem: [ randomSurvivalGame.shop.secondItem.numUpgrades, randomSurvivalGame.shop.coinDoubler.equipped ]
+				speedIncreaser: [ randomSurvivalGame.shop.speedIncreaser.numUpgrades, randomSurvivalGame.shop.speedIncreaser.equipped ],
+				doubleJumper: [ randomSurvivalGame.shop.doubleJumper.numUpgrades, randomSurvivalGame.shop.doubleJumper.equipped ],
+				intangibilityTalisman: [ randomSurvivalGame.shop.intangibilityTalisman.numUpgrades, randomSurvivalGame.shop.intangibilityTalisman.equipped ],
+				secondLife: [ randomSurvivalGame.shop.secondLife.numUpgrades, randomSurvivalGame.shop.secondLife.equipped ],
+				secondItem: [ randomSurvivalGame.shop.secondItem.numUpgrades, false ]
 			};
 			localStorage.setItem("randomSurvivalGame.shop", JSON.stringify(shop));
 		},
@@ -6240,7 +6358,8 @@ randomSurvivalGame = {
 			var shop = JSON.parse(localStorage.getItem("randomSurvivalGame.shop"));
 			for(var shopItem in shop) {
 				if(shop.hasOwnProperty(shopItem)) {
-					randomSurvivalGame.shop[shopItem].numUpgrades = shop[shopItem];
+					randomSurvivalGame.shop[shopItem].numUpgrades = shop[shopItem][0];
+					randomSurvivalGame.shop[shopItem].equipped = shop[shopItem][1];
 					randomSurvivalGame.shop[shopItem].bought = (randomSurvivalGame.shop[shopItem].numUpgrades >= 1);
 				}
 			}
@@ -6259,6 +6378,12 @@ randomSurvivalGame = {
 			randomSurvivalGame.game.player.gonePlaces = (localStorage.getItem("randomSurvivalGame.achievements.achievement8") === "true");
 			/* achievement 9 - whether the user has completed it */
 			randomSurvivalGame.game.player.beenGhost = (localStorage.getItem("randomSurvivalGame.achievements.achievement9") === "true");
+			/* remove achievement notifications player has already achieved */
+			for(var i = 0; i < randomSurvivalGame.achievements.listOfAchievements.length; i ++) {
+				var achievement = randomSurvivalGame.achievements.listOfAchievements[i];
+				achievement.checkProgress();
+			}
+			randomSurvivalGame.game.chatMessages = [];
 		}
 	}
 };
