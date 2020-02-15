@@ -1850,19 +1850,19 @@ randomSurvivalGame = {
 		})
 		.method("updateAnimations", function() {
 			/* leg animations */
-			this.animations.legs += this.legDir;
+			this.animations.legs += this.animations.legDir;
 			if(randomSurvivalGame.input.keys[37] || randomSurvivalGame.input.keys[39]) {
 				if(this.animations.legs >= 5) {
-					this.legDir = -0.5;
+					this.animations.legDir = -0.5;
 				}
 				else if(this.animations.legs <= -5) {
-					this.legDir = 0.5;
+					this.animations.legDir = 0.5;
 				}
 			}
 			else {
-				this.legDir = 0;
-				this.legDir = (this.animations.legs > 0) ? 0.5 : -0.5;
-				this.legDir = (this.animations.legs <= -5 || this.animations.legs >= 5) ? 0 : this.legDir;
+				this.animations.legDir = 0;
+				this.animations.legDir = (this.animations.legs > 0) ? 0.5 : -0.5;
+				this.animations.legDir = (this.animations.legs <= -5 || this.animations.legs >= 5) ? 0 : this.animations.legDir;
 			}
 			/* arm animations */
 			if(this.velY === 0) {
