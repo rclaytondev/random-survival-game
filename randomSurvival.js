@@ -1829,7 +1829,7 @@ randomSurvivalGame = {
 			if(this.isIntangible()) {
 				shop.intangibilityTalisman.glowOpacity += 0.1;
 			}
-			if(this.timeInvincible < (randomSurvivalGame.FPS * (randomSurvivalGame.shop.secondLife.numUpgrades >= 2) ? 2 : 1)) {
+			if(this.timeInvincible < this.invincibilityDuration()) {
 				shop.secondLife.glowOpacity += 0.1;
 			}
 			/* falling deaths */
