@@ -1327,11 +1327,8 @@ randomSurvivalGame = {
 
 		homeScreen: function() {
 			/* title */
-			if(!randomSurvivalGame.debugging.TESTING_MODE) {
-				c.loadTextStyle(this.TITLE_TEXT_STYLE);
-				c.fillText("Randomonicity", canvas.width / 2, 150);
-				c.fillText("Survival", canvas.width / 2, 200);
-			}
+			c.loadTextStyle(this.TITLE_TEXT_STYLE);
+			c.fillText("Random Survival Game", canvas.width / 2, 150);
 			/* buttons */
 			this.shopButton.exist();
 			this.achievementsButton.exist();
@@ -6120,7 +6117,7 @@ randomSurvivalGame = {
 		})
 	},
 	debugging: {
-		TESTING_MODE: true,
+		TESTING_MODE: false,
 		SHOW_HITBOXES: false,
 		INCLUDED_EVENTS: ["aliens"],
 		PERMANENT_EFFECT: null,
