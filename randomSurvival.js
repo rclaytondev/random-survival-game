@@ -1276,7 +1276,7 @@ randomSurvivalGame = {
 			"laser": "You were shot by a laser.",
 			"acid": "You fell into a pool of acid.",
 			"boulder": "You were crushed by a boulder.",
-			"spinnyblades": "You were sliced in half.",
+			"spinning blades": "You were sliced in half.",
 			"pirhanas": "You were bitten by a pirhana.",
 			"pacmans": "You were killed by a pacman.",
 			"rocket": "You were hit with a rocket.",
@@ -1327,11 +1327,8 @@ randomSurvivalGame = {
 
 		homeScreen: function() {
 			/* title */
-			if(!randomSurvivalGame.debugging.TESTING_MODE) {
-				c.loadTextStyle(this.TITLE_TEXT_STYLE);
-				c.fillText("Randomonicity", canvas.width / 2, 150);
-				c.fillText("Survival", canvas.width / 2, 200);
-			}
+			c.loadTextStyle(this.TITLE_TEXT_STYLE);
+			c.fillText("Random Survival Game", canvas.width / 2, 150);
 			/* buttons */
 			this.shopButton.exist();
 			this.achievementsButton.exist();
@@ -1639,7 +1636,6 @@ randomSurvivalGame = {
 				legDir: 1,
 				facing: "forward"
 			};
-			this.legDir = 1;
 			this.facing = "forward";
 			/* Effect properties */
 			this.timeConfused = Infinity;
@@ -1830,7 +1826,7 @@ randomSurvivalGame = {
 			if(this.isIntangible()) {
 				shop.intangibilityTalisman.glowOpacity += 0.1;
 			}
-			if(this.timeInvincible < (randomSurvivalGame.FPS * (randomSurvivalGame.shop.secondLife.numUpgrades >= 2) ? 2 : 1)) {
+			if(this.timeInvincible < this.invincibilityDuration()) {
 				shop.secondLife.glowOpacity += 0.1;
 			}
 			/* falling deaths */
@@ -1851,19 +1847,19 @@ randomSurvivalGame = {
 		})
 		.method("updateAnimations", function() {
 			/* leg animations */
-			this.animations.legs += this.legDir;
+			this.animations.legs += this.animations.legDir;
 			if(randomSurvivalGame.input.keys[37] || randomSurvivalGame.input.keys[39]) {
 				if(this.animations.legs >= 5) {
-					this.legDir = -0.5;
+					this.animations.legDir = -0.5;
 				}
 				else if(this.animations.legs <= -5) {
-					this.legDir = 0.5;
+					this.animations.legDir = 0.5;
 				}
 			}
 			else {
-				this.legDir = 0;
-				this.legDir = (this.animations.legs > 0) ? 0.5 : -0.5;
-				this.legDir = (this.animations.legs <= -5 || this.animations.legs >= 5) ? 0 : this.legDir;
+				this.animations.legDir = 0;
+				this.animations.legDir = (this.animations.legs > 0) ? 0.5 : -0.5;
+				this.animations.legDir = (this.animations.legs <= -5 || this.animations.legs >= 5) ? 0 : this.animations.legDir;
 			}
 			/* arm animations */
 			if(this.velY === 0) {
@@ -1946,6 +1942,7 @@ randomSurvivalGame = {
 		})
 
 		.method("die", function(cause) {
+			this.deathCause = cause;
 			var secondLife = randomSurvivalGame.shop.secondLife;
 			if(this.timeInvincible > this.invincibilityDuration()) {
 				if((secondLife.equipped && this.numRevives > 0) || randomSurvivalGame.debugging.TESTING_MODE && randomSurvivalGame.debugging.PLAYER_INVINCIBLE) {
@@ -1958,10 +1955,9 @@ randomSurvivalGame = {
 						this.diedThisGame = true;
 						this.totalCoins += this.coins;
 					}
-					this.deathCause = cause;
 					var deathAnimations = {
 						"disintegration": ["laser", "acid", "laserbots"],
-						"limbs-fall-off": ["boulder", "spinnyblades", "rocket", "spikeballs", "spikewall", "pirhanas", "bad guys"],
+						"limbs-fall-off": ["boulder", "spinning blades", "rocket", "spikeballs", "spikewall", "pirhanas", "bad guys"],
 						"other-death-animation": ["pacmans"], // more complex animations defined somewhere else
 						"no-death-animation": ["aliens", "fall"]
 					};
@@ -2033,7 +2029,7 @@ randomSurvivalGame = {
 				disintegrateEllipse(this.x, this.y + 12, 10, 12);
 				/* body */
 				disintegrateLine(this.x, this.y + 15, this.x, this.y + 36);
-				/*.animations.legs */
+				/* legs */
 				disintegrateLine(this.x, this.y + 36, this.x - this.animations.legs, this.y + 46);
 				disintegrateLine(this.x, this.y + 36, this.x + this.animations.legs, this.y + 46);
 				/* arms */
@@ -3047,14 +3043,14 @@ randomSurvivalGame = {
 				endPoint1.x += this.x; endPoint2.x += this.x;
 				endPoint1.y += this.y; endPoint2.y += this.y;
 				if(!randomSurvivalGame.game.player.isIntangible()) {
-					randomSurvivalGame.utils.killCollisions.line(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y, "spinnyblades");
+					randomSurvivalGame.utils.killCollisions.line(endPoint1.x, endPoint1.y, endPoint2.x, endPoint2.y, "spinning blades");
 				}
 				/* remove self when faded out */
 				if(this.opacity <= 0 && this.numRevolutions >= 2) {
 					this.splicing = true;
 					if(randomSurvivalGame.game.numObjects(randomSurvivalGame.events.spinningBlades.SpinningBlade) === 0) {
-						/* This is the last spinnyblade, so end the event */
-						randomSurvivalGame.game.player.surviveEvent("spinnyblades");
+						/* This is the last spinningblade, so end the event */
+						randomSurvivalGame.game.player.surviveEvent("spinning blades");
 						randomSurvivalGame.events.endEvent();
 					}
 				}
@@ -4111,7 +4107,6 @@ randomSurvivalGame = {
 				var p = randomSurvivalGame.game.player;
 				var offsetX = p.nauseaOffsetArray[p.nauseaOffset].x;
 				var offsetY = p.nauseaOffsetArray[p.nauseaOffset].y;
-				// var timeElapsed = (randomSurvivalGame.events.effects.duration()) - p.timeNauseated;
 				var timeNauseated = randomSurvivalGame.game.player.timeNauseated;
 				if(timeNauseated < randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS) {
 					var intensity = Math.map(timeNauseated, 0, randomSurvivalGame.events.effects.duration() - randomSurvivalGame.FPS, 1.5, 1);
@@ -4560,7 +4555,7 @@ randomSurvivalGame = {
 			.extend(randomSurvivalGame.events.Enemy)
 			.method("display", function() {
 				/* display stick figure graphics (same as player) */
-				this.player.animations.legs = this.legWidth;
+				this.player.animations.legs = this.animations.legs;
 				this.player.animations.arms = this.animations.arms;
 				this.player.facing = "none"; // remove default grey player eyes
 				this.player.display();
@@ -4614,21 +4609,21 @@ randomSurvivalGame = {
 			})
 			.method("updateAnimations", function() {
 				/* leg animations */
-				this.legWidth += this.legDir;
-				if(this.legWidth < -5) {
-					this.legDir = 0.5;
+				this.animations.legs += this.animations.legDir;
+				if(this.animations.legs < -5) {
+					this.animations.legDir = 0.5;
 				}
-				else if(this.legWidth > 5) {
-					this.legDir = -0.5;
+				else if(this.animations.legs > 5) {
+					this.animations.legDir = -0.5;
 				}
 				/* arm animations */
-				this.animations.arms += this.armDir;
+				this.animations.arms += this.animations.armDir;
 				this.animations.arms = Math.constrain(this.animations.arms, -5, 10);
 				if(this.velY === 0.1) {
-					this.armDir = 1;
+					this.animations.armDir = 1;
 				}
 				else {
-					this.armDir = -1;
+					this.animations.armDir = -1;
 				}
 			})
 			.method("collide", function() {
@@ -6122,9 +6117,9 @@ randomSurvivalGame = {
 		})
 	},
 	debugging: {
-		TESTING_MODE: true,
+		TESTING_MODE: false,
 		SHOW_HITBOXES: false,
-		INCLUDED_EVENTS: ["nausea"],
+		INCLUDED_EVENTS: ["aliens"],
 		PERMANENT_EFFECT: null,
 		PLAYER_INVINCIBLE: false,
 
