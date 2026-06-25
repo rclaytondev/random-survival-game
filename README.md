@@ -1,3 +1,5 @@
+[Play it online!](https://rclaytondev.github.io/random-survival-game)
+
 https://github.com/user-attachments/assets/b508ae65-3900-42e2-8c2a-69b1ca564046
 
 # Random Survival Game
